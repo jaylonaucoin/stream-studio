@@ -2,31 +2,36 @@ import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
+      main: '#dc2626', // Red
+      light: '#ef4444',
+      dark: '#b91c1c',
     },
     secondary: {
-      main: '#9c27b0',
-      light: '#ba68c8',
-      dark: '#7b1fa2',
+      main: '#991b1b', // Darker red
+      light: '#dc2626',
+      dark: '#7f1d1d',
     },
     error: {
-      main: '#d32f2f',
-      light: '#ef5350',
-      dark: '#c62828',
+      main: '#ef4444',
+      light: '#f87171',
+      dark: '#dc2626',
     },
     success: {
-      main: '#2e7d32',
-      light: '#4caf50',
-      dark: '#1b5e20',
+      main: '#16a34a',
+      light: '#22c55e',
+      dark: '#15803d',
     },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: '#1a1a1a', // Dark gray instead of pure black
+      paper: '#242424', // Slightly lighter dark gray
     },
+    text: {
+      primary: '#ffffff',
+      secondary: '#b3b3b3',
+    },
+    divider: '#333333',
   },
   typography: {
     fontFamily: [
@@ -63,7 +68,33 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          boxShadow: '0 2px 8px rgba(220, 38, 38, 0.2)',
+          backgroundColor: '#242424',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#1f1f1f',
+          borderBottom: '1px solid #333333',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#242424',
+        },
+      },
+    },
+    MuiAccordion: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#242424',
+          '&:before': {
+            backgroundColor: '#333333',
+          },
         },
       },
     },
