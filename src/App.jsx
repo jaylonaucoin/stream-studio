@@ -180,13 +180,6 @@ function App() {
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               YouTube to MP3 Converter
             </Typography>
-            <IconButton
-              color="inherit"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="settings"
-            >
-              <SettingsIcon />
-            </IconButton>
           </Toolbar>
         </AppBar>
 

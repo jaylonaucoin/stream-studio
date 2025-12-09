@@ -223,10 +223,9 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       throw new Error(`Failed to access output folder: ${folderError.message}\n\nPlease choose a different folder.`);
     }
     
-    // Create output template
-    // yt-dlp handles special characters in filenames automatically
-    // Using %(title)s will sanitize special characters appropriately
-    const outputTemplate = path.join(outputFolder, '%(title)s');
+    // Create simple output template - just the video title
+    // Filename will be: %(title)s.mp3
+    const outputTemplate = path.join(outputFolder, '%(title)s.%(ext)s');
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
@@ -237,7 +236,8 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       '--audio-format', 'mp3', // Convert to MP3
       '--audio-quality', '0',  // Best quality
       '--no-playlist',         // Don't download playlists
-      '--write-thumbnail',     // Write thumbnail to file
+      '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
+      '--embed-thumbnail',     // Embed thumbnail as album art
       '--output', outputTemplate,
       sanitizedUrl
     ];
@@ -343,7 +343,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
           // Check for common error types
           const errorLower = errorOutput.toLowerCase();
           
-          if (errorLower.includes('network') || errorLower.includes('connection') || errorLower.includes('unreachable')) {
+          if (errorLower.includes('winerror 32') || errorLower.includes('cannot access the file') || errorLower.includes('being used by another process')) {
+            errorMsg += 'File is locked: The output file is being used by another process.\n\n';
+            errorMsg += 'This usually happens when:\n';
+            errorMsg += '• The file is open in a media player or file explorer\n';
+            errorMsg += '• iCloud Drive or OneDrive is syncing the file\n';
+            errorMsg += '• Another application has the file open\n\n';
+            errorMsg += 'Please close any applications using the file and try again.';
+          } else if (errorLower.includes('network') || errorLower.includes('connection') || errorLower.includes('unreachable')) {
             errorMsg += 'Network error: Could not connect to YouTube or download the video.\n';
             errorMsg += 'Please check your internet connection and try again.';
           } else if (errorLower.includes('private') || errorLower.includes('unavailable')) {
