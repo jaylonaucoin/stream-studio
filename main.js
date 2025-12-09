@@ -147,6 +147,38 @@ async function checkFfmpegAvailable() {
   });
 }
 
+// Format to extension mapping
+function getFormatExtension(format, mode) {
+  const formatMap = {
+    // Audio formats
+    'mp3': 'mp3',
+    'm4a': 'm4a',
+    'flac': 'flac',
+    'wav': 'wav',
+    'aac': 'aac',
+    'opus': 'opus',
+    'vorbis': 'ogg',
+    'alac': 'm4a',
+    'best': null, // yt-dlp will choose the best format
+    // Video formats
+    'mp4': 'mp4',
+    'mkv': 'mkv',
+    'webm': 'webm',
+    'mov': 'mov',
+    'avi': 'avi',
+    'flv': 'flv',
+    'gif': 'gif'
+  };
+  
+  const extension = formatMap[format];
+  if (extension) {
+    return extension;
+  }
+  
+  // Default fallback based on mode
+  return mode === 'audio' ? 'mp3' : 'mp4';
+}
+
 // Sanitize URL input
 function sanitizeUrl(url) {
   // Remove any shell metacharacters and validate it's a URL
@@ -199,6 +231,10 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
+    // Get mode and format from options (default to audio/mp3 for backward compatibility)
+    const mode = options.mode || 'audio';
+    const format = options.format || 'mp3';
+    
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
     
@@ -223,24 +259,36 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       throw new Error(`Failed to access output folder: ${folderError.message}\n\nPlease choose a different folder.`);
     }
     
-    // Create simple output template - just the video title
-    // Filename will be: %(title)s.mp3
-    const outputTemplate = path.join(outputFolder, '%(title)s.%(ext)s');
+    // Get file extension for the selected format
+    const fileExtension = getFormatExtension(format, mode);
+    
+    // Create output template with format-specific extension
+    // For 'best' format, use %(ext)s to let yt-dlp choose
+    const outputTemplate = fileExtension 
+      ? path.join(outputFolder, `%(title)s.${fileExtension}`)
+      : path.join(outputFolder, '%(title)s.%(ext)s');
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
     
-    // Prepare args array (secure - no shell injection)
+    // Prepare args array based on mode (secure - no shell injection)
     const args = [
-      '-x',                    // Extract audio
-      '--audio-format', 'mp3', // Convert to MP3
-      '--audio-quality', '0',  // Best quality
       '--no-playlist',         // Don't download playlists
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
-      '--embed-thumbnail',     // Embed thumbnail as album art
       '--output', outputTemplate,
       sanitizedUrl
     ];
+    
+    if (mode === 'audio') {
+      // Audio mode: extract audio and convert to specified format
+      args.push('-x');                    // Extract audio
+      args.push('--audio-format', format); // Convert to specified format
+      args.push('--audio-quality', '0');   // Best quality
+      args.push('--embed-thumbnail');      // Embed thumbnail as album art
+    } else {
+      // Video mode: remux to specified format
+      args.push('--remux-video', format);  // Remux video to specified format
+    }
     
     // Spawn yt-dlp process
     currentConversionProcess = spawn(ytDlpPath, args, {
@@ -310,25 +358,51 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         if (code === 0) {
           // Success - find the created file
           // yt-dlp typically creates files with the pattern we specified
-          // We need to search for the most recent MP3 file in the output folder
+          // We need to search for the most recent file with the correct extension
           try {
-            const files = fs.readdirSync(outputFolder);
-            const mp3Files = files
-              .filter(f => f.endsWith('.mp3'))
-              .map(f => ({
-                name: f,
-                path: path.join(outputFolder, f),
-                time: fs.statSync(path.join(outputFolder, f)).mtime.getTime()
-              }))
-              .sort((a, b) => b.time - a.time);
+            // Use the mode and format captured from the outer scope
+            const expectedExtension = getFormatExtension(format, mode);
             
-            if (mp3Files.length > 0) {
-              outputFilePath = mp3Files[0].path;
+            const files = fs.readdirSync(outputFolder);
+            
+            // Filter files by extension
+            // For 'best' format, we need to check multiple possible extensions
+            let matchingFiles = [];
+            if (format === 'best') {
+              // For 'best' format, check common extensions for the mode
+              const possibleExtensions = mode === 'audio' 
+                ? ['.mp3', '.m4a', '.webm', '.opus', '.ogg']
+                : ['.mp4', '.webm', '.mkv', '.mov'];
+              
+              matchingFiles = files
+                .filter(f => possibleExtensions.some(ext => f.toLowerCase().endsWith(ext)))
+                .map(f => ({
+                  name: f,
+                  path: path.join(outputFolder, f),
+                  time: fs.statSync(path.join(outputFolder, f)).mtime.getTime()
+                }));
+            } else {
+              // For specific formats, check the expected extension
+              const extension = `.${expectedExtension}`;
+              matchingFiles = files
+                .filter(f => f.toLowerCase().endsWith(extension))
+                .map(f => ({
+                  name: f,
+                  path: path.join(outputFolder, f),
+                  time: fs.statSync(path.join(outputFolder, f)).mtime.getTime()
+                }));
+            }
+            
+            // Sort by modification time (most recent first)
+            matchingFiles.sort((a, b) => b.time - a.time);
+            
+            if (matchingFiles.length > 0) {
+              outputFilePath = matchingFiles[0].path;
               currentOutputPath = outputFilePath;
               resolve({
                 success: true,
                 filePath: outputFilePath,
-                fileName: mp3Files[0].name
+                fileName: matchingFiles[0].name
               });
             } else {
               reject(new Error('Conversion completed but output file not found'));
