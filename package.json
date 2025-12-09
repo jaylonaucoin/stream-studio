@@ -6,6 +6,8 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "postinstall": "node scripts/download-binaries.js",
+    "download-binaries": "node scripts/download-binaries.js",
     "dev": "vite",
     "build:renderer": "vite build",
     "start": "electron .",

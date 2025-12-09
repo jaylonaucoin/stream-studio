@@ -26,35 +26,36 @@ A desktop application built with Electron that converts YouTube videos to MP3 fi
 npm install
 ```
 
-### 2. Add Required Binaries
+### 2. Binary Dependencies
+
+Binary dependencies (yt-dlp and FFmpeg for Windows) are **automatically downloaded** when you run `npm install`. The postinstall script will:
+
+- Download `yt-dlp` for your platform
+- Download `ffmpeg.exe` for Windows (Mac/Linux users should install FFmpeg system-wide)
+
+**Manual Download (if automatic download fails):**
+
+If the automatic download fails, you can manually download the binaries:
 
 #### yt-dlp
-Download the appropriate binary for your platform from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) and place it in the `bin/` folder:
-
+Download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases):
 - **Windows**: `bin/yt-dlp.exe`
-- **Mac/Linux**: `bin/yt-dlp` (make it executable: `chmod +x bin/yt-dlp`)
+- **Mac/Linux**: `bin/yt-dlp` (make executable: `chmod +x bin/yt-dlp`)
 
-#### FFmpeg
+#### FFmpeg (Windows only)
+Download from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases):
+- Extract and place `ffmpeg.exe` in the `bin/` folder
 
-**Windows:**
-- **Recommended**: Download from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases)
-  - Download the latest `ffmpeg-master-latest-win64-gpl-shared.zip`
-  - Extract the ZIP and copy `ffmpeg.exe` from the `bin` folder to your project's `bin/` folder
-- **Alternative**: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-  - Extract and place `ffmpeg.exe` in the `bin/` folder
-
-**macOS:**
+**macOS/Linux:**
+Install FFmpeg system-wide:
 ```bash
+# macOS
 brew install ffmpeg
-```
 
-**Linux (Ubuntu/Debian):**
-```bash
+# Linux (Ubuntu/Debian)
 sudo apt install ffmpeg
-```
 
-**Linux (Fedora):**
-```bash
+# Linux (Fedora)
 sudo dnf install ffmpeg
 ```
 
@@ -98,10 +99,12 @@ youtube-to-mp3/
 ├── package.json      # Project configuration
 ├── assets/           # App icons and assets
 │   └── icon.png
-├── bin/              # Binary dependencies
+├── bin/              # Binary dependencies (auto-downloaded)
 │   ├── yt-dlp        # (Mac/Linux)
 │   ├── yt-dlp.exe    # (Windows)
 │   └── ffmpeg.exe    # (Windows only)
+├── scripts/          # Utility scripts
+│   └── download-binaries.js  # Automatic binary download script
 └── dist/             # Build output (generated)
 ```
 

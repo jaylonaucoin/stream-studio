@@ -33,3 +33,9 @@ desktop.ini
 *.tmp
 *.temp
 
+# Binary dependencies (downloaded automatically)
+bin/ffmpeg.exe
+bin/yt-dlp.exe
+bin/yt-dlp
+bin/*.zip
+
