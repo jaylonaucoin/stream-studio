@@ -14,10 +14,10 @@ let currentOutputPath = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    minWidth: 600,
-    minHeight: 400,
+    width: 900,
+    height: 700,
+    minWidth: 700,
+    minHeight: 500,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -26,11 +26,14 @@ function createWindow() {
     icon: path.join(__dirname, 'assets', 'icon.png')
   });
 
-  mainWindow.loadFile('index.html');
-
-  // Open DevTools in development (remove in production)
-  if (process.env.NODE_ENV === 'development') {
+  // Load from Vite dev server in development, from build in production
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    // Open DevTools in development
     mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'dist-renderer', 'index.html'));
   }
 
   mainWindow.on('closed', () => {
