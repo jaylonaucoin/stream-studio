@@ -9,7 +9,7 @@ import {
   Alert,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SyncIcon from '@mui/icons-material/Sync';
 import CancelIcon from '@mui/icons-material/Cancel';
 
 function ConversionForm({ onConvert, onCancel, isConverting, disabled }) {
@@ -151,7 +151,7 @@ function ConversionForm({ onConvert, onCancel, isConverting, disabled }) {
               <Tooltip title="Paste from clipboard">
                 <IconButton
                   onClick={handlePaste}
-                  edge="end"
+                  edge="center"
                   disabled={isConverting || disabled}
                   aria-label="paste"
                 >
@@ -178,7 +178,7 @@ function ConversionForm({ onConvert, onCancel, isConverting, disabled }) {
           <Button
             type="submit"
             variant="contained"
-            startIcon={<PlayArrowIcon />}
+            startIcon={<SyncIcon />}
             disabled={!isValid || !url.trim() || disabled}
           >
             Convert

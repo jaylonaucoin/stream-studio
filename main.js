@@ -226,7 +226,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Create output template
     // yt-dlp handles special characters in filenames automatically
     // Using %(title)s will sanitize special characters appropriately
-    const outputTemplate = path.join(outputFolder, '%(title)s - %(id)s.%(ext)s');
+    const outputTemplate = path.join(outputFolder, '%(title)s');
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
@@ -237,6 +237,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       '--audio-format', 'mp3', // Convert to MP3
       '--audio-quality', '0',  // Best quality
       '--no-playlist',         // Don't download playlists
+      '--write-thumbnail',     // Write thumbnail to file
       '--output', outputTemplate,
       sanitizedUrl
     ];

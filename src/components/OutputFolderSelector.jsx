@@ -4,7 +4,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
 function OutputFolderSelector({ folder, onChange }) {
-  const truncatePath = (path, maxLength = 50) => {
+  const truncatePath = (path, maxLength = 200) => {
     if (path.length <= maxLength) return path;
     const parts = path.split(/[/\\]/);
     if (parts.length <= 2) {
@@ -23,7 +23,6 @@ function OutputFolderSelector({ folder, onChange }) {
         <Tooltip title={folder} arrow>
           <Chip
             label={truncatePath(folder)}
-            size="small"
             icon={<FolderOpenIcon />}
             variant="outlined"
             sx={{

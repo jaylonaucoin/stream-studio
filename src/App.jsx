@@ -6,7 +6,6 @@ import theme from './styles/theme';
 import ConversionForm from './components/ConversionForm';
 import ProgressIndicator from './components/ProgressIndicator';
 import LogViewer from './components/LogViewer';
-import SettingsPanel from './components/SettingsPanel';
 import ErrorDialog from './components/ErrorDialog';
 import OutputFolderSelector from './components/OutputFolderSelector';
 
@@ -16,7 +15,6 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('');
   const [logs, setLogs] = useState([]);
   const [logsVisible, setLogsVisible] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState(null);
   const [outputFolder, setOutputFolder] = useState('');
   const [lastConvertedFile, setLastConvertedFile] = useState(null);
@@ -236,14 +234,6 @@ function App() {
             onChange={handleOutputFolderChange}
           />
         </Box>
-
-        <SettingsPanel
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          outputFolder={outputFolder}
-          onOutputFolderChange={handleOutputFolderChange}
-          ffmpegAvailable={ffmpegAvailable}
-        />
 
         <ErrorDialog
           open={!!error}
