@@ -85,25 +85,25 @@ function HistoryPanel({ open, onClose }) {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now - date;
-    
+
     // Less than 1 hour ago
     if (diff < 3600000) {
       const mins = Math.floor(diff / 60000);
       return mins <= 1 ? 'Just now' : `${mins} minutes ago`;
     }
-    
+
     // Less than 24 hours ago
     if (diff < 86400000) {
       const hours = Math.floor(diff / 3600000);
       return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
     }
-    
+
     // Less than 7 days ago
     if (diff < 604800000) {
       const days = Math.floor(diff / 86400000);
       return days === 1 ? 'Yesterday' : `${days} days ago`;
     }
-    
+
     // Show full date
     return date.toLocaleDateString();
   };
@@ -114,7 +114,7 @@ function HistoryPanel({ open, onClose }) {
       open={open}
       onClose={onClose}
       PaperProps={{
-        sx: { width: { xs: '100%', sm: 400 }, bgcolor: 'background.default' }
+        sx: { width: { xs: '100%', sm: 400 }, bgcolor: 'background.default' },
       }}
     >
       <Box sx={{ p: 2 }}>
@@ -122,9 +122,7 @@ function HistoryPanel({ open, onClose }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <HistoryIcon />
             <Typography variant="h6">Conversion History</Typography>
-            {history.length > 0 && (
-              <Chip label={history.length} size="small" color="primary" />
-            )}
+            {history.length > 0 && <Chip label={history.length} size="small" color="primary" />}
           </Box>
           <IconButton onClick={onClose}>
             <CloseIcon />
@@ -148,9 +146,7 @@ function HistoryPanel({ open, onClose }) {
         {history.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <HistoryIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography color="text.secondary">
-              No conversion history yet
-            </Typography>
+            <Typography color="text.secondary">No conversion history yet</Typography>
             <Typography variant="body2" color="text.disabled">
               Your converted files will appear here
             </Typography>
@@ -158,11 +154,7 @@ function HistoryPanel({ open, onClose }) {
         ) : (
           <List sx={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}>
             {history.map((item) => (
-              <Paper
-                key={item.id}
-                elevation={1}
-                sx={{ mb: 1, bgcolor: 'background.paper' }}
-              >
+              <Paper key={item.id} elevation={1} sx={{ mb: 1, bgcolor: 'background.paper' }}>
                 <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mb: 1 }}>
                     {item.mode === 'audio' ? (
@@ -182,7 +174,7 @@ function HistoryPanel({ open, onClose }) {
                       {item.fileName}
                     </Typography>
                   </Box>
-                  
+
                   <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
                     <Chip
                       label={item.format?.toUpperCase() || 'Unknown'}
@@ -199,18 +191,12 @@ function HistoryPanel({ open, onClose }) {
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Tooltip title="Open file location">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenLocation(item.filePath)}
-                      >
+                      <IconButton size="small" onClick={() => handleOpenLocation(item.filePath)}>
                         <FolderOpenIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Copy URL">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleCopyUrl(item.url)}
-                      >
+                      <IconButton size="small" onClick={() => handleCopyUrl(item.url)}>
                         <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

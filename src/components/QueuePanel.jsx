@@ -25,6 +25,42 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
+// Normalize URL - add protocol if missing
+const normalizeUrl = (url) => {
+  let normalized = url.trim();
+  normalized = normalized.replace(/[\r\n]/g, '').trim();
+
+  if (normalized && !normalized.match(/^https?:\/\//i)) {
+    if (normalized.includes('.') && !normalized.includes(' ')) {
+      normalized = 'https://' + normalized;
+    }
+  }
+
+  return normalized;
+};
+
+// Validate any URL (not just YouTube)
+const isValidUrl = (url) => {
+  if (!url || url.trim().length === 0) {
+    return false;
+  }
+
+  const normalized = normalizeUrl(url);
+
+  try {
+    const urlObj = new URL(normalized);
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+      return false;
+    }
+    if (!urlObj.hostname || urlObj.hostname.length < 3 || !urlObj.hostname.includes('.')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, onQueueComplete }) {
   const [urls, setUrls] = useState('');
   const [queue, setQueue] = useState([]);
@@ -32,25 +68,15 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
   const [currentProgress, setCurrentProgress] = useState(0);
   const stopRequestedRef = useRef(false);
 
-  const validateYouTubeUrl = (url) => {
-    const patterns = [
-      /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
-      /^https?:\/\/(www\.)?youtube\.com\/embed\/[\w-]+/,
-      /^https?:\/\/youtu\.be\/[\w-]+/,
-      /^https?:\/\/(www\.)?youtube\.com\/v\/[\w-]+/,
-    ];
-    return patterns.some((pattern) => pattern.test(url.trim()));
-  };
-
   const handleAddToQueue = useCallback(() => {
     const lines = urls.split('\n').filter((line) => line.trim());
-    const validUrls = lines.filter(validateYouTubeUrl);
+    const validUrls = lines.filter(isValidUrl);
 
     if (validUrls.length === 0) return;
 
     const newItems = validUrls.map((url, index) => ({
       id: Date.now().toString() + index,
-      url: url.trim(),
+      url: normalizeUrl(url.trim()),
       status: 'pending', // pending, processing, completed, error
       error: null,
     }));
@@ -70,7 +96,9 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
   }, [isProcessing]);
 
   const handleClearCompleted = useCallback(() => {
-    setQueue((prev) => prev.filter((item) => item.status !== 'completed' && item.status !== 'error'));
+    setQueue((prev) =>
+      prev.filter((item) => item.status !== 'completed' && item.status !== 'error')
+    );
   }, []);
 
   const handleStopQueue = useCallback(() => {
@@ -99,9 +127,7 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
       setCurrentProgress(0);
 
       // Update status to processing
-      setQueue((prev) =>
-        prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q))
-      );
+      setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q)));
 
       try {
         // Set up progress listener for this item
@@ -208,13 +234,13 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
 
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Paste YouTube URLs (one per line):
+            Paste video URLs (one per line) - supports 1000+ sites:
           </Typography>
           <TextField
             multiline
             rows={4}
             fullWidth
-            placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..."
+            placeholder="https://www.youtube.com/watch?v=...&#10;https://vimeo.com/...&#10;https://twitter.com/user/status/...&#10;https://tiktok.com/@user/video/..."
             value={urls}
             onChange={(e) => setUrls(e.target.value)}
             disabled={isProcessing}
@@ -258,11 +284,7 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
               </Button>
             )}
             {(completedCount > 0 || errorCount > 0) && !isProcessing && (
-              <Button
-                startIcon={<ClearIcon />}
-                size="small"
-                onClick={handleClearCompleted}
-              >
+              <Button startIcon={<ClearIcon />} size="small" onClick={handleClearCompleted}>
                 Clear Done
               </Button>
             )}
@@ -361,7 +383,9 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
         {queue.length > 0 && (
           <Box sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary">
-              {completedCount > 0 && <span style={{ color: '#22c55e' }}>✓ {completedCount} completed</span>}
+              {completedCount > 0 && (
+                <span style={{ color: '#22c55e' }}>✓ {completedCount} completed</span>
+              )}
               {completedCount > 0 && (pendingCount > 0 || errorCount > 0) && ' • '}
               {pendingCount > 0 && <span>{pendingCount} pending</span>}
               {pendingCount > 0 && errorCount > 0 && ' • '}

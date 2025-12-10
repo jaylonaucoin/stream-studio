@@ -37,7 +37,7 @@ function SettingsDialog({ open, onClose }) {
     if (window.api && window.api.getSettings) {
       try {
         const savedSettings = await window.api.getSettings();
-        setSettings(prev => ({ ...prev, ...savedSettings }));
+        setSettings((prev) => ({ ...prev, ...savedSettings }));
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
@@ -52,7 +52,7 @@ function SettingsDialog({ open, onClose }) {
   }, [open, loadSettings]);
 
   const handleChange = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
@@ -85,7 +85,7 @@ function SettingsDialog({ open, onClose }) {
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         {!loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -112,7 +112,7 @@ function SettingsDialog({ open, onClose }) {
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Default Formats
               </Typography>
-              
+
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                   <InputLabel>Default Mode</InputLabel>
@@ -133,8 +133,10 @@ function SettingsDialog({ open, onClose }) {
                     label="Audio Format"
                     onChange={(e) => handleChange('defaultAudioFormat', e.target.value)}
                   >
-                    {AUDIO_FORMATS.map(fmt => (
-                      <MenuItem key={fmt} value={fmt}>{fmt.toUpperCase()}</MenuItem>
+                    {AUDIO_FORMATS.map((fmt) => (
+                      <MenuItem key={fmt} value={fmt}>
+                        {fmt.toUpperCase()}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -146,8 +148,10 @@ function SettingsDialog({ open, onClose }) {
                     label="Video Format"
                     onChange={(e) => handleChange('defaultVideoFormat', e.target.value)}
                   >
-                    {VIDEO_FORMATS.map(fmt => (
-                      <MenuItem key={fmt} value={fmt}>{fmt.toUpperCase()}</MenuItem>
+                    {VIDEO_FORMATS.map((fmt) => (
+                      <MenuItem key={fmt} value={fmt}>
+                        {fmt.toUpperCase()}
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>

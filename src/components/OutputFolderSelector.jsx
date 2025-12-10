@@ -34,12 +34,7 @@ function OutputFolderSelector({ folder, onChange }) {
           />
         </Tooltip>
       </Box>
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<FolderOpenIcon />}
-        onClick={onChange}
-      >
+      <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={onChange}>
         Choose Folder
       </Button>
     </Box>
@@ -47,4 +42,3 @@ function OutputFolderSelector({ folder, onChange }) {
 }
 
 export default OutputFolderSelector;
-
