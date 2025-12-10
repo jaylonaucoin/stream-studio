@@ -358,11 +358,18 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Get file extension for the selected format
     const fileExtension = getFormatExtension(format, mode);
     
-    // Create output template with format-specific extension
-    // For 'best' format, use %(ext)s to let yt-dlp choose
-    const outputTemplate = fileExtension 
+    // Use a temporary filename during conversion to avoid overwriting
+    // We'll rename it to the final name after conversion, checking for duplicates
+    const tempTemplate = fileExtension 
+      ? path.join(outputFolder, `%(title)s.temp.${fileExtension}`)
+      : path.join(outputFolder, '%(title)s.temp.%(ext)s');
+    
+    // Also store the final template for renaming after conversion
+    const finalTemplate = fileExtension 
       ? path.join(outputFolder, `%(title)s.${fileExtension}`)
       : path.join(outputFolder, '%(title)s.%(ext)s');
+    
+    const outputTemplate = tempTemplate;
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
@@ -371,7 +378,6 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Prepare args array based on mode (secure - no shell injection)
     const args = [
       '--no-playlist',         // Don't download playlists
-      '--no-overwrites',       // Don't overwrite existing files (yt-dlp will add numbers automatically)
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
       '--ffmpeg-location', path.dirname(ffmpegPath), // Tell yt-dlp where to find ffmpeg
       '--output', outputTemplate,
@@ -492,8 +498,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 ? ['.mp3', '.m4a', '.webm', '.opus', '.ogg']
                 : ['.mp4', '.webm', '.mkv', '.mov'];
               
+              // Also check for .temp versions
+              const tempExtensions = possibleExtensions.map(ext => `.temp${ext}`);
+              const allExtensions = [...possibleExtensions, ...tempExtensions];
+              
               matchingFiles = files
-                .filter(f => possibleExtensions.some(ext => f.toLowerCase().endsWith(ext)))
+                .filter(f => allExtensions.some(ext => f.toLowerCase().endsWith(ext)))
                 .map(f => ({
                   name: f,
                   path: path.join(outputFolder, f),
@@ -501,9 +511,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 }));
             } else {
               // For specific formats, check the expected extension
+              // Also look for .temp files (our temporary files during conversion)
               const extension = `.${expectedExtension}`;
+              const tempExtension = `.temp.${expectedExtension}`;
               matchingFiles = files
-                .filter(f => f.toLowerCase().endsWith(extension))
+                .filter(f => {
+                  const lower = f.toLowerCase();
+                  return lower.endsWith(extension) || lower.endsWith(tempExtension);
+                })
                 .map(f => ({
                   name: f,
                   path: path.join(outputFolder, f),
@@ -515,37 +530,89 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             matchingFiles.sort((a, b) => b.time - a.time);
             
             if (matchingFiles.length > 0) {
-              // Get the most recently modified file (should be the one we just created)
-              outputFilePath = matchingFiles[0].path;
-              let finalFileName = matchingFiles[0].name;
+              // Find the temp file we created (should be the most recent .temp.* file)
+              const tempFiles = matchingFiles.filter(f => f.name.includes('.temp.'));
               
-              // Check if yt-dlp added a number suffix (format: filename.1.ext)
-              // and convert it to our preferred format: filename (1).ext
-              const fileNameMatch = finalFileName.match(/^(.+)\.(\d+)(\.[^.]+)$/);
-              if (fileNameMatch) {
-                const [, baseName, number, extension] = fileNameMatch;
-                const newName = `${baseName} (${number})${extension}`;
-                const newPath = path.join(outputFolder, newName);
+              if (tempFiles.length > 0) {
+                // Get the temp file (most recent)
+                const tempFile = tempFiles[0];
+                const tempFilePath = tempFile.path;
+                const tempFileName = tempFile.name;
                 
-                try {
-                  // Only rename if the new name doesn't already exist
-                  if (!fs.existsSync(newPath)) {
-                    fs.renameSync(outputFilePath, newPath);
-                    outputFilePath = newPath;
-                    finalFileName = newName;
+                // Extract the base name from temp file (remove .temp extension)
+                // Format: title.temp.ext -> title.ext
+                const tempNameMatch = tempFileName.match(/^(.+)\.temp(\.[^.]+)$/);
+                if (tempNameMatch) {
+                  const [, baseName, extension] = tempNameMatch;
+                  const finalFileName = `${baseName}${extension}`;
+                  const finalFilePath = path.join(outputFolder, finalFileName);
+                  
+                  // Check if final file already exists - if so, get unique name
+                  const uniqueFilePath = getUniqueFilename(finalFilePath);
+                  
+                  try {
+                    // Rename temp file to final name (or unique name if duplicate)
+                    fs.renameSync(tempFilePath, uniqueFilePath);
+                    outputFilePath = uniqueFilePath;
+                    currentOutputPath = outputFilePath;
+                    resolve({
+                      success: true,
+                      filePath: outputFilePath,
+                      fileName: path.basename(uniqueFilePath)
+                    });
+                  } catch (renameError) {
+                    // If rename fails, return the temp file
+                    console.warn('Failed to rename temp file to final name:', renameError);
+                    outputFilePath = tempFilePath;
+                    currentOutputPath = outputFilePath;
+                    resolve({
+                      success: true,
+                      filePath: outputFilePath,
+                      fileName: tempFileName
+                    });
                   }
-                } catch (renameError) {
-                  // If rename fails, use the original name
-                  console.warn('Failed to rename file to preferred format:', renameError);
+                } else {
+                  // Couldn't parse temp filename, use as-is
+                  outputFilePath = tempFilePath;
+                  currentOutputPath = outputFilePath;
+                  resolve({
+                    success: true,
+                    filePath: outputFilePath,
+                    fileName: tempFileName
+                  });
                 }
+              } else {
+                // No temp file found, use the most recent matching file
+                // (might be from a previous conversion that didn't use temp)
+                outputFilePath = matchingFiles[0].path;
+                let finalFileName = matchingFiles[0].name;
+                
+                // Check if yt-dlp added a number suffix (format: filename.1.ext)
+                // and convert it to our preferred format: filename (1).ext
+                const fileNameMatch = finalFileName.match(/^(.+)\.(\d+)(\.[^.]+)$/);
+                if (fileNameMatch) {
+                  const [, nameBase, number, ext] = fileNameMatch;
+                  const newName = `${nameBase} (${number})${ext}`;
+                  const newPath = path.join(outputFolder, newName);
+                  
+                  try {
+                    if (!fs.existsSync(newPath)) {
+                      fs.renameSync(outputFilePath, newPath);
+                      outputFilePath = newPath;
+                      finalFileName = newName;
+                    }
+                  } catch (renameError) {
+                    console.warn('Failed to rename file to preferred format:', renameError);
+                  }
+                }
+                
+                currentOutputPath = outputFilePath;
+                resolve({
+                  success: true,
+                  filePath: outputFilePath,
+                  fileName: finalFileName
+                });
               }
-              
-              currentOutputPath = outputFilePath;
-              resolve({
-                success: true,
-                filePath: outputFilePath,
-                fileName: finalFileName
-              });
             } else {
               reject(new Error('Conversion completed but output file not found'));
             }
