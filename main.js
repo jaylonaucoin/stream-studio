@@ -253,6 +253,28 @@ function getFormatExtension(format, mode) {
   return mode === 'audio' ? 'mp3' : 'mp4';
 }
 
+// Generate unique filename by adding number suffix if file exists
+function getUniqueFilename(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return filePath;
+  }
+  
+  const dir = path.dirname(filePath);
+  const ext = path.extname(filePath);
+  const baseName = path.basename(filePath, ext);
+  
+  let counter = 1;
+  let newPath;
+  
+  do {
+    const newName = `${baseName} (${counter})${ext}`;
+    newPath = path.join(dir, newName);
+    counter++;
+  } while (fs.existsSync(newPath) && counter < 1000); // Safety limit
+  
+  return newPath;
+}
+
 // Sanitize URL input
 function sanitizeUrl(url) {
   // Remove any shell metacharacters and validate it's a URL
@@ -349,6 +371,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Prepare args array based on mode (secure - no shell injection)
     const args = [
       '--no-playlist',         // Don't download playlists
+      '--no-overwrites',       // Don't overwrite existing files (yt-dlp will add numbers automatically)
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
       '--ffmpeg-location', path.dirname(ffmpegPath), // Tell yt-dlp where to find ffmpeg
       '--output', outputTemplate,
@@ -492,12 +515,36 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             matchingFiles.sort((a, b) => b.time - a.time);
             
             if (matchingFiles.length > 0) {
+              // Get the most recently modified file (should be the one we just created)
               outputFilePath = matchingFiles[0].path;
+              let finalFileName = matchingFiles[0].name;
+              
+              // Check if yt-dlp added a number suffix (format: filename.1.ext)
+              // and convert it to our preferred format: filename (1).ext
+              const fileNameMatch = finalFileName.match(/^(.+)\.(\d+)(\.[^.]+)$/);
+              if (fileNameMatch) {
+                const [, baseName, number, extension] = fileNameMatch;
+                const newName = `${baseName} (${number})${extension}`;
+                const newPath = path.join(outputFolder, newName);
+                
+                try {
+                  // Only rename if the new name doesn't already exist
+                  if (!fs.existsSync(newPath)) {
+                    fs.renameSync(outputFilePath, newPath);
+                    outputFilePath = newPath;
+                    finalFileName = newName;
+                  }
+                } catch (renameError) {
+                  // If rename fails, use the original name
+                  console.warn('Failed to rename file to preferred format:', renameError);
+                }
+              }
+              
               currentOutputPath = outputFilePath;
               resolve({
                 success: true,
                 filePath: outputFilePath,
-                fileName: matchingFiles[0].name
+                fileName: finalFileName
               });
             } else {
               reject(new Error('Conversion completed but output file not found'));
