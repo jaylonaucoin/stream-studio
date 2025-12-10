@@ -94,7 +94,7 @@ function App() {
     };
   }, [handleProgress]);
 
-  const handleConvert = useCallback(async (url, options = {}) => {
+  const handleConvert = useCallback(async (url) => {
     if (!url || conversionState === 'converting') return;
 
     setConversionState('converting');
@@ -105,11 +105,7 @@ function App() {
     setLastConvertedFile(null);
 
     try {
-      const result = await window.api.convert(url, { 
-        outputFolder,
-        mode: options.mode || 'audio',
-        format: options.format || 'mp3'
-      });
+      const result = await window.api.convert(url, { outputFolder });
       
       if (result.success) {
         setProgress(100);
