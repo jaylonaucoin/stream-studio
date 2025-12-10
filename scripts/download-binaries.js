@@ -152,10 +152,11 @@ async function downloadFfmpeg() {
     const releasesUrl = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest';
     const release = await getJson(releasesUrl);
     
-    // Find the Windows GPL shared build
+    // Find the Windows GPL static build (self-contained, no DLLs needed)
     const asset = release.assets.find(a => 
       a.name.includes('win64') && 
-      a.name.includes('gpl-shared') && 
+      a.name.includes('gpl') && 
+      !a.name.includes('shared') &&
       a.name.endsWith('.zip')
     );
     

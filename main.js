@@ -127,15 +127,26 @@ function getFfmpegPath() {
 async function checkFfmpegAvailable() {
   return new Promise((resolve) => {
     const ffmpegPath = getFfmpegPath();
+    
+    // First check if the file exists
+    if (ffmpegPath.includes(path.sep) && !fs.existsSync(ffmpegPath)) {
+      console.log('FFmpeg not found at:', ffmpegPath);
+      resolve(false);
+      return;
+    }
+    
     const testProc = spawn(ffmpegPath, ['-version'], {
-      stdio: 'ignore'
+      stdio: 'ignore',
+      shell: true,
+      windowsHide: true
     });
     
     testProc.on('close', (code) => {
       resolve(code === 0);
     });
     
-    testProc.on('error', () => {
+    testProc.on('error', (err) => {
+      console.log('FFmpeg spawn error:', err.message);
       resolve(false);
     });
     
@@ -229,6 +240,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
+    const ffmpegPath = getFfmpegPath();
     
     // Prepare args array (secure - no shell injection)
     const args = [
@@ -238,6 +250,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       '--no-playlist',         // Don't download playlists
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
       '--embed-thumbnail',     // Embed thumbnail as album art
+      '--ffmpeg-location', path.dirname(ffmpegPath), // Tell yt-dlp where to find ffmpeg
       '--output', outputTemplate,
       sanitizedUrl
     ];
