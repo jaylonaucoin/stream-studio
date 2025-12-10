@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,10 +7,8 @@ import {
   Button,
   Typography,
   Box,
-  IconButton,
   Collapse,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';

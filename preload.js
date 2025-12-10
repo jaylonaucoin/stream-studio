@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   ping: () => ipcRenderer.invoke('ping'),
   getAppVersion: () => ipcRenderer.invoke('getAppVersion'),
   
-  // Conversion API (will be implemented in Task 3)
+  // Conversion API
   convert: (url, options) => ipcRenderer.invoke('convert', url, options),
   cancel: () => ipcRenderer.invoke('cancel'),
   
@@ -26,5 +26,17 @@ contextBridge.exposeInMainWorld('api', {
   
   // FFmpeg check
   checkFfmpeg: () => ipcRenderer.invoke('checkFfmpeg'),
+  
+  // Settings
+  getSettings: () => ipcRenderer.invoke('getSettings'),
+  saveSettings: (settings) => ipcRenderer.invoke('saveSettings', settings),
+  
+  // History
+  getHistory: () => ipcRenderer.invoke('getHistory'),
+  clearHistory: () => ipcRenderer.invoke('clearHistory'),
+  removeHistoryItem: (id) => ipcRenderer.invoke('removeHistoryItem', id),
+  
+  // External links
+  openExternal: (url) => ipcRenderer.invoke('openExternal', url),
 });
 

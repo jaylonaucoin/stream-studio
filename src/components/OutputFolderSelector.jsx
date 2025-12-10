@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography, Button, Tooltip, Chip } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
