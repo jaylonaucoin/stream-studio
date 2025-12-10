@@ -223,6 +223,38 @@ async function checkFfmpegAvailable() {
   });
 }
 
+// Format to extension mapping
+function getFormatExtension(format, mode) {
+  const formatMap = {
+    // Audio formats
+    'mp3': 'mp3',
+    'm4a': 'm4a',
+    'flac': 'flac',
+    'wav': 'wav',
+    'aac': 'aac',
+    'opus': 'opus',
+    'vorbis': 'ogg',
+    'alac': 'm4a',
+    'best': null, // yt-dlp will choose the best format
+    // Video formats
+    'mp4': 'mp4',
+    'mkv': 'mkv',
+    'webm': 'webm',
+    'mov': 'mov',
+    'avi': 'avi',
+    'flv': 'flv',
+    'gif': 'gif'
+  };
+  
+  const extension = formatMap[format];
+  if (extension) {
+    return extension;
+  }
+  
+  // Default fallback based on mode
+  return mode === 'audio' ? 'mp3' : 'mp4';
+}
+
 // Sanitize URL input
 function sanitizeUrl(url) {
   // Remove any shell metacharacters and validate it's a URL
@@ -319,6 +351,19 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       '--output', outputTemplate,
       sanitizedUrl
     ];
+    
+    if (mode === 'audio') {
+      // Audio mode: extract audio and convert to specified format
+      args.push('-x');                    // Extract audio
+      args.push('--audio-format', format); // Convert to specified format
+      args.push('--audio-quality', '0');   // Best quality
+      args.push('--embed-thumbnail');      // Embed thumbnail as album art
+    } else {
+      // Video mode: download best video+audio and merge to specified format
+      // Use format selector to ensure we get video with audio
+      args.push('-f', 'bestvideo+bestaudio/best'); // Prefer video+audio, fallback to best
+      args.push('--merge-output-format', format); // Merge video and audio to specified format
+    }
     
     // Spawn yt-dlp process
     currentConversionProcess = spawn(ytDlpPath, args, {
