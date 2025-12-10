@@ -1,21 +1,39 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
 
-// Initialize electron-store for preferences
-const store = new Store();
+// Initialize electron-store for preferences and history
+const store = new Store({
+  defaults: {
+    windowBounds: { width: 900, height: 700 },
+    outputFolder: null,
+    conversionHistory: [],
+    settings: {
+      notificationsEnabled: true,
+      maxHistoryItems: 50,
+      defaultMode: 'audio',
+      defaultAudioFormat: 'mp3',
+      defaultVideoFormat: 'mp4',
+    }
+  }
+});
 
 let mainWindow;
 let currentConversionProcess = null;
 let currentOutputPath = null;
 
 function createWindow() {
+  // Restore window bounds from store
+  const { width, height, x, y } = store.get('windowBounds');
+  
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width,
+    height,
+    x,
+    y,
     minWidth: 700,
     minHeight: 500,
     webPreferences: {
@@ -23,8 +41,24 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    show: false, // Don't show until ready
   });
+
+  // Show window when ready to prevent visual flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
+  // Save window bounds on resize/move
+  const saveBounds = () => {
+    if (!mainWindow.isMinimized() && !mainWindow.isMaximized()) {
+      store.set('windowBounds', mainWindow.getBounds());
+    }
+  };
+  
+  mainWindow.on('resize', saveBounds);
+  mainWindow.on('move', saveBounds);
 
   // Load from Vite dev server in development, from build in production
   const isDev = !app.isPackaged;
@@ -37,6 +71,48 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+// Show system notification
+function showNotification(title, body, onClick) {
+  const settings = store.get('settings');
+  if (!settings.notificationsEnabled) return;
+  
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, 'assets', 'icon.png'),
+      silent: false
+    });
+    
+    if (onClick) {
+      notification.on('click', onClick);
+    }
+    
+    notification.show();
+  }
+}
+
+// Add item to conversion history
+function addToHistory(item) {
+  const history = store.get('conversionHistory') || [];
+  const settings = store.get('settings');
+  
+  // Add new item at the beginning
+  history.unshift({
+    id: Date.now().toString(),
+    ...item,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Limit history size
+  const maxItems = settings.maxHistoryItems || 50;
+  if (history.length > maxItems) {
+    history.splice(maxItems);
+  }
+  
+  store.set('conversionHistory', history);
 }
 
 app.whenReady().then(() => {
@@ -68,6 +144,42 @@ ipcMain.handle('getAppVersion', () => {
 ipcMain.handle('checkFfmpeg', async () => {
   const available = await checkFfmpegAvailable();
   return { available };
+});
+
+// Settings handlers
+ipcMain.handle('getSettings', () => {
+  return store.get('settings');
+});
+
+ipcMain.handle('saveSettings', (event, settings) => {
+  store.set('settings', { ...store.get('settings'), ...settings });
+  return store.get('settings');
+});
+
+// History handlers
+ipcMain.handle('getHistory', () => {
+  return store.get('conversionHistory') || [];
+});
+
+ipcMain.handle('clearHistory', () => {
+  store.set('conversionHistory', []);
+  return [];
+});
+
+ipcMain.handle('removeHistoryItem', (event, id) => {
+  const history = store.get('conversionHistory') || [];
+  const filtered = history.filter(item => item.id !== id);
+  store.set('conversionHistory', filtered);
+  return filtered;
+});
+
+// Open external link
+ipcMain.handle('openExternal', async (event, url) => {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    await shell.openExternal(url);
+    return { success: true };
+  }
+  throw new Error('Invalid URL');
 });
 
 // Get yt-dlp binary path
@@ -484,8 +596,9 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
           // yt-dlp typically creates files with the pattern we specified
           // We need to search for the most recent file with the correct extension
           try {
-            // Use the mode and format captured from the outer scope
+            // Use the mode and format captured from the outer scope (these are defined in the parent convert handler)
             const expectedExtension = getFormatExtension(format, mode);
+            const videoUrl = sanitizedUrl; // Capture for history
             
             const files = fs.readdirSync(outputFolder);
             
@@ -555,10 +668,32 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     fs.renameSync(tempFilePath, uniqueFilePath);
                     outputFilePath = uniqueFilePath;
                     currentOutputPath = outputFilePath;
+                    
+                    const fileName = path.basename(uniqueFilePath);
+                    
+                    // Add to history
+                    addToHistory({
+                      url: videoUrl,
+                      fileName,
+                      filePath: outputFilePath,
+                      mode,
+                      format,
+                      status: 'completed'
+                    });
+                    
+                    // Show notification
+                    showNotification(
+                      'Conversion Complete',
+                      `${fileName} has been saved`,
+                      () => {
+                        shell.showItemInFolder(outputFilePath);
+                      }
+                    );
+                    
                     resolve({
                       success: true,
                       filePath: outputFilePath,
-                      fileName: path.basename(uniqueFilePath)
+                      fileName
                     });
                   } catch (renameError) {
                     // If rename fails, return the temp file

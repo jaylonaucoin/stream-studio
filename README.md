@@ -1,21 +1,38 @@
-# YouTube to MP3 Converter
+# YouTube Media Converter
 
-A desktop application built with Electron that converts YouTube videos to MP3 files using yt-dlp and ffmpeg. For personal use only.
+A modern desktop application built with Electron and React that converts YouTube videos to audio (MP3, FLAC, WAV, etc.) or video (MP4, MKV, WebM, etc.) formats using yt-dlp and FFmpeg. For personal use only.
 
 ## Features
 
-- Convert YouTube videos to MP3 format
-- Simple, intuitive user interface
-- Real-time conversion progress
-- Drag and drop URL support
-- Custom output folder selection
-- Cross-platform support (Windows, macOS, Linux)
+- **Audio & Video Downloads**: Convert YouTube videos to various audio or video formats
+- **Multiple Format Support**:
+  - Audio: MP3, M4A, FLAC, WAV, AAC, Opus, Vorbis, ALAC
+  - Video: MP4, MKV, WebM, MOV, AVI, FLV, GIF
+- **Modern Dark UI**: Beautiful Material-UI interface with dark theme
+- **Real-time Progress**: Live conversion progress with detailed logs
+- **Conversion History**: Track all your past conversions
+- **System Notifications**: Get notified when conversions complete
+- **Drag & Drop Support**: Simply drag URLs into the app
+- **Custom Output Folder**: Choose where to save converted files
+- **Persistent Settings**: Your preferences are saved between sessions
+- **Window State Persistence**: App remembers its size and position
+- **Cross-platform**: Works on Windows, macOS, and Linux
+
+## Screenshots
+
+The app features a sleek dark interface with red accents, providing:
+- Easy URL input with paste button
+- Mode toggle (Audio/Video)
+- Format selection dropdown
+- Progress indicator with percentage
+- Expandable conversion logs
+- Quick access to conversion history
 
 ## Requirements
 
-- Node.js (LTS version recommended)
+- Node.js 18+ (LTS version recommended)
 - npm or yarn
-- yt-dlp binary (included in `bin/` folder)
+- yt-dlp binary (auto-downloaded on install)
 - FFmpeg (bundled for Windows, system installation required for Mac/Linux)
 
 ## Setup
@@ -34,8 +51,6 @@ Binary dependencies (yt-dlp and FFmpeg for Windows) are **automatically download
 - Download `ffmpeg.exe` for Windows (Mac/Linux users should install FFmpeg system-wide)
 
 **Manual Download (if automatic download fails):**
-
-If the automatic download fails, you can manually download the binaries:
 
 #### yt-dlp
 Download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases):
@@ -68,7 +83,28 @@ Place an app icon at `assets/icon.png` (256x256 pixels or larger recommended).
 ### Run the Application
 
 ```bash
-npm start
+# Start development server with hot reload
+npm run electron:dev
+
+# Or start Electron directly (requires manual vite dev server)
+npm run dev    # In one terminal
+npm start      # In another terminal
+```
+
+### Linting and Formatting
+
+```bash
+# Check for linting errors
+npm run lint
+
+# Fix linting errors
+npm run lint:fix
+
+# Check formatting
+npm run format:check
+
+# Fix formatting
+npm run format
 ```
 
 ### Build for Production
@@ -90,32 +126,69 @@ Built installers will be in the `dist/` folder.
 ## Project Structure
 
 ```
-youtube-to-mp3/
-├── main.js           # Electron main process
-├── preload.js        # Preload script (contextBridge API)
-├── index.html        # UI markup
-├── renderer.js       # Renderer process logic
-├── styles.css        # Application styles
-├── package.json      # Project configuration
-├── assets/           # App icons and assets
+youtube-media-converter/
+├── main.js                 # Electron main process
+├── preload.js              # Preload script (contextBridge API)
+├── index.html              # HTML entry point
+├── package.json            # Project configuration
+├── vite.config.js          # Vite build configuration
+├── .eslintrc.json          # ESLint configuration
+├── .prettierrc             # Prettier configuration
+├── assets/                 # App icons and assets
 │   └── icon.png
-├── bin/              # Binary dependencies (auto-downloaded)
-│   ├── yt-dlp        # (Mac/Linux)
-│   ├── yt-dlp.exe    # (Windows)
-│   └── ffmpeg.exe    # (Windows only)
-├── scripts/          # Utility scripts
-│   └── download-binaries.js  # Automatic binary download script
-└── dist/             # Build output (generated)
+├── bin/                    # Binary dependencies (auto-downloaded)
+│   ├── yt-dlp              # (Mac/Linux)
+│   ├── yt-dlp.exe          # (Windows)
+│   └── ffmpeg.exe          # (Windows only)
+├── scripts/                # Utility scripts
+│   └── download-binaries.js
+├── src/                    # React source files
+│   ├── App.jsx             # Main app component
+│   ├── index.jsx           # React entry point
+│   ├── components/         # React components
+│   │   ├── ConversionForm.jsx
+│   │   ├── ErrorDialog.jsx
+│   │   ├── HistoryPanel.jsx
+│   │   ├── LogViewer.jsx
+│   │   ├── OutputFolderSelector.jsx
+│   │   ├── ProgressIndicator.jsx
+│   │   └── SettingsDialog.jsx
+│   └── styles/
+│       └── theme.js        # MUI theme configuration
+├── styles.css              # Legacy styles (unused)
+└── dist/                   # Build output (generated)
 ```
 
 ## Usage
 
 1. Launch the application
-2. Paste a YouTube URL into the input field (or drag and drop a URL)
-3. Optionally choose an output folder (defaults to Downloads)
-4. Click "Convert"
-5. Wait for conversion to complete
-6. Click the link to open the converted file location
+2. Paste a YouTube URL into the input field (or drag and drop)
+3. Select mode: **Audio** or **Video**
+4. Choose your desired output format
+5. Click **Convert**
+6. Wait for conversion to complete
+7. Click **Open Location** to find your file
+
+### Keyboard Shortcuts
+
+- **Enter** — Start conversion
+- **Escape** — Cancel conversion
+- **Ctrl+V / Cmd+V** — Paste URL from clipboard
+
+### Settings
+
+Access settings via the gear icon in the top-right corner:
+- Enable/disable system notifications
+- Set default conversion mode and formats
+- Configure history size
+
+### History
+
+Access conversion history via the clock icon in the top-right corner:
+- View all past conversions
+- Open file locations
+- Copy original URLs
+- Clear history
 
 ## Security
 
@@ -143,6 +216,10 @@ youtube-to-mp3/
 ### Permission Errors
 - Ensure you have write permissions to the output folder
 - Try selecting a different output folder
+
+### App Doesn't Start
+- Delete `node_modules` and run `npm install` again
+- Check the console for error messages
 
 ## License
 

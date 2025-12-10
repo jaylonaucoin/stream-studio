@@ -1,13 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { Box, Container, AppBar, Toolbar, Typography, IconButton } from '@mui/material';
+import { Box, Container, AppBar, Toolbar, Typography, IconButton, Tooltip, Badge, Chip } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HistoryIcon from '@mui/icons-material/History';
+import QueueIcon from '@mui/icons-material/Queue';
 import theme from './styles/theme';
 import ConversionForm from './components/ConversionForm';
 import ProgressIndicator from './components/ProgressIndicator';
 import LogViewer from './components/LogViewer';
 import ErrorDialog from './components/ErrorDialog';
 import OutputFolderSelector from './components/OutputFolderSelector';
+import SettingsDialog from './components/SettingsDialog';
+import HistoryPanel from './components/HistoryPanel';
+import QueuePanel from './components/QueuePanel';
 
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
@@ -19,8 +24,18 @@ function App() {
   const [outputFolder, setOutputFolder] = useState('');
   const [lastConvertedFile, setLastConvertedFile] = useState(null);
   const [ffmpegAvailable, setFfmpegAvailable] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [historyCount, setHistoryCount] = useState(0);
+  const [appVersion, setAppVersion] = useState('');
+  const [defaultSettings, setDefaultSettings] = useState({
+    defaultMode: 'audio',
+    defaultAudioFormat: 'mp3',
+    defaultVideoFormat: 'mp4',
+  });
 
-  // Load output folder on mount
+  // Load output folder, settings, and history on mount
   useEffect(() => {
     const loadOutputFolder = async () => {
       if (window.api && window.api.getOutputFolder) {
@@ -45,8 +60,48 @@ function App() {
       }
     };
 
+    const loadSettings = async () => {
+      if (window.api && window.api.getSettings) {
+        try {
+          const settings = await window.api.getSettings();
+          setDefaultSettings({
+            defaultMode: settings.defaultMode || 'audio',
+            defaultAudioFormat: settings.defaultAudioFormat || 'mp3',
+            defaultVideoFormat: settings.defaultVideoFormat || 'mp4',
+          });
+        } catch (err) {
+          console.error('Failed to load settings:', err);
+        }
+      }
+    };
+
+    const loadHistoryCount = async () => {
+      if (window.api && window.api.getHistory) {
+        try {
+          const history = await window.api.getHistory();
+          setHistoryCount(history?.length || 0);
+        } catch (err) {
+          console.error('Failed to load history:', err);
+        }
+      }
+    };
+
+    const loadVersion = async () => {
+      if (window.api && window.api.getAppVersion) {
+        try {
+          const version = await window.api.getAppVersion();
+          setAppVersion(version);
+        } catch (err) {
+          console.error('Failed to load version:', err);
+        }
+      }
+    };
+
     loadOutputFolder();
     checkFfmpeg();
+    loadSettings();
+    loadHistoryCount();
+    loadVersion();
   }, []);
 
   const handleProgress = useCallback((data) => {
@@ -117,6 +172,8 @@ function App() {
         setConversionState('completed');
         setLastConvertedFile(result);
         setLogs((prev) => [...prev, { type: 'success', message: '✓ Conversion completed successfully', timestamp: Date.now() }]);
+        // Update history count
+        setHistoryCount(prev => prev + 1);
       }
     } catch (error) {
       setConversionState('error');
@@ -182,8 +239,44 @@ function App() {
         <AppBar position="static" elevation={1}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              YouTube to MP3 Converter
+              YouTube Media Converter
             </Typography>
+            {appVersion && (
+              <Chip
+                label={`v${appVersion}`}
+                size="small"
+                variant="outlined"
+                sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
+              />
+            )}
+            <Tooltip title="Batch Queue">
+              <IconButton
+                color="inherit"
+                onClick={() => setQueueOpen(true)}
+                sx={{ mr: 1 }}
+              >
+                <QueueIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Conversion History">
+              <IconButton
+                color="inherit"
+                onClick={() => setHistoryOpen(true)}
+                sx={{ mr: 1 }}
+              >
+                <Badge badgeContent={historyCount} color="error" max={99}>
+                  <HistoryIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Settings">
+              <IconButton
+                color="inherit"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
           </Toolbar>
         </AppBar>
 
@@ -193,6 +286,9 @@ function App() {
             onCancel={handleCancel}
             isConverting={conversionState === 'converting'}
             disabled={!ffmpegAvailable}
+            defaultMode={defaultSettings.defaultMode}
+            defaultAudioFormat={defaultSettings.defaultAudioFormat}
+            defaultVideoFormat={defaultSettings.defaultVideoFormat}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -237,6 +333,30 @@ function App() {
           onClose={handleCloseError}
           title={error?.title || 'Error'}
           message={error?.message || ''}
+        />
+
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+        />
+
+        <HistoryPanel
+          open={historyOpen}
+          onClose={() => {
+            setHistoryOpen(false);
+            // Refresh history count
+            if (window.api && window.api.getHistory) {
+              window.api.getHistory().then(history => {
+                setHistoryCount(history?.length || 0);
+              });
+            }
+          }}
+        />
+
+        <QueuePanel
+          open={queueOpen}
+          onClose={() => setQueueOpen(false)}
+          isProcessing={conversionState === 'converting'}
         />
       </Box>
     </ThemeProvider>

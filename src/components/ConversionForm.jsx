@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -40,14 +40,28 @@ const VIDEO_FORMATS = [
   { value: 'gif', label: 'GIF' }
 ];
 
-function ConversionForm({ onConvert, onCancel, isConverting, disabled }) {
+function ConversionForm({ 
+  onConvert, 
+  onCancel, 
+  isConverting, 
+  disabled,
+  defaultMode = 'audio',
+  defaultAudioFormat = 'mp3',
+  defaultVideoFormat = 'mp4'
+}) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const containerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [mode, setMode] = useState('audio');
-  const [format, setFormat] = useState('mp3');
+  const [mode, setMode] = useState(defaultMode);
+  const [format, setFormat] = useState(defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat);
+  
+  // Update mode/format when defaults change
+  useEffect(() => {
+    setMode(defaultMode);
+    setFormat(defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat);
+  }, [defaultMode, defaultAudioFormat, defaultVideoFormat]);
 
   const validateUrl = useCallback((urlToValidate) => {
     const trimmed = urlToValidate.trim();
