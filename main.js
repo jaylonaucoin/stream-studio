@@ -363,9 +363,26 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       args.push('--embed-thumbnail');      // Embed thumbnail as album art
     } else {
       // Video mode: download best video+audio and merge to specified format
-      // Use format selector to ensure we get video with audio
-      args.push('-f', 'bestvideo+bestaudio/best'); // Prefer video+audio, fallback to best
-      args.push('--merge-output-format', format); // Merge video and audio to specified format
+      if (format === 'mp4') {
+        // For MP4, prefer AAC audio (native to MP4) and avoid Opus
+        // Format selector: best video + best audio that's not Opus, fallback to best
+        args.push('-f', 'bestvideo+bestaudio[acodec!=opus]/bestvideo+bestaudio/best');
+        args.push('--merge-output-format', 'mp4');
+        // Force AAC audio codec when merging to ensure compatibility
+        args.push('--postprocessor-args', 'ffmpeg:-c:a aac -b:a 192k');
+      } else if (format === 'webm') {
+        // For WebM, Opus is fine (it's the native audio codec for WebM)
+        args.push('-f', 'bestvideo+bestaudio/best');
+        args.push('--merge-output-format', 'webm');
+      } else {
+        // For other formats (mkv, mov, avi, etc.), use best available
+        args.push('-f', 'bestvideo+bestaudio/best');
+        args.push('--merge-output-format', format);
+        // For MOV, prefer AAC audio
+        if (format === 'mov') {
+          args.push('--postprocessor-args', 'ffmpeg:-c:a aac -b:a 192k');
+        }
+      }
     }
     
     // Spawn yt-dlp process
