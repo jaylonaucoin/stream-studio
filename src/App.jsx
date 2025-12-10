@@ -356,7 +356,17 @@ function App() {
         <QueuePanel
           open={queueOpen}
           onClose={() => setQueueOpen(false)}
-          isProcessing={conversionState === 'converting'}
+          outputFolder={outputFolder}
+          defaultMode={defaultSettings.defaultMode}
+          defaultFormat={defaultSettings.defaultMode === 'audio' ? defaultSettings.defaultAudioFormat : defaultSettings.defaultVideoFormat}
+          onQueueComplete={() => {
+            // Refresh history count after batch processing
+            if (window.api && window.api.getHistory) {
+              window.api.getHistory().then(history => {
+                setHistoryCount(history?.length || 0);
+              });
+            }
+          }}
         />
       </Box>
     </ThemeProvider>
