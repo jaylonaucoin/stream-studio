@@ -76,23 +76,33 @@ ipcMain.handle('checkFfmpeg', async () => {
 function getYtDlpPath() {
   const isDev = !app.isPackaged;
   const platform = process.platform;
+  const binaryName = platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
   
   if (isDev) {
     // Development: check bin folder
-    const devPath = path.join(__dirname, 'bin', platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+    const devPath = path.join(__dirname, 'bin', binaryName);
     if (fs.existsSync(devPath)) {
-      return devPath;
+      return path.normalize(devPath);
     }
   } else {
-    // Production: check extraResources
-    const prodPath = path.join(process.resourcesPath, 'bin', platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
-    if (fs.existsSync(prodPath)) {
-      return prodPath;
+    // Production: check extraResources - try multiple possible locations
+    const possiblePaths = [
+      path.join(process.resourcesPath, 'bin', binaryName),
+      path.join(process.resourcesPath, '..', 'bin', binaryName),
+      path.join(__dirname, '..', 'bin', binaryName),
+      path.join(app.getAppPath(), 'bin', binaryName)
+    ];
+    
+    for (const prodPath of possiblePaths) {
+      const normalized = path.normalize(prodPath);
+      if (fs.existsSync(normalized)) {
+        return normalized;
+      }
     }
   }
   
   // Fallback: try system PATH
-  return platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  return binaryName;
 }
 
 // Get FFmpeg binary path
@@ -107,13 +117,23 @@ function getFfmpegPath() {
       // Development: check bin folder
       const devPath = path.join(__dirname, 'bin', 'ffmpeg.exe');
       if (fs.existsSync(devPath)) {
-        return devPath;
+        return path.normalize(devPath);
       }
     } else {
       // Production: check extraResources
-      const prodPath = path.join(process.resourcesPath, 'bin', 'ffmpeg.exe');
-      if (fs.existsSync(prodPath)) {
-        return prodPath;
+      // Try multiple possible locations
+      const possiblePaths = [
+        path.join(process.resourcesPath, 'bin', 'ffmpeg.exe'),
+        path.join(process.resourcesPath, '..', 'bin', 'ffmpeg.exe'),
+        path.join(__dirname, '..', 'bin', 'ffmpeg.exe'),
+        path.join(app.getAppPath(), 'bin', 'ffmpeg.exe')
+      ];
+      
+      for (const prodPath of possiblePaths) {
+        const normalized = path.normalize(prodPath);
+        if (fs.existsSync(normalized)) {
+          return normalized;
+        }
       }
     }
   }
@@ -127,24 +147,112 @@ function getFfmpegPath() {
 async function checkFfmpegAvailable() {
   return new Promise((resolve) => {
     const ffmpegPath = getFfmpegPath();
-    const testProc = spawn(ffmpegPath, ['-version'], {
-      stdio: 'ignore'
-    });
     
-    testProc.on('close', (code) => {
-      resolve(code === 0);
-    });
-    
-    testProc.on('error', () => {
-      resolve(false);
-    });
-    
-    // Timeout after 5 seconds
-    setTimeout(() => {
-      testProc.kill();
-      resolve(false);
-    }, 5000);
+    // First check if the file exists (for absolute paths)
+    if (ffmpegPath.includes(path.sep)) {
+      const normalizedPath = path.normalize(ffmpegPath);
+      if (!fs.existsSync(normalizedPath)) {
+        resolve(false);
+        return;
+      }
+      
+      // Use the normalized absolute path - same pattern as yt-dlp spawn
+      const testProc = spawn(normalizedPath, ['-version'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: path.dirname(normalizedPath) // Set working directory to ffmpeg's directory
+      });
+      
+      let hasOutput = false;
+      
+      testProc.stdout.on('data', () => {
+        hasOutput = true;
+      });
+      
+      testProc.stderr.on('data', () => {
+        hasOutput = true; // FFmpeg version info goes to stderr
+      });
+      
+      testProc.on('close', (code) => {
+        // FFmpeg returns 0 on success, or we got output which means it's working
+        resolve(code === 0 || hasOutput);
+      });
+      
+      testProc.on('error', () => {
+        resolve(false);
+      });
+      
+      // Timeout after 3 seconds
+      setTimeout(() => {
+        if (!testProc.killed) {
+          testProc.kill();
+          resolve(false);
+        }
+      }, 3000);
+    } else {
+      // Relative path - try to find in PATH
+      const testProc = spawn(ffmpegPath, ['-version'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true
+      });
+      
+      let hasOutput = false;
+      
+      testProc.stdout.on('data', () => {
+        hasOutput = true;
+      });
+      
+      testProc.stderr.on('data', () => {
+        hasOutput = true;
+      });
+      
+      testProc.on('close', (code) => {
+        resolve(code === 0 || hasOutput);
+      });
+      
+      testProc.on('error', () => {
+        resolve(false);
+      });
+      
+      setTimeout(() => {
+        if (!testProc.killed) {
+          testProc.kill();
+          resolve(false);
+        }
+      }, 3000);
+    }
   });
+}
+
+// Format to extension mapping
+function getFormatExtension(format, mode) {
+  const formatMap = {
+    // Audio formats
+    'mp3': 'mp3',
+    'm4a': 'm4a',
+    'flac': 'flac',
+    'wav': 'wav',
+    'aac': 'aac',
+    'opus': 'opus',
+    'vorbis': 'ogg',
+    'alac': 'm4a',
+    'best': null, // yt-dlp will choose the best format
+    // Video formats
+    'mp4': 'mp4',
+    'mkv': 'mkv',
+    'webm': 'webm',
+    'mov': 'mov',
+    'avi': 'avi',
+    'flv': 'flv',
+    'gif': 'gif'
+  };
+  
+  const extension = formatMap[format];
+  if (extension) {
+    return extension;
+  }
+  
+  // Default fallback based on mode
+  return mode === 'audio' ? 'mp3' : 'mp4';
 }
 
 // Format to extension mapping
@@ -270,11 +378,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
+    const ffmpegPath = getFfmpegPath();
     
     // Prepare args array based on mode (secure - no shell injection)
     const args = [
       '--no-playlist',         // Don't download playlists
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
+      '--embed-thumbnail',     // Embed thumbnail as album art
+      '--ffmpeg-location', path.dirname(ffmpegPath), // Tell yt-dlp where to find ffmpeg
       '--output', outputTemplate,
       sanitizedUrl
     ];
