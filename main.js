@@ -17,6 +17,7 @@ const store = new Store({
       defaultMode: 'audio',
       defaultAudioFormat: 'mp3',
       defaultVideoFormat: 'mp4',
+      defaultQuality: 'best',
     }
   }
 });
@@ -485,9 +486,10 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode and format from options (default to audio/mp3 for backward compatibility)
+    // Get mode, format, and quality from options (default to audio/mp3/best for backward compatibility)
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
+    const quality = options.quality || 'best';
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -542,32 +544,83 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       sanitizedUrl
     ];
     
+    // Quality settings mapping
+    const audioQualityMap = {
+      'best': { quality: '0', bitrate: null },      // Best quality, no bitrate limit
+      'high': { quality: '0', bitrate: '192k' },    // High quality
+      'medium': { quality: '5', bitrate: '128k' },  // Medium quality
+      'low': { quality: '9', bitrate: '96k' },      // Low quality
+    };
+    
+    const videoHeightMap = {
+      'best': null,    // No height limit
+      'high': 1080,    // 1080p
+      'medium': 720,   // 720p
+      'low': 480,      // 480p
+    };
+    
+    const audioBitrateMap = {
+      'best': '192k',
+      'high': '192k',
+      'medium': '128k',
+      'low': '96k',
+    };
+    
     if (mode === 'audio') {
       // Audio mode: extract audio and convert to specified format
       args.push('-x');                    // Extract audio
       args.push('--audio-format', format); // Convert to specified format
-      args.push('--audio-quality', '0');   // Best quality
+      
+      const audioSettings = audioQualityMap[quality] || audioQualityMap['best'];
+      args.push('--audio-quality', audioSettings.quality);
+      
+      // Add bitrate limit for non-best quality (applied during post-processing)
+      if (audioSettings.bitrate && quality !== 'best') {
+        args.push('--postprocessor-args', `ffmpeg:-b:a ${audioSettings.bitrate}`);
+      }
+      
       args.push('--embed-thumbnail');      // Embed thumbnail as album art
     } else {
-      // Video mode: download best video+audio and merge to specified format
+      // Video mode: download video+audio and merge to specified format
+      const heightLimit = videoHeightMap[quality];
+      const audioBitrate = audioBitrateMap[quality] || '192k';
+      
+      // Build format selector based on quality
+      let formatSelector;
+      if (heightLimit) {
+        formatSelector = `bestvideo[height<=${heightLimit}]+bestaudio/best[height<=${heightLimit}]/best`;
+      } else {
+        formatSelector = 'bestvideo+bestaudio/best';
+      }
+      
       if (format === 'mp4') {
         // For MP4, prefer AAC audio (native to MP4) and avoid Opus
-        // Format selector: best video + best audio that's not Opus, fallback to best
-        args.push('-f', 'bestvideo+bestaudio[acodec!=opus]/bestvideo+bestaudio/best');
+        if (heightLimit) {
+          formatSelector = `bestvideo[height<=${heightLimit}]+bestaudio[acodec!=opus]/bestvideo[height<=${heightLimit}]+bestaudio/best[height<=${heightLimit}]/best`;
+        } else {
+          formatSelector = 'bestvideo+bestaudio[acodec!=opus]/bestvideo+bestaudio/best';
+        }
+        args.push('-f', formatSelector);
         args.push('--merge-output-format', 'mp4');
         // Force AAC audio codec when merging to ensure compatibility
-        args.push('--postprocessor-args', 'ffmpeg:-c:a aac -b:a 192k');
+        args.push('--postprocessor-args', `ffmpeg:-c:a aac -b:a ${audioBitrate}`);
       } else if (format === 'webm') {
         // For WebM, Opus is fine (it's the native audio codec for WebM)
-        args.push('-f', 'bestvideo+bestaudio/best');
+        args.push('-f', formatSelector);
         args.push('--merge-output-format', 'webm');
+        // Apply audio bitrate for non-best quality
+        if (quality !== 'best') {
+          args.push('--postprocessor-args', `ffmpeg:-b:a ${audioBitrate}`);
+        }
       } else {
-        // For other formats (mkv, mov, avi, etc.), use best available
-        args.push('-f', 'bestvideo+bestaudio/best');
+        // For other formats (mkv, mov, avi, etc.)
+        args.push('-f', formatSelector);
         args.push('--merge-output-format', format);
-        // For MOV, prefer AAC audio
+        // For MOV, prefer AAC audio; apply bitrate for all
         if (format === 'mov') {
-          args.push('--postprocessor-args', 'ffmpeg:-c:a aac -b:a 192k');
+          args.push('--postprocessor-args', `ffmpeg:-c:a aac -b:a ${audioBitrate}`);
+        } else if (quality !== 'best') {
+          args.push('--postprocessor-args', `ffmpeg:-b:a ${audioBitrate}`);
         }
       }
     }
@@ -724,6 +777,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                       filePath: outputFilePath,
                       mode,
                       format,
+                      quality,
                       status: 'completed'
                     });
                     

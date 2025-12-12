@@ -40,6 +40,13 @@ const VIDEO_FORMATS = [
   { value: 'gif', label: 'GIF' },
 ];
 
+const QUALITY_OPTIONS = [
+  { value: 'best', label: 'Best', description: 'Highest available quality' },
+  { value: 'high', label: 'High', description: '1080p / 192kbps' },
+  { value: 'medium', label: 'Medium', description: '720p / 128kbps' },
+  { value: 'low', label: 'Low', description: '480p / 96kbps' },
+];
+
 // Popular supported sites (yt-dlp supports 1000+ sites)
 // This list is for display purposes only - we accept any URL and let yt-dlp handle validation
 const SUPPORTED_SITES = [
@@ -139,6 +146,7 @@ function ConversionForm({
   defaultMode = 'audio',
   defaultAudioFormat = 'mp3',
   defaultVideoFormat = 'mp4',
+  defaultQuality = 'best',
 }) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
@@ -149,12 +157,17 @@ function ConversionForm({
   const [format, setFormat] = useState(
     defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat
   );
+  const [quality, setQuality] = useState(defaultQuality);
 
-  // Update mode/format when defaults change
+  // Update mode/format/quality when defaults change
   useEffect(() => {
     setMode(defaultMode);
     setFormat(defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat);
   }, [defaultMode, defaultAudioFormat, defaultVideoFormat]);
+
+  useEffect(() => {
+    setQuality(defaultQuality);
+  }, [defaultQuality]);
 
   const validateUrl = useCallback((urlToValidate) => {
     const trimmed = urlToValidate.trim();
@@ -212,16 +225,20 @@ function ConversionForm({
     setFormat(e.target.value);
   }, []);
 
+  const handleQualityChange = useCallback((e) => {
+    setQuality(e.target.value);
+  }, []);
+
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
       if (isValid && url.trim() && !isConverting) {
         // Use normalized URL to ensure protocol is included
         const normalizedUrl = normalizeUrl(url.trim());
-        onConvert(normalizedUrl, { mode, format });
+        onConvert(normalizedUrl, { mode, format, quality });
       }
     },
-    [url, isValid, isConverting, mode, format, onConvert]
+    [url, isValid, isConverting, mode, format, quality, onConvert]
   );
 
   const handleKeyPress = useCallback(
@@ -377,6 +394,24 @@ function ConversionForm({
               {(mode === 'audio' ? AUDIO_FORMATS : VIDEO_FORMATS).map((fmt) => (
                 <MenuItem key={fmt.value} value={fmt.value}>
                   {fmt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        <Box sx={{ flex: 1 }}>
+          <FormControl fullWidth>
+            <InputLabel>Quality</InputLabel>
+            <Select
+              value={quality}
+              label="Quality"
+              onChange={handleQualityChange}
+              disabled={isConverting || disabled}
+            >
+              {QUALITY_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
                 </MenuItem>
               ))}
             </Select>
