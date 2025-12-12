@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline, alpha } from '@mui/material';
 import {
   Box,
   Container,
@@ -9,12 +9,13 @@ import {
   IconButton,
   Tooltip,
   Badge,
-  Chip,
+  Fade,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
-import QueueIcon from '@mui/icons-material/Queue';
-import theme from './styles/theme';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import MovieFilterIcon from '@mui/icons-material/MovieFilter';
+import theme, { colors } from './styles/theme';
 import ConversionForm from './components/ConversionForm';
 import ProgressIndicator from './components/ProgressIndicator';
 import LogViewer from './components/LogViewer';
@@ -29,7 +30,6 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [logs, setLogs] = useState([]);
-  const [logsVisible, setLogsVisible] = useState(false);
   const [error, setError] = useState(null);
   const [outputFolder, setOutputFolder] = useState('');
   const [lastConvertedFile, setLastConvertedFile] = useState(null);
@@ -270,86 +270,203 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <AppBar position="static" elevation={1}>
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Media Converter
-            </Typography>
-            {appVersion && (
-              <Chip
-                label={`v${appVersion}`}
-                size="small"
-                variant="outlined"
-                sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
-              />
-            )}
-            <Tooltip title="Batch Queue">
-              <IconButton color="inherit" onClick={() => setQueueOpen(true)} sx={{ mr: 1 }}>
-                <QueueIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Conversion History">
-              <IconButton color="inherit" onClick={() => setHistoryOpen(true)} sx={{ mr: 1 }}>
-                <Badge badgeContent={historyCount} color="error" max={99}>
-                  <HistoryIcon />
-                </Badge>
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Settings">
-              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Background Gradient Glow */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: '-50%',
+            left: '-25%',
+            width: '150%',
+            height: '100%',
+            background: `radial-gradient(ellipse at center, ${alpha(colors.primary.main, 0.08)} 0%, transparent 60%)`,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
+        {/* AppBar */}
+        <AppBar position="sticky" elevation={0}>
+          <Toolbar sx={{ gap: 1 }}>
+            {/* Logo/Icon */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                background: colors.gradients.primary,
+                boxShadow: `0 4px 14px ${alpha(colors.primary.main, 0.4)}`,
+                mr: 1.5,
+              }}
+            >
+              <MovieFilterIcon sx={{ fontSize: 24, color: 'white' }} />
+            </Box>
+
+            {/* Title */}
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography
+                variant="h6"
+                component="div"
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  background: `linear-gradient(135deg, ${colors.text.primary} 0%, ${colors.text.secondary} 100%)`,
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Media Converter
+              </Typography>
+              {appVersion && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: '0.7rem',
+                    opacity: 0.7,
+                  }}
+                >
+                  v{appVersion}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Tooltip title="Batch Queue" arrow>
+                <IconButton
+                  onClick={() => setQueueOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: alpha(colors.primary.main, 0.1),
+                    },
+                  }}
+                >
+                  <QueueMusicIcon />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Conversion History" arrow>
+                <IconButton
+                  onClick={() => setHistoryOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: alpha(colors.primary.main, 0.1),
+                    },
+                  }}
+                >
+                  <Badge
+                    badgeContent={historyCount}
+                    color="error"
+                    max={99}
+                    sx={{
+                      '& .MuiBadge-badge': {
+                        background: colors.gradients.primary,
+                        fontWeight: 700,
+                      },
+                    }}
+                  >
+                    <HistoryIcon />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Settings" arrow>
+                <IconButton
+                  onClick={() => setSettingsOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: alpha(colors.primary.main, 0.1),
+                    },
+                  }}
+                >
+                  <SettingsIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="md" sx={{ flexGrow: 1, py: 4 }}>
-          <ConversionForm
-            onConvert={handleConvert}
-            onCancel={handleCancel}
-            isConverting={conversionState === 'converting'}
-            disabled={!ffmpegAvailable}
-            defaultMode={defaultSettings.defaultMode}
-            defaultAudioFormat={defaultSettings.defaultAudioFormat}
-            defaultVideoFormat={defaultSettings.defaultVideoFormat}
-            defaultQuality={defaultSettings.defaultQuality}
-          />
+        {/* Main Content */}
+        <Container
+          maxWidth="md"
+          sx={{
+            flexGrow: 1,
+            py: 4,
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <Fade in timeout={600}>
+            <Box>
+              <ConversionForm
+                onConvert={handleConvert}
+                onCancel={handleCancel}
+                isConverting={conversionState === 'converting'}
+                disabled={!ffmpegAvailable}
+                defaultMode={defaultSettings.defaultMode}
+                defaultAudioFormat={defaultSettings.defaultAudioFormat}
+                defaultVideoFormat={defaultSettings.defaultVideoFormat}
+                defaultQuality={defaultSettings.defaultQuality}
+              />
+            </Box>
+          </Fade>
 
-          <Box sx={{ mt: 4 }}>
-            <ProgressIndicator
-              progress={progress}
-              statusMessage={statusMessage}
-              state={conversionState}
-              lastConvertedFile={lastConvertedFile}
-              onOpenFileLocation={handleOpenFileLocation}
-            />
-          </Box>
+          <Fade in timeout={800}>
+            <Box sx={{ mt: 3 }}>
+              <ProgressIndicator
+                progress={progress}
+                statusMessage={statusMessage}
+                state={conversionState}
+                lastConvertedFile={lastConvertedFile}
+                onOpenFileLocation={handleOpenFileLocation}
+              />
+            </Box>
+          </Fade>
 
-          <Box sx={{ mt: 3 }}>
-            <LogViewer
-              logs={logs}
-              visible={logsVisible}
-              onToggleVisibility={() => setLogsVisible(!logsVisible)}
-              onClear={() => setLogs([])}
-            />
-          </Box>
+          <Fade in timeout={1000}>
+            <Box sx={{ mt: 3 }}>
+              <LogViewer logs={logs} onClear={() => setLogs([])} />
+            </Box>
+          </Fade>
         </Container>
 
+        {/* Footer */}
         <Box
           component="footer"
           sx={{
             mt: 'auto',
             py: 2,
             px: 3,
-            bgcolor: 'background.paper',
-            borderTop: 1,
-            borderColor: 'divider',
+            bgcolor: alpha(colors.background.paper, 0.8),
+            backdropFilter: 'blur(20px)',
+            borderTop: `1px solid ${colors.divider}`,
+            position: 'relative',
+            zIndex: 1,
           }}
         >
           <OutputFolderSelector folder={outputFolder} onChange={handleOutputFolderChange} />
         </Box>
 
+        {/* Dialogs and Panels */}
         <ErrorDialog
           open={!!error}
           onClose={handleCloseError}
@@ -357,7 +474,11 @@ function App() {
           message={error?.message || ''}
         />
 
-        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          appVersion={appVersion}
+        />
 
         <HistoryPanel
           open={historyOpen}

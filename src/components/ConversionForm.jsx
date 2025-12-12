@@ -10,74 +10,53 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
+  Typography,
+  Chip,
+  Fade,
+  Zoom,
+  alpha,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
-import SyncIcon from '@mui/icons-material/Sync';
-import CancelIcon from '@mui/icons-material/Cancel';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import StopIcon from '@mui/icons-material/Stop';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import MovieIcon from '@mui/icons-material/Movie';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import LinkIcon from '@mui/icons-material/Link';
+import HighQualityIcon from '@mui/icons-material/HighQuality';
+import TuneIcon from '@mui/icons-material/Tune';
+import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
+import { colors } from '../styles/theme';
 
 const AUDIO_FORMATS = [
-  { value: 'best', label: 'Best Quality' },
-  { value: 'mp3', label: 'MP3' },
-  { value: 'm4a', label: 'M4A' },
-  { value: 'flac', label: 'FLAC' },
-  { value: 'wav', label: 'WAV' },
-  { value: 'aac', label: 'AAC' },
-  { value: 'opus', label: 'Opus' },
-  { value: 'vorbis', label: 'Vorbis' },
-  { value: 'alac', label: 'ALAC' },
+  { value: 'best', label: 'Best Quality', description: 'Highest available' },
+  { value: 'mp3', label: 'MP3', description: 'Universal compatibility' },
+  { value: 'm4a', label: 'M4A', description: 'Apple/iTunes format' },
+  { value: 'flac', label: 'FLAC', description: 'Lossless audio' },
+  { value: 'wav', label: 'WAV', description: 'Uncompressed audio' },
+  { value: 'aac', label: 'AAC', description: 'Advanced audio codec' },
+  { value: 'opus', label: 'Opus', description: 'Modern efficient codec' },
+  { value: 'vorbis', label: 'Vorbis', description: 'Open source codec' },
+  { value: 'alac', label: 'ALAC', description: 'Apple lossless' },
 ];
 
 const VIDEO_FORMATS = [
-  { value: 'mp4', label: 'MP4' },
-  { value: 'mkv', label: 'MKV' },
-  { value: 'webm', label: 'WebM' },
-  { value: 'mov', label: 'MOV' },
-  { value: 'avi', label: 'AVI' },
-  { value: 'flv', label: 'FLV' },
-  { value: 'gif', label: 'GIF' },
+  { value: 'mp4', label: 'MP4', description: 'Universal compatibility' },
+  { value: 'mkv', label: 'MKV', description: 'Feature-rich container' },
+  { value: 'webm', label: 'WebM', description: 'Web optimized' },
+  { value: 'mov', label: 'MOV', description: 'Apple QuickTime' },
+  { value: 'avi', label: 'AVI', description: 'Legacy format' },
+  { value: 'flv', label: 'FLV', description: 'Flash video' },
+  { value: 'gif', label: 'GIF', description: 'Animated image' },
 ];
 
 const QUALITY_OPTIONS = [
-  { value: 'best', label: 'Best', description: 'Highest available quality' },
-  { value: 'high', label: 'High', description: '1080p / 192kbps' },
-  { value: 'medium', label: 'Medium', description: '720p / 128kbps' },
-  { value: 'low', label: 'Low', description: '480p / 96kbps' },
-];
-
-// Popular supported sites (yt-dlp supports 1000+ sites)
-// This list is for display purposes only - we accept any URL and let yt-dlp handle validation
-const SUPPORTED_SITES = [
-  'YouTube',
-  'Vimeo',
-  'Dailymotion',
-  'Facebook',
-  'Twitter/X',
-  'TikTok',
-  'Instagram',
-  'Reddit',
-  'Twitch',
-  'SoundCloud',
-  'Bandcamp',
-  'Mixcloud',
-  'Bilibili',
-  'Niconico',
-  'VK',
-  'Rumble',
-  'BitChute',
-  'Odysee',
-  'PeerTube',
-  'Streamable',
-  'Flickr',
-  'Imgur',
-  'Pinterest',
-  'TED',
-  'Khan Academy',
-  'Udemy',
-  'Coursera',
-  'and 1000+ more...',
+  { value: 'best', label: 'Best', description: 'Highest available quality', icon: '✨' },
+  { value: 'high', label: 'High', description: '1080p / 192kbps', icon: '🎯' },
+  { value: 'medium', label: 'Medium', description: '720p / 128kbps', icon: '⚖️' },
+  { value: 'low', label: 'Low', description: '480p / 96kbps', icon: '💾' },
 ];
 
 // Normalize URL - add protocol if missing, clean up common issues
@@ -287,6 +266,8 @@ function ConversionForm({
     [validateUrl]
   );
 
+  const currentFormats = mode === 'audio' ? AUDIO_FORMATS : VIDEO_FORMATS;
+
   return (
     <Box
       ref={containerRef}
@@ -298,72 +279,147 @@ function ConversionForm({
       onDrop={handleDrop}
       sx={{
         p: 3,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        border: isDragging ? 2 : 1,
-        borderColor: isDragging ? 'primary.main' : 'divider',
-        borderStyle: 'dashed',
-        transition: 'all 0.2s',
+        borderRadius: 3,
+        bgcolor: alpha(colors.background.card, 0.8),
+        backdropFilter: 'blur(20px)',
+        border: `2px solid ${isDragging ? colors.primary.main : colors.divider}`,
+        borderStyle: isDragging ? 'solid' : 'solid',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: isDragging
+          ? `0 0 30px ${alpha(colors.primary.main, 0.3)}, inset 0 0 60px ${alpha(colors.primary.main, 0.05)}`
+          : '0 8px 32px rgba(0,0,0,0.3)',
+        '&:hover': {
+          borderColor: alpha(colors.primary.main, 0.3),
+        },
       }}
     >
+      {/* Drag Overlay */}
+      <Fade in={isDragging}>
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            bgcolor: alpha(colors.primary.main, 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            borderRadius: 2,
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <Zoom in={isDragging}>
+              <CloudDownloadIcon
+                sx={{
+                  fontSize: 64,
+                  color: 'primary.main',
+                  mb: 1,
+                  animation: 'bounce 1s infinite',
+                  '@keyframes bounce': {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-10px)' },
+                  },
+                }}
+              />
+            </Zoom>
+            <Typography variant="h6" color="primary.main" fontWeight={600}>
+              Drop URL here
+            </Typography>
+          </Box>
+        </Box>
+      </Fade>
+
+      {/* Disabled Alert */}
       {disabled && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          FFmpeg is not available. Please ensure FFmpeg is installed before converting.
+        <Alert
+          severity="warning"
+          sx={{
+            mb: 3,
+            borderRadius: 2,
+            '& .MuiAlert-icon': { alignItems: 'center' },
+          }}
+        >
+          <Typography variant="body2" fontWeight={500}>
+            FFmpeg is not available. Please ensure FFmpeg is installed before converting.
+          </Typography>
         </Alert>
       )}
 
-      <TextField
-        fullWidth
-        label="Video URL"
-        placeholder="Paste any video URL (YouTube, Vimeo, TikTok, Twitter, etc.)"
-        value={url}
-        onChange={handleUrlChange}
-        onKeyDown={handleKeyPress}
-        disabled={isConverting || disabled}
-        error={!isValid && url.length > 0}
-        helperText={
-          errorMessage ||
-          (url.length === 0
-            ? `Supports ${SUPPORTED_SITES.slice(0, 6).join(', ')} and 1000+ more sites`
-            : '')
-        }
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title="Paste from clipboard">
-                <IconButton
-                  onClick={handlePaste}
-                  edge="center"
-                  disabled={isConverting || disabled}
-                  aria-label="paste"
-                >
-                  <ContentPasteIcon />
-                </IconButton>
-              </Tooltip>
-            </InputAdornment>
-          ),
-        }}
-        sx={{ mb: 2 }}
-      />
+      {/* URL Input */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          label="Video or Audio URL"
+          placeholder="Paste any URL from YouTube, Vimeo, TikTok, Twitter, SoundCloud..."
+          value={url}
+          onChange={handleUrlChange}
+          onKeyDown={handleKeyPress}
+          disabled={isConverting || disabled}
+          error={!isValid && url.length > 0}
+          helperText={
+            errorMessage || (
+              <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Supports 1000+ sites including YouTube, Vimeo, TikTok, Twitter, Instagram,
+                  SoundCloud & more
+                </Typography>
+              </Box>
+            )
+          }
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LinkIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title="Paste from clipboard (Ctrl+V)" arrow>
+                  <IconButton
+                    onClick={handlePaste}
+                    edge="end"
+                    disabled={isConverting || disabled}
+                    aria-label="paste"
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': { color: 'primary.main' },
+                    }}
+                  >
+                    <ContentPasteIcon />
+                  </IconButton>
+                </Tooltip>
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              fontSize: '1rem',
+            },
+          }}
+        />
+      </Box>
 
+      {/* Controls Row */}
       <Box
         sx={{
-          mb: 2,
-          display: 'flex',
+          mb: 3,
+          display: 'grid',
           gap: 2,
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'stretch', sm: 'flex-end' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' },
         }}
       >
-        <Box sx={{ flex: 1 }}>
-          <Box sx={{ mb: 1 }}>
-            <Box
-              component="label"
-              sx={{ fontSize: '0.875rem', color: 'text.secondary', display: 'block' }}
-            >
-              Mode
-            </Box>
-          </Box>
+        {/* Mode Toggle */}
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            <TuneIcon sx={{ fontSize: 16 }} />
+            Mode
+          </Typography>
           <ToggleButtonGroup
             value={mode}
             exclusive
@@ -371,47 +427,105 @@ function ConversionForm({
             aria-label="conversion mode"
             disabled={isConverting || disabled}
             fullWidth
-            sx={{ height: '56px' }}
+            sx={{
+              height: 48,
+              '& .MuiToggleButton-root': {
+                gap: 1,
+                fontSize: '0.9rem',
+              },
+            }}
           >
             <ToggleButton value="audio" aria-label="audio mode">
+              <MusicNoteIcon sx={{ fontSize: 20 }} />
               Audio
             </ToggleButton>
             <ToggleButton value="video" aria-label="video mode">
+              <MovieIcon sx={{ fontSize: 20 }} />
               Video
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
 
-        <Box sx={{ flex: 1 }}>
-          <FormControl fullWidth>
-            <InputLabel>Format</InputLabel>
+        {/* Format Select */}
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            {mode === 'audio' ? (
+              <MusicNoteIcon sx={{ fontSize: 16 }} />
+            ) : (
+              <MovieIcon sx={{ fontSize: 16 }} />
+            )}
+            Format
+          </Typography>
+          <FormControl fullWidth size="medium">
             <Select
               value={format}
-              label="Format"
               onChange={handleFormatChange}
               disabled={isConverting || disabled}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 300,
+                    '& .MuiMenuItem-root': {
+                      py: 1.5,
+                    },
+                  },
+                },
+              }}
             >
-              {(mode === 'audio' ? AUDIO_FORMATS : VIDEO_FORMATS).map((fmt) => (
+              {currentFormats.map((fmt) => (
                 <MenuItem key={fmt.value} value={fmt.value}>
-                  {fmt.label}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography fontWeight={500}>{fmt.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {fmt.description}
+                    </Typography>
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
         </Box>
 
-        <Box sx={{ flex: 1 }}>
-          <FormControl fullWidth>
-            <InputLabel>Quality</InputLabel>
+        {/* Quality Select */}
+        <Box>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}
+          >
+            <HighQualityIcon sx={{ fontSize: 16 }} />
+            Quality
+          </Typography>
+          <FormControl fullWidth size="medium">
             <Select
               value={quality}
-              label="Quality"
               onChange={handleQualityChange}
               disabled={isConverting || disabled}
+              renderValue={(value) => {
+                const opt = QUALITY_OPTIONS.find((q) => q.value === value);
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <span>{opt?.icon}</span>
+                    <Typography fontWeight={500}>{opt?.label}</Typography>
+                  </Box>
+                );
+              }}
             >
               {QUALITY_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <span style={{ fontSize: '1.2rem' }}>{opt.icon}</span>
+                    <Box>
+                      <Typography fontWeight={500}>{opt.label}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {opt.description}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
@@ -419,17 +533,53 @@ function ConversionForm({
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+      {/* Action Button */}
+      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
+        {/* Keyboard Shortcut Hint */}
+        {!isConverting && url.trim() && isValid && (
+          <Fade in>
+            <Chip
+              icon={<KeyboardReturnIcon sx={{ fontSize: 16 }} />}
+              label="Press Enter to convert"
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: alpha(colors.text.secondary, 0.3),
+                color: 'text.secondary',
+                '& .MuiChip-icon': { color: 'text.secondary' },
+              }}
+            />
+          </Fade>
+        )}
+
         {isConverting ? (
-          <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<StopIcon />}
+            onClick={onCancel}
+            size="large"
+            sx={{
+              minWidth: 140,
+              height: 48,
+              borderWidth: 2,
+              '&:hover': { borderWidth: 2 },
+            }}
+          >
             Cancel
           </Button>
         ) : (
           <Button
             type="submit"
             variant="contained"
-            startIcon={<SyncIcon />}
+            startIcon={<PlayArrowIcon />}
             disabled={!isValid || !url.trim() || disabled}
+            size="large"
+            sx={{
+              minWidth: 140,
+              height: 48,
+              fontSize: '1rem',
+            }}
           >
             Convert
           </Button>
