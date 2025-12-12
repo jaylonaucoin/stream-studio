@@ -22,6 +22,12 @@ import SettingsIcon from '@mui/icons-material/Settings';
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'flac', 'wav', 'aac', 'opus', 'vorbis', 'alac'];
 const VIDEO_FORMATS = ['mp4', 'mkv', 'webm', 'mov', 'avi'];
+const QUALITY_OPTIONS = [
+  { value: 'best', label: 'Best' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
 
 function SettingsDialog({ open, onClose }) {
   const [settings, setSettings] = useState({
@@ -30,6 +36,7 @@ function SettingsDialog({ open, onClose }) {
     defaultMode: 'audio',
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
+    defaultQuality: 'best',
   });
   const [loading, setLoading] = useState(true);
 
@@ -151,6 +158,21 @@ function SettingsDialog({ open, onClose }) {
                     {VIDEO_FORMATS.map((fmt) => (
                       <MenuItem key={fmt} value={fmt}>
                         {fmt.toUpperCase()}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>Quality</InputLabel>
+                  <Select
+                    value={settings.defaultQuality}
+                    label="Quality"
+                    onChange={(e) => handleChange('defaultQuality', e.target.value)}
+                  >
+                    {QUALITY_OPTIONS.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value}>
+                        {opt.label}
                       </MenuItem>
                     ))}
                   </Select>

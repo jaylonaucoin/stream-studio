@@ -61,7 +61,7 @@ const isValidUrl = (url) => {
   }
 };
 
-function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, onQueueComplete }) {
+function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete }) {
   const [urls, setUrls] = useState('');
   const [queue, setQueue] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -146,6 +146,7 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
           outputFolder,
           mode: defaultMode || 'audio',
           format: defaultFormat || 'mp3',
+          quality: defaultQuality || 'best',
         });
 
         if (result.success) {
@@ -173,7 +174,7 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, o
     if (onQueueComplete) {
       onQueueComplete();
     }
-  }, [queue, isProcessing, outputFolder, defaultMode, defaultFormat, onQueueComplete]);
+  }, [queue, isProcessing, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete]);
 
   const getStatusIcon = (status) => {
     switch (status) {

@@ -43,6 +43,7 @@ function App() {
     defaultMode: 'audio',
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
+    defaultQuality: 'best',
   });
 
   // Load output folder, settings, and history on mount
@@ -78,6 +79,7 @@ function App() {
             defaultMode: settings.defaultMode || 'audio',
             defaultAudioFormat: settings.defaultAudioFormat || 'mp3',
             defaultVideoFormat: settings.defaultVideoFormat || 'mp4',
+            defaultQuality: settings.defaultQuality || 'best',
           });
         } catch (err) {
           console.error('Failed to load settings:', err);
@@ -184,6 +186,7 @@ function App() {
           outputFolder,
           mode: options.mode || 'audio',
           format: options.format || 'mp3',
+          quality: options.quality || 'best',
         });
 
         if (result.success) {
@@ -310,6 +313,7 @@ function App() {
             defaultMode={defaultSettings.defaultMode}
             defaultAudioFormat={defaultSettings.defaultAudioFormat}
             defaultVideoFormat={defaultSettings.defaultVideoFormat}
+            defaultQuality={defaultSettings.defaultQuality}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -378,6 +382,7 @@ function App() {
               ? defaultSettings.defaultAudioFormat
               : defaultSettings.defaultVideoFormat
           }
+          defaultQuality={defaultSettings.defaultQuality}
           onQueueComplete={() => {
             // Refresh history count after batch processing
             if (window.api && window.api.getHistory) {
