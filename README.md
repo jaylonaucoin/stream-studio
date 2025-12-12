@@ -1,15 +1,77 @@
-# YouTube Media Converter
+# Media Converter
 
-A modern desktop application built with Electron and React that converts YouTube videos to audio (MP3, FLAC, WAV, etc.) or video (MP4, MKV, WebM, etc.) formats using yt-dlp and FFmpeg. For personal use only.
+A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. For personal use only.
+
+## Supported Sites
+
+This app uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) which supports **over 1000 websites** including:
+
+### Video Platforms
+- **YouTube** (youtube.com, youtu.be, YouTube Music, YouTube Shorts)
+- **Vimeo** (vimeo.com)
+- **Dailymotion** (dailymotion.com)
+- **Twitch** (twitch.tv - clips, VODs, highlights)
+- **Rumble** (rumble.com)
+- **BitChute** (bitchute.com)
+- **Odysee/LBRY** (odysee.com)
+- **PeerTube** (various instances)
+- **Streamable** (streamable.com)
+- **Bilibili** (bilibili.com)
+- **Niconico** (nicovideo.jp)
+
+### Social Media
+- **Twitter/X** (twitter.com, x.com)
+- **Facebook** (facebook.com, fb.watch)
+- **Instagram** (instagram.com - posts, reels, stories)
+- **TikTok** (tiktok.com)
+- **Reddit** (reddit.com - video posts)
+- **Pinterest** (pinterest.com)
+- **LinkedIn** (linkedin.com)
+- **Snapchat** (snapchat.com)
+- **Threads** (threads.net)
+
+### Audio Platforms
+- **SoundCloud** (soundcloud.com)
+- **Bandcamp** (bandcamp.com)
+- **Mixcloud** (mixcloud.com)
+- **Audiomack** (audiomack.com)
+
+### News & Media
+- **BBC** (bbc.co.uk)
+- **CNN** (cnn.com)
+- **NBC** (nbc.com)
+- **ABC News** (abcnews.go.com)
+- **CBS** (cbs.com)
+- **The Guardian** (theguardian.com)
+- **Washington Post** (washingtonpost.com)
+
+### Educational
+- **TED** (ted.com)
+- **Khan Academy** (khanacademy.org)
+- **Udemy** (udemy.com)
+- **Coursera** (coursera.org)
+
+### Other
+- **Flickr** (flickr.com)
+- **Imgur** (imgur.com)
+- **VK** (vk.com)
+- **Coub** (coub.com)
+- **Dropbox** (dropbox.com - shared videos)
+- **Google Drive** (drive.google.com - shared videos)
+- ...and many more!
+
+For a complete list of supported sites, see the [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 ## Features
 
-- **Audio & Video Downloads**: Convert YouTube videos to various audio or video formats
+- **Universal Video Downloads**: Convert videos from 1000+ websites
+- **Robust URL Handling**: Accepts URLs with or without `https://` prefix
 - **Multiple Format Support**:
   - Audio: MP3, M4A, FLAC, WAV, AAC, Opus, Vorbis, ALAC
   - Video: MP4, MKV, WebM, MOV, AVI, FLV, GIF
 - **Modern Dark UI**: Beautiful Material-UI interface with dark theme
 - **Real-time Progress**: Live conversion progress with detailed logs
+- **Batch Queue**: Process multiple URLs at once
 - **Conversion History**: Track all your past conversions
 - **System Notifications**: Get notified when conversions complete
 - **Drag & Drop Support**: Simply drag URLs into the app
@@ -21,12 +83,13 @@ A modern desktop application built with Electron and React that converts YouTube
 ## Screenshots
 
 The app features a sleek dark interface with red accents, providing:
-- Easy URL input with paste button
+- Easy URL input with paste button (accepts any video URL)
 - Mode toggle (Audio/Video)
 - Format selection dropdown
 - Progress indicator with percentage
 - Expandable conversion logs
 - Quick access to conversion history
+- Batch queue for multiple conversions
 
 ## Requirements
 
@@ -126,7 +189,7 @@ Built installers will be in the `dist/` folder.
 ## Project Structure
 
 ```
-youtube-media-converter/
+media-converter/
 ├── main.js                 # Electron main process
 ├── preload.js              # Preload script (contextBridge API)
 ├── index.html              # HTML entry point
@@ -152,6 +215,7 @@ youtube-media-converter/
 │   │   ├── LogViewer.jsx
 │   │   ├── OutputFolderSelector.jsx
 │   │   ├── ProgressIndicator.jsx
+│   │   ├── QueuePanel.jsx
 │   │   └── SettingsDialog.jsx
 │   └── styles/
 │       └── theme.js        # MUI theme configuration
@@ -162,12 +226,30 @@ youtube-media-converter/
 ## Usage
 
 1. Launch the application
-2. Paste a YouTube URL into the input field (or drag and drop)
+2. Paste any video URL into the input field (or drag and drop)
+   - YouTube, Vimeo, Twitter, TikTok, etc.
+   - URL protocol (`https://`) is optional - it will be added automatically
 3. Select mode: **Audio** or **Video**
 4. Choose your desired output format
 5. Click **Convert**
 6. Wait for conversion to complete
 7. Click **Open Location** to find your file
+
+### Batch Conversion
+
+1. Click the Queue icon in the top-right corner
+2. Paste multiple URLs (one per line)
+3. Click "Add to Queue"
+4. Click "Start" to process all URLs
+
+### URL Formats Accepted
+
+The app accepts URLs in various formats:
+- Full URL: `https://www.youtube.com/watch?v=VIDEO_ID`
+- Without www: `https://youtube.com/watch?v=VIDEO_ID`
+- Without protocol: `youtube.com/watch?v=VIDEO_ID`
+- Short URLs: `youtu.be/VIDEO_ID`
+- Mobile URLs: `m.youtube.com/watch?v=VIDEO_ID`
 
 ### Keyboard Shortcuts
 
@@ -209,9 +291,15 @@ Access conversion history via the clock icon in the top-right corner:
 
 ### Conversion Fails
 - Check your internet connection
-- Verify the YouTube URL is valid and accessible
+- Verify the URL is valid and accessible
 - Ensure you have write permissions to the output folder
-- Check that the video is not private or age-restricted
+- Check that the content is not private or age-restricted
+- Some sites may have DRM protection that prevents downloading
+
+### "Unsupported URL" Error
+- The site may not be supported by yt-dlp
+- Check the [supported sites list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+- The site's structure may have changed - try updating yt-dlp
 
 ### Permission Errors
 - Ensure you have write permissions to the output folder
@@ -221,10 +309,21 @@ Access conversion history via the clock icon in the top-right corner:
 - Delete `node_modules` and run `npm install` again
 - Check the console for error messages
 
+## Updating yt-dlp
+
+To get the latest site support and bug fixes, you can update yt-dlp:
+
+```bash
+# Re-download binaries
+npm run download-binaries
+```
+
+Or manually download the latest version from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
+
 ## License
 
 MIT
 
 ## Disclaimer
 
-This software is provided for personal use only. Users are responsible for ensuring their use of this software complies with YouTube's Terms of Service and applicable copyright laws.
+This software is provided for personal use only. Users are responsible for ensuring their use of this software complies with the Terms of Service of the websites they download from and applicable copyright laws. Do not use this software to download copyrighted content without permission.

@@ -71,12 +71,7 @@ function LogViewer({ logs, visible, onToggleVisibility, onClear }) {
             Conversion Logs
           </Typography>
           {logs.length > 0 && (
-            <Chip
-              label={logs.length}
-              size="small"
-              color="primary"
-              sx={{ mr: 1 }}
-            />
+            <Chip label={logs.length} size="small" color="primary" sx={{ mr: 1 }} />
           )}
           <IconButton
             size="small"
@@ -155,4 +150,3 @@ function LogViewer({ logs, visible, onToggleVisibility, onClear }) {
 }
 
 export default LogViewer;
-

@@ -1,7 +1,7 @@
 {
-  "name": "youtube-media-converter",
-  "version": "1.1.0",
-  "description": "A desktop app to download and convert YouTube videos to audio (MP3, FLAC, etc) or video (MP4, MKV, etc) using yt-dlp and ffmpeg",
+  "name": "media-converter",
+  "version": "1.2.0",
+  "description": "A desktop app to download and convert online videos/audio from 1000+ sites (YouTube, Vimeo, TikTok, Twitter, etc.) to various formats using yt-dlp and ffmpeg",
   "main": "main.js",
   "author": "",
   "license": "MIT",
@@ -43,8 +43,8 @@
     "react-dom": "^18.3.1"
   },
   "build": {
-    "appId": "com.youtube-media-converter.app",
-    "productName": "YouTube Media Converter",
+    "appId": "com.media-converter.app",
+    "productName": "Media Converter",
     "copyright": "Copyright © 2025",
     "directories": {
       "output": "dist",
@@ -120,7 +120,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "YouTube Media Converter"
+      "shortcutName": "Media Converter"
     },
     "dmg": {
       "title": "${productName} ${version}",

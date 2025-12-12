@@ -1,18 +1,15 @@
-import {
-  Box,
-  LinearProgress,
-  Typography,
-  Paper,
-  Button,
-  Chip,
-  Fade,
-  Zoom,
-} from '@mui/material';
+import { Box, LinearProgress, Typography, Paper, Button, Chip, Fade, Zoom } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
-function ProgressIndicator({ progress, statusMessage, state, lastConvertedFile, onOpenFileLocation }) {
+function ProgressIndicator({
+  progress,
+  statusMessage,
+  state,
+  lastConvertedFile,
+  onOpenFileLocation,
+}) {
   const isActive = state === 'converting' || state === 'completed';
   const isCompleted = state === 'completed';
   const isError = state === 'error';
@@ -34,21 +31,9 @@ function ProgressIndicator({ progress, statusMessage, state, lastConvertedFile, 
                 {statusMessage}
               </Typography>
               {isCompleted && (
-                <Chip
-                  icon={<CheckCircleIcon />}
-                  label="Success"
-                  color="success"
-                  size="small"
-                />
+                <Chip icon={<CheckCircleIcon />} label="Success" color="success" size="small" />
               )}
-              {isError && (
-                <Chip
-                  icon={<ErrorIcon />}
-                  label="Error"
-                  color="error"
-                  size="small"
-                />
-              )}
+              {isError && <Chip icon={<ErrorIcon />} label="Error" color="error" size="small" />}
             </Box>
 
             {state === 'converting' && (
@@ -126,4 +111,3 @@ function ProgressIndicator({ progress, statusMessage, state, lastConvertedFile, 
 }
 
 export default ProgressIndicator;
-

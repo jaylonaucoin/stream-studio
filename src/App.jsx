@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { Box, Container, AppBar, Toolbar, Typography, IconButton, Tooltip, Badge, Chip } from '@mui/material';
+import {
+  Box,
+  Container,
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Tooltip,
+  Badge,
+  Chip,
+} from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
 import QueueIcon from '@mui/icons-material/Queue';
@@ -114,14 +124,20 @@ function App() {
           setStatusMessage(`Converting... ${data.percent.toFixed(1)}%`);
         }
         if (data.message) {
-          setLogs((prev) => [...prev, { type: 'progress', message: data.message, timestamp: Date.now() }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'progress', message: data.message, timestamp: Date.now() },
+          ]);
         }
         break;
 
       case 'status':
       case 'info':
         if (data.message) {
-          setLogs((prev) => [...prev, { type: 'info', message: data.message, timestamp: Date.now() }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'info', message: data.message, timestamp: Date.now() },
+          ]);
         }
         break;
 
@@ -130,7 +146,10 @@ function App() {
         setConversionState('idle');
         setProgress(0);
         if (data.message) {
-          setLogs((prev) => [...prev, { type: 'error', message: data.message, timestamp: Date.now() }]);
+          setLogs((prev) => [
+            ...prev,
+            { type: 'error', message: data.message, timestamp: Date.now() },
+          ]);
         }
         break;
     }
@@ -149,42 +168,55 @@ function App() {
     };
   }, [handleProgress]);
 
-  const handleConvert = useCallback(async (url, options = {}) => {
-    if (!url || conversionState === 'converting') return;
+  const handleConvert = useCallback(
+    async (url, options = {}) => {
+      if (!url || conversionState === 'converting') return;
 
-    setConversionState('converting');
-    setProgress(0);
-    setStatusMessage('Starting conversion...');
-    setLogs([]);
-    setError(null);
-    setLastConvertedFile(null);
+      setConversionState('converting');
+      setProgress(0);
+      setStatusMessage('Starting conversion...');
+      setLogs([]);
+      setError(null);
+      setLastConvertedFile(null);
 
-    try {
-      const result = await window.api.convert(url, { 
-        outputFolder,
-        mode: options.mode || 'audio',
-        format: options.format || 'mp3'
-      });
-      
-      if (result.success) {
-        setProgress(100);
-        setStatusMessage('Conversion complete!');
-        setConversionState('completed');
-        setLastConvertedFile(result);
-        setLogs((prev) => [...prev, { type: 'success', message: '✓ Conversion completed successfully', timestamp: Date.now() }]);
-        // Update history count
-        setHistoryCount(prev => prev + 1);
+      try {
+        const result = await window.api.convert(url, {
+          outputFolder,
+          mode: options.mode || 'audio',
+          format: options.format || 'mp3',
+        });
+
+        if (result.success) {
+          setProgress(100);
+          setStatusMessage('Conversion complete!');
+          setConversionState('completed');
+          setLastConvertedFile(result);
+          setLogs((prev) => [
+            ...prev,
+            {
+              type: 'success',
+              message: '✓ Conversion completed successfully',
+              timestamp: Date.now(),
+            },
+          ]);
+          // Update history count
+          setHistoryCount((prev) => prev + 1);
+        }
+      } catch (error) {
+        setConversionState('error');
+        setStatusMessage('Conversion failed');
+        setError({
+          title: 'Conversion Failed',
+          message: error.message || 'An error occurred during conversion',
+        });
+        setLogs((prev) => [
+          ...prev,
+          { type: 'error', message: `✗ Error: ${error.message}`, timestamp: Date.now() },
+        ]);
       }
-    } catch (error) {
-      setConversionState('error');
-      setStatusMessage('Conversion failed');
-      setError({
-        title: 'Conversion Failed',
-        message: error.message || 'An error occurred during conversion',
-      });
-      setLogs((prev) => [...prev, { type: 'error', message: `✗ Error: ${error.message}`, timestamp: Date.now() }]);
-    }
-  }, [outputFolder, conversionState]);
+    },
+    [outputFolder, conversionState]
+  );
 
   const handleCancel = useCallback(async () => {
     if (conversionState !== 'converting') return;
@@ -239,7 +271,7 @@ function App() {
         <AppBar position="static" elevation={1}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              YouTube Media Converter
+              Media Converter
             </Typography>
             {appVersion && (
               <Chip
@@ -250,30 +282,19 @@ function App() {
               />
             )}
             <Tooltip title="Batch Queue">
-              <IconButton
-                color="inherit"
-                onClick={() => setQueueOpen(true)}
-                sx={{ mr: 1 }}
-              >
+              <IconButton color="inherit" onClick={() => setQueueOpen(true)} sx={{ mr: 1 }}>
                 <QueueIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Conversion History">
-              <IconButton
-                color="inherit"
-                onClick={() => setHistoryOpen(true)}
-                sx={{ mr: 1 }}
-              >
+              <IconButton color="inherit" onClick={() => setHistoryOpen(true)} sx={{ mr: 1 }}>
                 <Badge badgeContent={historyCount} color="error" max={99}>
                   <HistoryIcon />
                 </Badge>
               </IconButton>
             </Tooltip>
             <Tooltip title="Settings">
-              <IconButton
-                color="inherit"
-                onClick={() => setSettingsOpen(true)}
-              >
+              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
                 <SettingsIcon />
               </IconButton>
             </Tooltip>
@@ -322,10 +343,7 @@ function App() {
             borderColor: 'divider',
           }}
         >
-          <OutputFolderSelector
-            folder={outputFolder}
-            onChange={handleOutputFolderChange}
-          />
+          <OutputFolderSelector folder={outputFolder} onChange={handleOutputFolderChange} />
         </Box>
 
         <ErrorDialog
@@ -335,10 +353,7 @@ function App() {
           message={error?.message || ''}
         />
 
-        <SettingsDialog
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-        />
+        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
         <HistoryPanel
           open={historyOpen}
@@ -346,7 +361,7 @@ function App() {
             setHistoryOpen(false);
             // Refresh history count
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then(history => {
+              window.api.getHistory().then((history) => {
                 setHistoryCount(history?.length || 0);
               });
             }
@@ -358,11 +373,15 @@ function App() {
           onClose={() => setQueueOpen(false)}
           outputFolder={outputFolder}
           defaultMode={defaultSettings.defaultMode}
-          defaultFormat={defaultSettings.defaultMode === 'audio' ? defaultSettings.defaultAudioFormat : defaultSettings.defaultVideoFormat}
+          defaultFormat={
+            defaultSettings.defaultMode === 'audio'
+              ? defaultSettings.defaultAudioFormat
+              : defaultSettings.defaultVideoFormat
+          }
           onQueueComplete={() => {
             // Refresh history count after batch processing
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then(history => {
+              window.api.getHistory().then((history) => {
                 setHistoryCount(history?.length || 0);
               });
             }
@@ -374,4 +393,3 @@ function App() {
 }
 
 export default App;
-

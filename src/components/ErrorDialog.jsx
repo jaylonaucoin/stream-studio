@@ -67,7 +67,11 @@ function ErrorDialog({ open, onClose, title, message }) {
                   overflow: 'auto',
                 }}
               >
-                <Typography variant="body2" component="pre" sx={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                <Typography
+                  variant="body2"
+                  component="pre"
+                  sx={{ margin: 0, whiteSpace: 'pre-wrap' }}
+                >
                   {message}
                 </Typography>
               </Box>
@@ -85,4 +89,3 @@ function ErrorDialog({ open, onClose, title, message }) {
 }
 
 export default ErrorDialog;
-

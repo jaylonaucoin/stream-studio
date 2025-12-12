@@ -387,20 +387,66 @@ function getUniqueFilename(filePath) {
   return newPath;
 }
 
-// Sanitize URL input
+// Normalize URL - add protocol if missing
+function normalizeUrl(url) {
+  let normalized = url.trim();
+  
+  // Remove any leading/trailing whitespace and newlines
+  normalized = normalized.replace(/[\r\n]/g, '').trim();
+  
+  // If URL doesn't have a protocol, add https://
+  if (normalized && !normalized.match(/^https?:\/\//i)) {
+    // Check if it looks like a domain (has a dot and no spaces)
+    if (normalized.includes('.') && !normalized.includes(' ')) {
+      normalized = 'https://' + normalized;
+    }
+  }
+  
+  return normalized;
+}
+
+// Sanitize and validate URL input
 function sanitizeUrl(url) {
-  // Remove any shell metacharacters and validate it's a URL
+  // Validate input type
   if (typeof url !== 'string') {
     throw new Error('Invalid URL type');
   }
   
-  const trimmed = url.trim();
-  // Basic URL validation - should start with http:// or https://
-  if (!/^https?:\/\//.test(trimmed)) {
+  // Normalize the URL (add protocol if missing)
+  const normalized = normalizeUrl(url);
+  
+  // Basic URL validation
+  if (!normalized || normalized.length === 0) {
+    throw new Error('URL cannot be empty');
+  }
+  
+  // Ensure it starts with http:// or https://
+  if (!/^https?:\/\//i.test(normalized)) {
     throw new Error('URL must start with http:// or https://');
   }
   
-  return trimmed;
+  // Validate URL structure
+  try {
+    const urlObj = new URL(normalized);
+    
+    // Must have a valid hostname with at least one dot
+    if (!urlObj.hostname || !urlObj.hostname.includes('.')) {
+      throw new Error('Invalid URL format');
+    }
+    
+    // Block obviously invalid hostnames
+    if (urlObj.hostname.length < 4) {
+      throw new Error('Invalid URL hostname');
+    }
+    
+  } catch (e) {
+    if (e.message.includes('Invalid URL')) {
+      throw e;
+    }
+    throw new Error('Invalid URL format');
+  }
+  
+  return normalized;
 }
 
 // Convert handler
