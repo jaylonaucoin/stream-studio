@@ -303,7 +303,10 @@ function ConversionForm({
         border: isDragging ? 2 : 1,
         borderColor: isDragging ? 'primary.main' : 'divider',
         borderStyle: 'dashed',
-        transition: 'all 0.2s',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          borderColor: isDragging ? 'primary.main' : 'action.hover',
+        },
       }}
     >
       {disabled && (
@@ -314,8 +317,8 @@ function ConversionForm({
 
       <TextField
         fullWidth
-        label="Video URL"
-        placeholder="Paste any video URL (YouTube, Vimeo, TikTok, Twitter, etc.)"
+        label="Video or Audio URL"
+        placeholder="Paste any video or audio URL (YouTube, Vimeo, TikTok, Twitter, SoundCloud, etc.)"
         value={url}
         onChange={handleUrlChange}
         onKeyDown={handleKeyPress}
@@ -330,18 +333,21 @@ function ConversionForm({
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
-              <Tooltip title="Paste from clipboard">
+              <Tooltip title="Paste from clipboard (Ctrl+V)">
                 <IconButton
                   onClick={handlePaste}
                   edge="center"
                   disabled={isConverting || disabled}
-                  aria-label="paste"
+                  aria-label="Paste URL from clipboard"
                 >
                   <ContentPasteIcon />
                 </IconButton>
               </Tooltip>
             </InputAdornment>
           ),
+        }}
+        inputProps={{
+          'aria-label': 'Video or audio URL input',
         }}
         sx={{ mb: 2 }}
       />
@@ -368,15 +374,15 @@ function ConversionForm({
             value={mode}
             exclusive
             onChange={handleModeChange}
-            aria-label="conversion mode"
+            aria-label="Conversion mode selection"
             disabled={isConverting || disabled}
             fullWidth
             sx={{ height: '56px' }}
           >
-            <ToggleButton value="audio" aria-label="audio mode">
+            <ToggleButton value="audio" aria-label="Audio mode">
               Audio
             </ToggleButton>
-            <ToggleButton value="video" aria-label="video mode">
+            <ToggleButton value="video" aria-label="Video mode">
               Video
             </ToggleButton>
           </ToggleButtonGroup>
@@ -384,12 +390,14 @@ function ConversionForm({
 
         <Box sx={{ flex: 1 }}>
           <FormControl fullWidth>
-            <InputLabel>Format</InputLabel>
+            <InputLabel id="format-select-label">Format</InputLabel>
             <Select
               value={format}
               label="Format"
+              labelId="format-select-label"
               onChange={handleFormatChange}
               disabled={isConverting || disabled}
+              aria-label="Output format selection"
             >
               {(mode === 'audio' ? AUDIO_FORMATS : VIDEO_FORMATS).map((fmt) => (
                 <MenuItem key={fmt.value} value={fmt.value}>
@@ -402,12 +410,14 @@ function ConversionForm({
 
         <Box sx={{ flex: 1 }}>
           <FormControl fullWidth>
-            <InputLabel>Quality</InputLabel>
+            <InputLabel id="quality-select-label">Quality</InputLabel>
             <Select
               value={quality}
               label="Quality"
+              labelId="quality-select-label"
               onChange={handleQualityChange}
               disabled={isConverting || disabled}
+              aria-label="Quality selection"
             >
               {QUALITY_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>

@@ -14,6 +14,7 @@ import {
   Divider,
   LinearProgress,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import QueueIcon from '@mui/icons-material/Queue';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -24,6 +25,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ReplayIcon from '@mui/icons-material/Replay';
 
 // Normalize URL - add protocol if missing
 const normalizeUrl = (url) => {
@@ -106,6 +108,20 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
     if (window.api && window.api.cancel) {
       window.api.cancel();
     }
+  }, []);
+
+  const handleRetryItem = useCallback((id) => {
+    setQueue((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: 'pending', error: null } : item))
+    );
+  }, []);
+
+  const handleRetryAllFailed = useCallback(() => {
+    setQueue((prev) =>
+      prev.map((item) =>
+        item.status === 'error' ? { ...item, status: 'pending', error: null } : item
+      )
+    );
   }, []);
 
   // Process queue items one by one
@@ -220,9 +236,16 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <QueueIcon />
             <Typography variant="h6">Batch Queue</Typography>
-            {queue.length > 0 && <Chip label={queue.length} size="small" color="primary" />}
+            {queue.length > 0 && (
+              <Chip
+                label={queue.length}
+                size="small"
+                color="primary"
+                aria-label={`${queue.length} items in queue`}
+              />
+            )}
           </Box>
-          <IconButton onClick={onClose} disabled={isProcessing}>
+          <IconButton onClick={onClose} disabled={isProcessing} aria-label="Close queue panel">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -284,6 +307,16 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
                 Stop
               </Button>
             )}
+            {errorCount > 0 && !isProcessing && (
+              <Button
+                startIcon={<ReplayIcon />}
+                size="small"
+                onClick={handleRetryAllFailed}
+                color="warning"
+              >
+                Retry Failed ({errorCount})
+              </Button>
+            )}
             {(completedCount > 0 || errorCount > 0) && !isProcessing && (
               <Button startIcon={<ClearIcon />} size="small" onClick={handleClearCompleted}>
                 Clear Done
@@ -304,27 +337,56 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
 
         <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
           {queue.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <QueueIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-              <Typography color="text.secondary">Queue is empty</Typography>
-              <Typography variant="body2" color="text.disabled">
-                Add URLs above to batch convert
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <QueueIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Queue is empty
+              </Typography>
+              <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
+                Paste multiple URLs above and click "Add to Queue" to batch convert multiple files
               </Typography>
             </Box>
           ) : (
             <List dense>
               {queue.map((item, index) => (
-                <Paper key={item.id} elevation={1} sx={{ mb: 1, bgcolor: 'background.paper' }}>
+                <Paper
+                  key={item.id}
+                  elevation={1}
+                  sx={{
+                    mb: 1,
+                    bgcolor: 'background.paper',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      elevation: 2,
+                    },
+                  }}
+                >
                   <ListItem
                     secondaryAction={
                       item.status !== 'processing' && !isProcessing ? (
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          onClick={() => handleRemoveItem(item.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {item.status === 'error' && (
+                            <Tooltip title="Retry">
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => handleRetryItem(item.id)}
+                                color="warning"
+                              >
+                                <ReplayIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Remove">
+                            <IconButton
+                              edge="end"
+                              size="small"
+                              onClick={() => handleRemoveItem(item.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       ) : null
                     }
                   >

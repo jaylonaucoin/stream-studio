@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -11,6 +11,8 @@ import {
   Button,
   Drawer,
   Divider,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -20,9 +22,12 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import VideoFileIcon from '@mui/icons-material/VideoFile';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 
 function HistoryPanel({ open, onClose }) {
   const [history, setHistory] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadHistory = useCallback(async () => {
     if (window.api && window.api.getHistory) {
@@ -108,6 +113,19 @@ function HistoryPanel({ open, onClose }) {
     return date.toLocaleDateString();
   };
 
+  // Filter history based on search query
+  const filteredHistory = useMemo(() => {
+    if (!searchQuery.trim()) return history;
+    
+    const query = searchQuery.toLowerCase();
+    return history.filter((item) => {
+      const fileName = item.fileName?.toLowerCase() || '';
+      const url = item.url?.toLowerCase() || '';
+      const format = item.format?.toLowerCase() || '';
+      return fileName.includes(query) || url.includes(query) || format.includes(query);
+    });
+  }, [history, searchQuery]);
+
   return (
     <Drawer
       anchor="right"
@@ -122,9 +140,16 @@ function HistoryPanel({ open, onClose }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <HistoryIcon />
             <Typography variant="h6">Conversion History</Typography>
-            {history.length > 0 && <Chip label={history.length} size="small" color="primary" />}
+            {history.length > 0 && (
+              <Chip 
+                label={history.length} 
+                size="small" 
+                color="primary"
+                title={`${history.length} item${history.length !== 1 ? 's' : ''} in history`}
+              />
+            )}
           </Box>
-          <IconButton onClick={onClose}>
+          <IconButton onClick={onClose} aria-label="Close history panel">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -141,20 +166,73 @@ function HistoryPanel({ open, onClose }) {
           </Button>
         )}
 
+        {history.length > 0 && (
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search history..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery('')}
+                    edge="end"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            sx={{ mb: 2 }}
+          />
+        )}
+
         <Divider sx={{ mb: 2 }} />
 
         {history.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <HistoryIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography color="text.secondary">No conversion history yet</Typography>
-            <Typography variant="body2" color="text.disabled">
-              Your converted files will appear here
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <HistoryIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No conversion history yet
+            </Typography>
+            <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
+              Your converted files will appear here for easy access and management
+            </Typography>
+          </Box>
+        ) : filteredHistory.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <SearchIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No results found
+            </Typography>
+            <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
+              Try a different search term or clear the search to see all items
             </Typography>
           </Box>
         ) : (
           <List sx={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}>
-            {history.map((item) => (
-              <Paper key={item.id} elevation={1} sx={{ mb: 1, bgcolor: 'background.paper' }}>
+            {filteredHistory.map((item) => (
+              <Paper
+                key={item.id}
+                elevation={1}
+                sx={{
+                  mb: 1,
+                  bgcolor: 'background.paper',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    elevation: 2,
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
                 <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mb: 1 }}>
                     {item.mode === 'audio' ? (
@@ -169,17 +247,25 @@ function HistoryPanel({ open, onClose }) {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        fontWeight: 500,
                       }}
+                      title={item.fileName}
                     >
                       {item.fileName}
                     </Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
                     <Chip
                       label={item.format?.toUpperCase() || 'Unknown'}
                       size="small"
                       variant="outlined"
+                    />
+                    <Chip
+                      label={item.mode === 'audio' ? 'Audio' : 'Video'}
+                      size="small"
+                      variant="outlined"
+                      color={item.mode === 'audio' ? 'primary' : 'secondary'}
                     />
                     <Chip
                       label={formatDate(item.timestamp)}

@@ -23,6 +23,7 @@ import OutputFolderSelector from './components/OutputFolderSelector';
 import SettingsDialog from './components/SettingsDialog';
 import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
+import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
@@ -39,12 +40,42 @@ function App() {
   const [queueOpen, setQueueOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0);
   const [appVersion, setAppVersion] = useState('');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [defaultSettings, setDefaultSettings] = useState({
     defaultMode: 'audio',
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
     defaultQuality: 'best',
   });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+K or Cmd+K to open shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+      // Ctrl+H or Cmd+H to open history
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setHistoryOpen(true);
+      }
+      // Ctrl+Q or Cmd+Q to open queue
+      if ((e.ctrlKey || e.metaKey) && e.key === 'q') {
+        e.preventDefault();
+        setQueueOpen(true);
+      }
+      // Ctrl+, or Cmd+, to open settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Load output folder, settings, and history on mount
   useEffect(() => {
@@ -284,20 +315,34 @@ function App() {
                 sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
               />
             )}
-            <Tooltip title="Batch Queue">
-              <IconButton color="inherit" onClick={() => setQueueOpen(true)} sx={{ mr: 1 }}>
+            <Tooltip title="Batch Queue (Ctrl+Q)">
+              <IconButton
+                color="inherit"
+                onClick={() => setQueueOpen(true)}
+                sx={{ mr: 1 }}
+                aria-label="Open batch queue"
+              >
                 <QueueIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Conversion History">
-              <IconButton color="inherit" onClick={() => setHistoryOpen(true)} sx={{ mr: 1 }}>
+            <Tooltip title={`Conversion History (Ctrl+H) - ${historyCount} items`}>
+              <IconButton
+                color="inherit"
+                onClick={() => setHistoryOpen(true)}
+                sx={{ mr: 1 }}
+                aria-label={`Open conversion history, ${historyCount} items`}
+              >
                 <Badge badgeContent={historyCount} color="error" max={99}>
                   <HistoryIcon />
                 </Badge>
               </IconButton>
             </Tooltip>
-            <Tooltip title="Settings">
-              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
+            <Tooltip title="Settings (Ctrl+,)">
+              <IconButton
+                color="inherit"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Open settings"
+              >
                 <SettingsIcon />
               </IconButton>
             </Tooltip>
@@ -392,6 +437,8 @@ function App() {
             }
           }}
         />
+
+        <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </Box>
     </ThemeProvider>
   );

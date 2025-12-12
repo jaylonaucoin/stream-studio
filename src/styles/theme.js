@@ -62,6 +62,7 @@ const theme = createTheme({
         root: {
           textTransform: 'none',
           fontWeight: 500,
+          transition: 'all 0.2s ease-in-out',
         },
       },
     },
@@ -70,6 +71,7 @@ const theme = createTheme({
         root: {
           boxShadow: '0 2px 8px rgba(220, 38, 38, 0.2)',
           backgroundColor: '#242424',
+          transition: 'all 0.2s ease-in-out',
         },
       },
     },

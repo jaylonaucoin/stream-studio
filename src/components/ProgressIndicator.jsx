@@ -21,6 +21,7 @@ function ProgressIndicator({
         p: 3,
         borderRadius: 2,
         bgcolor: 'background.paper',
+        transition: 'all 0.2s ease-in-out',
       }}
     >
       {isActive && (
@@ -37,15 +38,23 @@ function ProgressIndicator({
             </Box>
 
             {state === 'converting' && (
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{
-                  height: 8,
-                  borderRadius: 4,
-                  mb: 1,
-                }}
-              />
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={progress}
+                    sx={{
+                      flexGrow: 1,
+                      height: 8,
+                      borderRadius: 4,
+                      mr: 2,
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 50, textAlign: 'right' }}>
+                    {progress.toFixed(0)}%
+                  </Typography>
+                </Box>
+              </Box>
             )}
 
             {isCompleted && (
@@ -66,11 +75,11 @@ function ProgressIndicator({
             )}
 
             {lastConvertedFile && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
                   File saved:
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                   <Typography
                     variant="body2"
                     sx={{
@@ -80,7 +89,9 @@ function ProgressIndicator({
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      minWidth: 0,
                     }}
+                    title={lastConvertedFile.fileName}
                   >
                     {lastConvertedFile.fileName}
                   </Typography>
@@ -102,7 +113,7 @@ function ProgressIndicator({
       {!isActive && state === 'idle' && (
         <Box sx={{ textAlign: 'center', py: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Enter a YouTube URL above to start conversion
+            Enter a video URL above to start conversion
           </Typography>
         </Box>
       )}

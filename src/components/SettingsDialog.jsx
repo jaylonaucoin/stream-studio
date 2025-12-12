@@ -87,7 +87,7 @@ function SettingsDialog({ open, onClose }) {
             <SettingsIcon />
             <Typography variant="h6">Settings</Typography>
           </Box>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" aria-label="Close settings">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -98,7 +98,7 @@ function SettingsDialog({ open, onClose }) {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Notifications */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
                 Notifications
               </Typography>
               <FormControlLabel
@@ -106,6 +106,7 @@ function SettingsDialog({ open, onClose }) {
                   <Switch
                     checked={settings.notificationsEnabled}
                     onChange={(e) => handleChange('notificationsEnabled', e.target.checked)}
+                    aria-label="Enable notifications"
                   />
                 }
                 label="Show notification when conversion completes"
@@ -116,8 +117,11 @@ function SettingsDialog({ open, onClose }) {
 
             {/* Default Formats */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Default Formats
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+                Default Conversion Settings
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                These settings will be used as defaults for new conversions
               </Typography>
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
@@ -184,11 +188,11 @@ function SettingsDialog({ open, onClose }) {
 
             {/* History */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
                 History
               </Typography>
               <Typography variant="body2" gutterBottom>
-                Maximum history items: {settings.maxHistoryItems}
+                Maximum history items: <strong>{settings.maxHistoryItems}</strong>
               </Typography>
               <Slider
                 value={settings.maxHistoryItems}
@@ -208,8 +212,11 @@ function SettingsDialog({ open, onClose }) {
             {/* Keyboard Shortcuts Info */}
             <Divider />
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
                 Keyboard Shortcuts
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Press <strong>Ctrl+K</strong> (or <strong>⌘K</strong> on Mac) to view all keyboard shortcuts.
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <Typography variant="body2">
@@ -219,7 +226,7 @@ function SettingsDialog({ open, onClose }) {
                   <strong>Escape</strong> — Cancel conversion
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Ctrl+V</strong> — Paste URL from clipboard
+                  <strong>Ctrl+V</strong> / <strong>⌘V</strong> — Paste URL from clipboard
                 </Typography>
               </Box>
             </Box>
