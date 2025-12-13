@@ -29,6 +29,9 @@ function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
+  const [progressSpeed, setProgressSpeed] = useState(null);
+  const [progressEta, setProgressEta] = useState(null);
+  const [progressSize, setProgressSize] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsVisible, setLogsVisible] = useState(false);
   const [error, setError] = useState(null);
@@ -154,7 +157,20 @@ function App() {
       case 'progress':
         if (data.percent !== undefined) {
           setProgress(data.percent);
-          setStatusMessage(`Converting... ${data.percent.toFixed(1)}%`);
+          // Build status message with additional info
+          let message = `Converting... ${data.percent.toFixed(1)}%`;
+          if (data.speed) {
+            message += ` @ ${data.speed}`;
+          }
+          if (data.eta) {
+            message += ` (ETA: ${data.eta})`;
+          }
+          setStatusMessage(message);
+          
+          // Update progress details
+          setProgressSpeed(data.speed || null);
+          setProgressEta(data.eta || null);
+          setProgressSize(data.size || null);
         }
         if (data.message) {
           setLogs((prev) => [
@@ -178,6 +194,9 @@ function App() {
         setStatusMessage('Cancelled');
         setConversionState('idle');
         setProgress(0);
+        setProgressSpeed(null);
+        setProgressEta(null);
+        setProgressSize(null);
         if (data.message) {
           setLogs((prev) => [
             ...prev,
@@ -208,6 +227,9 @@ function App() {
       setConversionState('converting');
       setProgress(0);
       setStatusMessage('Starting conversion...');
+      setProgressSpeed(null);
+      setProgressEta(null);
+      setProgressSize(null);
       setLogs([]);
       setError(null);
       setLastConvertedFile(null);
@@ -368,6 +390,9 @@ function App() {
               state={conversionState}
               lastConvertedFile={lastConvertedFile}
               onOpenFileLocation={handleOpenFileLocation}
+              progressSpeed={progressSpeed}
+              progressEta={progressEta}
+              progressSize={progressSize}
             />
           </Box>
 

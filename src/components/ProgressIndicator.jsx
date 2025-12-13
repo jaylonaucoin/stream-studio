@@ -9,6 +9,9 @@ function ProgressIndicator({
   state,
   lastConvertedFile,
   onOpenFileLocation,
+  progressSpeed,
+  progressEta,
+  progressSize,
 }) {
   const isActive = state === 'converting' || state === 'completed';
   const isCompleted = state === 'completed';
@@ -54,6 +57,35 @@ function ProgressIndicator({
                     {progress.toFixed(0)}%
                   </Typography>
                 </Box>
+                {(progressSpeed || progressEta || progressSize) && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      mt: 1,
+                      pt: 1,
+                      borderTop: 1,
+                      borderColor: 'divider',
+                    }}
+                  >
+                    {progressSpeed && (
+                      <Typography variant="caption" color="text.secondary">
+                        Speed: {progressSpeed}
+                      </Typography>
+                    )}
+                    {progressEta && (
+                      <Typography variant="caption" color="text.secondary">
+                        ETA: {progressEta}
+                      </Typography>
+                    )}
+                    {progressSize && (
+                      <Typography variant="caption" color="text.secondary">
+                        Size: {progressSize}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
               </Box>
             )}
 

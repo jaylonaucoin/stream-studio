@@ -13,10 +13,17 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Paper,
+  Typography,
+  Skeleton,
+  Chip,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
 import CancelIcon from '@mui/icons-material/Cancel';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PersonIcon from '@mui/icons-material/Person';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },
@@ -158,6 +165,12 @@ function ConversionForm({
     defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat
   );
   const [quality, setQuality] = useState(defaultQuality);
+  
+  // Preview state
+  const [videoInfo, setVideoInfo] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const previewTimeoutRef = useRef(null);
 
   // Update mode/format/quality when defaults change
   useEffect(() => {
@@ -168,6 +181,60 @@ function ConversionForm({
   useEffect(() => {
     setQuality(defaultQuality);
   }, [defaultQuality]);
+
+  // Fetch video preview when URL changes (debounced)
+  useEffect(() => {
+    // Clear previous timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+    }
+    
+    // Reset preview state
+    setVideoInfo(null);
+    setPreviewError(null);
+    setLoadingPreview(false);
+    
+    // Validate URL first
+    const trimmed = url.trim();
+    if (!trimmed) {
+      return;
+    }
+    
+    const validation = isValidUrl(trimmed);
+    if (!validation.valid) {
+      return;
+    }
+    
+    // Debounce preview fetch (500ms)
+    setLoadingPreview(true);
+    previewTimeoutRef.current = setTimeout(async () => {
+      try {
+        const normalizedUrl = normalizeUrl(trimmed);
+        if (window.api && window.api.getVideoInfo) {
+          const info = await window.api.getVideoInfo(normalizedUrl);
+          if (info.success) {
+            setVideoInfo(info);
+            setPreviewError(null);
+          } else {
+            setPreviewError('Failed to load video preview');
+            setVideoInfo(null);
+          }
+        }
+      } catch (error) {
+        console.error('Preview fetch error:', error);
+        setPreviewError(error.message || 'Failed to load video preview');
+        setVideoInfo(null);
+      } finally {
+        setLoadingPreview(false);
+      }
+    }, 500);
+    
+    return () => {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+    };
+  }, [url]);
 
   const validateUrl = useCallback((urlToValidate) => {
     const trimmed = urlToValidate.trim();
@@ -351,6 +418,105 @@ function ConversionForm({
         }}
         sx={{ mb: 2 }}
       />
+
+      {/* Video Preview */}
+      {loadingPreview && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Skeleton variant="rectangular" width={160} height={90} sx={{ borderRadius: 1 }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="60%" height={20} />
+              <Skeleton variant="text" width="40%" height={20} sx={{ mt: 1 }} />
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {videoInfo && !loadingPreview && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+            {videoInfo.thumbnail && (
+              <Box
+                component="img"
+                src={videoInfo.thumbnail}
+                alt={videoInfo.title}
+                sx={{
+                  width: { xs: '100%', sm: 160 },
+                  height: { xs: 'auto', sm: 90 },
+                  objectFit: 'cover',
+                  borderRadius: 1,
+                  flexShrink: 0,
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                <PlayArrowIcon sx={{ color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}
+                >
+                  {videoInfo.title}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
+                {videoInfo.durationFormatted && (
+                  <Chip
+                    icon={<AccessTimeIcon />}
+                    label={videoInfo.durationFormatted}
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
+                {videoInfo.uploader && (
+                  <Chip
+                    icon={<PersonIcon />}
+                    label={videoInfo.uploader}
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {previewError && !loadingPreview && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {previewError}
+        </Alert>
+      )}
 
       <Box
         sx={{
