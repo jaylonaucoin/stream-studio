@@ -12,6 +12,7 @@ function ProgressIndicator({
   progressSpeed,
   progressEta,
   progressSize,
+  playlistInfo,
 }) {
   const isActive = state === 'converting' || state === 'completed';
   const isCompleted = state === 'completed';
@@ -42,6 +43,44 @@ function ProgressIndicator({
 
             {state === 'converting' && (
               <Box>
+                {/* Playlist Info Display */}
+                {playlistInfo && (
+                  <Box
+                    sx={{
+                      mb: 2,
+                      p: 1.5,
+                      borderRadius: 1,
+                      bgcolor: 'background.paper',
+                      border: 2,
+                      borderColor: 'primary.main',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Chip
+                        label={`Video ${playlistInfo.current} of ${playlistInfo.total}`}
+                        size="small"
+                        sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+                      />
+                      {playlistInfo.currentTitle && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'text.primary',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flexGrow: 1,
+                            fontWeight: 500,
+                          }}
+                          title={playlistInfo.currentTitle}
+                        >
+                          {playlistInfo.currentTitle}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <LinearProgress
                     variant="determinate"
@@ -100,7 +139,9 @@ function ProgressIndicator({
                     }}
                   />
                   <Typography variant="h6" color="success.main" gutterBottom>
-                    Conversion Complete!
+                    {lastConvertedFile?.isPlaylist 
+                      ? `Playlist Complete! (${lastConvertedFile.fileCount} videos)`
+                      : 'Conversion Complete!'}
                   </Typography>
                 </Box>
               </Zoom>
@@ -109,7 +150,7 @@ function ProgressIndicator({
             {lastConvertedFile && (
               <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
-                  File saved:
+                  {lastConvertedFile.isPlaylist ? 'Playlist saved:' : 'File saved:'}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                   <Typography
@@ -123,15 +164,15 @@ function ProgressIndicator({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={lastConvertedFile.fileName}
+                    title={lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolderName : lastConvertedFile.fileName}
                   >
-                    {lastConvertedFile.fileName}
+                    {lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolderName : lastConvertedFile.fileName}
                   </Typography>
                   <Button
                     size="small"
                     variant="outlined"
                     startIcon={<FolderOpenIcon />}
-                    onClick={() => onOpenFileLocation(lastConvertedFile.filePath)}
+                    onClick={() => onOpenFileLocation(lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolder : lastConvertedFile.filePath)}
                   >
                     Open Location
                   </Button>

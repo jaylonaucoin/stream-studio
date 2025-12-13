@@ -24,6 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 
 function HistoryPanel({ open, onClose }) {
   const [history, setHistory] = useState([]);
@@ -68,10 +69,12 @@ function HistoryPanel({ open, onClose }) {
     }
   };
 
-  const handleOpenLocation = async (filePath) => {
+  const handleOpenLocation = async (item) => {
     if (window.api && window.api.openFileLocation) {
       try {
-        await window.api.openFileLocation(filePath);
+        // For playlists, use playlistFolder, otherwise use filePath
+        const pathToOpen = item.isPlaylist ? item.playlistFolder || item.filePath : item.filePath;
+        await window.api.openFileLocation(pathToOpen);
       } catch (err) {
         console.error('Failed to open file location:', err);
       }
@@ -235,7 +238,9 @@ function HistoryPanel({ open, onClose }) {
               >
                 <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mb: 1 }}>
-                    {item.mode === 'audio' ? (
+                    {item.isPlaylist ? (
+                      <PlaylistPlayIcon color="primary" fontSize="small" />
+                    ) : item.mode === 'audio' ? (
                       <MusicNoteIcon color="primary" fontSize="small" />
                     ) : (
                       <VideoFileIcon color="secondary" fontSize="small" />
@@ -256,17 +261,28 @@ function HistoryPanel({ open, onClose }) {
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
+                    {item.isPlaylist && (
+                      <Chip
+                        icon={<PlaylistPlayIcon />}
+                        label={`Playlist (${item.playlistFiles?.length || 0} files)`}
+                        size="small"
+                        color="primary"
+                        variant="filled"
+                      />
+                    )}
                     <Chip
                       label={item.format?.toUpperCase() || 'Unknown'}
                       size="small"
                       variant="outlined"
                     />
-                    <Chip
-                      label={item.mode === 'audio' ? 'Audio' : 'Video'}
-                      size="small"
-                      variant="outlined"
-                      color={item.mode === 'audio' ? 'primary' : 'secondary'}
-                    />
+                    {!item.isPlaylist && (
+                      <Chip
+                        label={item.mode === 'audio' ? 'Audio' : 'Video'}
+                        size="small"
+                        variant="outlined"
+                        color={item.mode === 'audio' ? 'primary' : 'secondary'}
+                      />
+                    )}
                     <Chip
                       label={formatDate(item.timestamp)}
                       size="small"
@@ -276,8 +292,8 @@ function HistoryPanel({ open, onClose }) {
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Open file location">
-                      <IconButton size="small" onClick={() => handleOpenLocation(item.filePath)}>
+                    <Tooltip title={item.isPlaylist ? "Open playlist folder" : "Open file location"}>
+                      <IconButton size="small" onClick={() => handleOpenLocation(item)}>
                         <FolderOpenIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

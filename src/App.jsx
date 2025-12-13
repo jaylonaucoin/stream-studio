@@ -37,6 +37,7 @@ function App() {
   const [error, setError] = useState(null);
   const [outputFolder, setOutputFolder] = useState('');
   const [lastConvertedFile, setLastConvertedFile] = useState(null);
+  const [playlistInfo, setPlaylistInfo] = useState(null); // For playlist progress tracking
   const [ffmpegAvailable, setFfmpegAvailable] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -155,17 +156,38 @@ function App() {
 
     switch (data.type) {
       case 'progress':
+      case 'playlist-progress':
         if (data.percent !== undefined) {
           setProgress(data.percent);
-          // Build status message with additional info
-          let message = `Converting... ${data.percent.toFixed(1)}%`;
-          if (data.speed) {
-            message += ` @ ${data.speed}`;
+          
+          // Handle playlist progress
+          if (data.type === 'playlist-progress' && data.playlistInfo) {
+            setPlaylistInfo(data.playlistInfo);
+            const { current, total, currentTitle } = data.playlistInfo;
+            let message = `Downloading playlist: Video ${current} of ${total}`;
+            if (currentTitle) {
+              message += ` - ${currentTitle}`;
+            }
+            message += ` (${data.percent.toFixed(1)}%)`;
+            if (data.speed) {
+              message += ` @ ${data.speed}`;
+            }
+            if (data.eta) {
+              message += ` (ETA: ${data.eta})`;
+            }
+            setStatusMessage(message);
+          } else {
+            // Regular single video progress
+            let message = `Converting... ${data.percent.toFixed(1)}%`;
+            if (data.speed) {
+              message += ` @ ${data.speed}`;
+            }
+            if (data.eta) {
+              message += ` (ETA: ${data.eta})`;
+            }
+            setStatusMessage(message);
+            setPlaylistInfo(null); // Clear playlist info for single videos
           }
-          if (data.eta) {
-            message += ` (ETA: ${data.eta})`;
-          }
-          setStatusMessage(message);
           
           // Update progress details
           setProgressSpeed(data.speed || null);
@@ -197,6 +219,7 @@ function App() {
         setProgressSpeed(null);
         setProgressEta(null);
         setProgressSize(null);
+        setPlaylistInfo(null);
         if (data.message) {
           setLogs((prev) => [
             ...prev,
@@ -226,13 +249,14 @@ function App() {
 
       setConversionState('converting');
       setProgress(0);
-      setStatusMessage('Starting conversion...');
+      setStatusMessage(options.playlistMode === 'full' ? 'Starting playlist download...' : 'Starting conversion...');
       setProgressSpeed(null);
       setProgressEta(null);
       setProgressSize(null);
       setLogs([]);
       setError(null);
       setLastConvertedFile(null);
+      setPlaylistInfo(null);
 
       try {
         const result = await window.api.convert(url, {
@@ -240,29 +264,37 @@ function App() {
           mode: options.mode || 'audio',
           format: options.format || 'mp3',
           quality: options.quality || 'best',
+          playlistMode: options.playlistMode || 'single',
         });
 
         if (result.success) {
           setProgress(100);
-          setStatusMessage('Conversion complete!');
+          if (result.isPlaylist) {
+            setStatusMessage(`Playlist download complete! ${result.fileCount} videos downloaded.`);
+          } else {
+            setStatusMessage('Conversion complete!');
+          }
           setConversionState('completed');
           setLastConvertedFile(result);
           setLogs((prev) => [
             ...prev,
             {
               type: 'success',
-              message: '✓ Conversion completed successfully',
+              message: result.isPlaylist 
+                ? `✓ Playlist download completed successfully (${result.fileCount} videos)`
+                : '✓ Conversion completed successfully',
               timestamp: Date.now(),
             },
           ]);
           // Update history count
-          setHistoryCount((prev) => prev + 1);
+          setHistoryCount((prev) => prev + (result.fileCount || 1));
         }
       } catch (error) {
         setConversionState('error');
-        setStatusMessage('Conversion failed');
+        setStatusMessage(options.playlistMode === 'full' ? 'Playlist download failed' : 'Conversion failed');
+        setPlaylistInfo(null);
         setError({
-          title: 'Conversion Failed',
+          title: options.playlistMode === 'full' ? 'Playlist Download Failed' : 'Conversion Failed',
           message: error.message || 'An error occurred during conversion',
         });
         setLogs((prev) => [
@@ -393,6 +425,7 @@ function App() {
               progressSpeed={progressSpeed}
               progressEta={progressEta}
               progressSize={progressSize}
+              playlistInfo={playlistInfo}
             />
           </Box>
 

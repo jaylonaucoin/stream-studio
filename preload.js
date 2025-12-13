@@ -41,5 +41,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Video info (for preview)
   getVideoInfo: (url) => ipcRenderer.invoke('getVideoInfo', url),
+  
+  // Playlist info (for playlist detection)
+  getPlaylistInfo: (url) => ipcRenderer.invoke('getPlaylistInfo', url),
 });
 

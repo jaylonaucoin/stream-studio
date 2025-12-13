@@ -486,10 +486,11 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode, format, and quality from options (default to audio/mp3/best for backward compatibility)
+    // Get mode, format, quality, and playlistMode from options
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
     const quality = options.quality || 'best';
+    const playlistMode = options.playlistMode || 'single'; // 'single' or 'full'
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -518,18 +519,31 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Get file extension for the selected format
     const fileExtension = getFormatExtension(format, mode);
     
-    // Use a temporary filename during conversion to avoid overwriting
-    // We'll rename it to the final name after conversion, checking for duplicates
-    const tempTemplate = fileExtension 
-      ? path.join(outputFolder, `%(title)s.temp.${fileExtension}`)
-      : path.join(outputFolder, '%(title)s.temp.%(ext)s');
+    // Determine output template based on playlist mode
+    let outputTemplate;
+    let playlistSubfolder = null;
     
-    // Also store the final template for renaming after conversion
-    const finalTemplate = fileExtension 
-      ? path.join(outputFolder, `%(title)s.${fileExtension}`)
-      : path.join(outputFolder, '%(title)s.%(ext)s');
-    
-    const outputTemplate = tempTemplate;
+    if (playlistMode === 'full') {
+      // For playlists: save in subfolder with numbered files
+      // Sanitize folder name function (remove invalid characters for file system)
+      const sanitizeFolderName = (name) => {
+        // Remove invalid characters for folder names
+        return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+      };
+      
+      // Create output template with playlist subfolder and numbered files
+      if (fileExtension) {
+        // Template: PlaylistName/%(playlist_index)02d - %(title)s.%(ext)s
+        outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(playlist_index)02d - %(title)s.${fileExtension}`);
+      } else {
+        outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(playlist_index)02d - %(title)s.%(ext)s');
+      }
+    } else {
+      // For single videos: use temporary filename during conversion to avoid overwriting
+      outputTemplate = fileExtension 
+        ? path.join(outputFolder, `%(title)s.temp.${fileExtension}`)
+        : path.join(outputFolder, '%(title)s.temp.%(ext)s');
+    }
     
     // Get yt-dlp path
     const ytDlpPath = getYtDlpPath();
@@ -537,12 +551,19 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     
     // Prepare args array based on mode (secure - no shell injection)
     const args = [
-      '--no-playlist',         // Don't download playlists
       '--embed-metadata',      // Embed all available metadata (artist, album, title, date, etc.)
       '--ffmpeg-location', path.dirname(ffmpegPath), // Tell yt-dlp where to find ffmpeg
       '--output', outputTemplate,
-      sanitizedUrl
     ];
+    
+    // Add playlist option based on mode
+    if (playlistMode === 'full') {
+      args.push('--yes-playlist');  // Explicitly download playlists
+    } else {
+      args.push('--no-playlist');   // Don't download playlists (default behavior)
+    }
+    
+    args.push(sanitizedUrl);
     
     // Quality settings mapping
     const audioQualityMap = {
@@ -671,10 +692,73 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     };
     
     /**
+     * Parse playlist progress from yt-dlp output
+     * Handles patterns like:
+     * - [download] Downloading item X of Y
+     * - [download] [PlaylistName] Downloading video X of Y
+     */
+    const parsePlaylistProgress = (message) => {
+      // Pattern: [download] Downloading item X of Y
+      let match = message.match(/\[download\]\s+Downloading\s+item\s+(\d+)\s+of\s+(\d+)/i);
+      if (match) {
+        return {
+          current: parseInt(match[1], 10),
+          total: parseInt(match[2], 10)
+        };
+      }
+      
+      // Pattern: [download] [PlaylistName] Downloading video X of Y
+      match = message.match(/\[download\]\s+\[.*?\]\s+Downloading\s+video\s+(\d+)\s+of\s+(\d+)/i);
+      if (match) {
+        return {
+          current: parseInt(match[1], 10),
+          total: parseInt(match[2], 10)
+        };
+      }
+      
+      // Pattern: [download] Downloading video X of Y
+      match = message.match(/\[download\]\s+Downloading\s+video\s+(\d+)\s+of\s+(\d+)/i);
+      if (match) {
+        return {
+          current: parseInt(match[1], 10),
+          total: parseInt(match[2], 10)
+        };
+      }
+      
+      return null;
+    };
+    
+    /**
+     * Extract video title from progress message
+     */
+    const extractVideoTitle = (message) => {
+      // Try to extract video title from various patterns
+      // This is approximate - yt-dlp doesn't always show the title in progress
+      // But we can try to extract it from info messages
+      return null; // Will be updated from status messages if available
+    };
+    
+    // Track playlist progress state
+    let playlistProgress = null;
+    let currentVideoTitle = null;
+    
+    /**
      * Extract additional info from progress message (speed, ETA, file size)
      */
     const parseProgressInfo = (message) => {
       const info = {};
+      
+      // Check for playlist progress
+      if (playlistMode === 'full') {
+        const playlistInfo = parsePlaylistProgress(message);
+        if (playlistInfo) {
+          playlistProgress = playlistInfo;
+          info.playlistInfo = playlistInfo;
+        } else if (playlistProgress) {
+          // Keep existing playlist info if available
+          info.playlistInfo = playlistProgress;
+        }
+      }
       
       // Extract download speed (e.g., "at 1.23MiB/s")
       const speedMatch = message.match(/at\s+([\d.]+)\s*([KMGT]?i?B)\/s/i);
@@ -694,6 +778,16 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         info.size = `${sizeMatch[1]} ${sizeMatch[2]}`;
       }
       
+      // Try to extract video title from status messages
+      const titleMatch = message.match(/\[download\]\s+(.+?)\s+has already been downloaded/i) ||
+                        message.match(/\[download\]\s+Destination:\s+(.+)/i);
+      if (titleMatch && playlistMode === 'full') {
+        currentVideoTitle = titleMatch[1];
+        if (info.playlistInfo) {
+          info.playlistInfo.currentTitle = currentVideoTitle;
+        }
+      }
+      
       return info;
     };
     
@@ -705,15 +799,29 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       for (const line of lines) {
         // Check for progress in stdout too
         const progressPercent = parseProgress(line);
+        const progressInfo = parseProgressInfo(line);
+        
         if (progressPercent !== null) {
           lastProgressPercent = progressPercent;
-          const progressInfo = parseProgressInfo(line);
+          
+          // Calculate overall progress for playlists
+          let finalPercent = progressPercent;
+          if (playlistMode === 'full' && progressInfo.playlistInfo) {
+            const { current, total } = progressInfo.playlistInfo;
+            // Overall progress = (completed videos / total) * 100 + (current video progress / 100) / total
+            const completedVideos = current - 1;
+            const overallProgress = (completedVideos / total) * 100 + (progressPercent / 100) / total * 100;
+            finalPercent = Math.min(overallProgress, 100);
+          }
+          
           mainWindow?.webContents.send('conversion-progress', {
-            type: 'progress',
-            percent: progressPercent,
+            type: playlistMode === 'full' && progressInfo.playlistInfo ? 'playlist-progress' : 'progress',
+            percent: finalPercent,
+            videoPercent: progressPercent, // Individual video progress
             speed: progressInfo.speed,
             eta: progressInfo.eta,
             size: progressInfo.size,
+            playlistInfo: progressInfo.playlistInfo || null,
             message: line.trim()
           });
         } else {
@@ -735,15 +843,29 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       for (const line of lines) {
         // Parse progress from stderr
         const progressPercent = parseProgress(line);
+        const progressInfo = parseProgressInfo(line);
+        
         if (progressPercent !== null) {
           lastProgressPercent = progressPercent;
-          const progressInfo = parseProgressInfo(line);
+          
+          // Calculate overall progress for playlists
+          let finalPercent = progressPercent;
+          if (playlistMode === 'full' && progressInfo.playlistInfo) {
+            const { current, total } = progressInfo.playlistInfo;
+            // Overall progress = (completed videos / total) * 100 + (current video progress / 100) / total
+            const completedVideos = current - 1;
+            const overallProgress = (completedVideos / total) * 100 + (progressPercent / 100) / total * 100;
+            finalPercent = Math.min(overallProgress, 100);
+          }
+          
           mainWindow?.webContents.send('conversion-progress', {
-            type: 'progress',
-            percent: progressPercent,
+            type: playlistMode === 'full' && progressInfo.playlistInfo ? 'playlist-progress' : 'progress',
+            percent: finalPercent,
+            videoPercent: progressPercent, // Individual video progress
             speed: progressInfo.speed,
             eta: progressInfo.eta,
             size: progressInfo.size,
+            playlistInfo: progressInfo.playlistInfo || null,
             message: line.trim()
           });
         } else {
@@ -757,7 +879,10 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     });
     
     // Handle process completion with timeout
-    const CONVERSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes timeout
+    // Longer timeout for playlists
+    const CONVERSION_TIMEOUT = playlistMode === 'full' 
+      ? 120 * 60 * 1000  // 2 hours for playlists
+      : 30 * 60 * 1000;   // 30 minutes for single videos
     let timeoutId = null;
     
     return new Promise((resolve, reject) => {
@@ -780,14 +905,94 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         currentConversionProcess = null;
         
         if (code === 0) {
-          // Success - find the created file
-          // yt-dlp typically creates files with the pattern we specified
-          // We need to search for the most recent file with the correct extension
+          // Success - find the created file(s)
           try {
-            // Use the mode and format captured from the outer scope (these are defined in the parent convert handler)
+            // Use the mode and format captured from the outer scope
             const expectedExtension = getFormatExtension(format, mode);
             const videoUrl = sanitizedUrl; // Capture for history
             
+            // Handle playlist mode differently
+            if (playlistMode === 'full') {
+              // For playlists, find the playlist subfolder and collect all files
+              // Look for directories in output folder that were recently created/modified
+              const entries = fs.readdirSync(outputFolder, { withFileTypes: true });
+              const directories = entries
+                .filter(entry => entry.isDirectory())
+                .map(entry => ({
+                  name: entry.name,
+                  path: path.join(outputFolder, entry.name),
+                  time: fs.statSync(path.join(outputFolder, entry.name)).mtime.getTime()
+                }))
+                .sort((a, b) => b.time - a.time); // Most recent first
+              
+              if (directories.length > 0) {
+                // Use the most recently modified directory (should be our playlist folder)
+                const playlistFolder = directories[0].path;
+                const playlistFolderName = directories[0].name;
+                
+                // Get all files in the playlist folder
+                const playlistFiles = fs.readdirSync(playlistFolder)
+                  .filter(f => {
+                    if (format === 'best') {
+                      const possibleExtensions = mode === 'audio' 
+                        ? ['.mp3', '.m4a', '.webm', '.opus', '.ogg']
+                        : ['.mp4', '.webm', '.mkv', '.mov'];
+                      return possibleExtensions.some(ext => f.toLowerCase().endsWith(ext));
+                    } else {
+                      return f.toLowerCase().endsWith(`.${expectedExtension}`);
+                    }
+                  })
+                  .map(f => ({
+                    fileName: f,
+                    filePath: path.join(playlistFolder, f)
+                  }))
+                  .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort by filename (numbered)
+                
+                if (playlistFiles.length > 0) {
+                  // Add to history with playlist info
+                  addToHistory({
+                    url: videoUrl,
+                    fileName: `${playlistFolderName} (${playlistFiles.length} files)`,
+                    filePath: playlistFolder,
+                    mode,
+                    format,
+                    quality,
+                    status: 'completed',
+                    isPlaylist: true,
+                    playlistFiles: playlistFiles.map(f => ({
+                      fileName: f.fileName,
+                      filePath: f.filePath
+                    })),
+                    playlistFolderName
+                  });
+                  
+                  // Show notification
+                  showNotification(
+                    'Playlist Download Complete',
+                    `${playlistFiles.length} videos downloaded to ${playlistFolderName}`,
+                    () => {
+                      shell.showItemInFolder(playlistFolder);
+                    }
+                  );
+                  
+                  resolve({
+                    success: true,
+                    isPlaylist: true,
+                    playlistFolder: playlistFolder,
+                    playlistFolderName: playlistFolderName,
+                    files: playlistFiles,
+                    fileCount: playlistFiles.length
+                  });
+                  return;
+                }
+              }
+              
+              // Fallback: couldn't find playlist folder
+              reject(new Error('Playlist download completed but playlist folder not found'));
+              return;
+            }
+            
+            // Single video mode - existing logic
             const files = fs.readdirSync(outputFolder);
             
             // Filter files by extension
@@ -1183,6 +1388,213 @@ ipcMain.handle('getVideoInfo', async (event, url) => {
           reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
         } else {
           reject(new Error(`Failed to get video info: ${error.message}`));
+        }
+      });
+    });
+  } catch (error) {
+    throw new Error(`Invalid URL: ${error.message}`);
+  }
+});
+
+// Playlist info cache
+const playlistInfoCache = new Map();
+const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Get playlist info handler
+ipcMain.handle('getPlaylistInfo', async (event, url) => {
+  try {
+    // Sanitize URL
+    const sanitizedUrl = sanitizeUrl(url);
+    
+    // Check cache first
+    const cacheKey = sanitizedUrl;
+    const cached = playlistInfoCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < PLAYLIST_CACHE_TTL) {
+      return cached.data;
+    }
+    
+    // Get yt-dlp path
+    const ytDlpPath = getYtDlpPath();
+    
+    // First, try to get info with --yes-playlist to check if it's a playlist
+    const playlistArgs = [
+      '--flat-playlist',   // Don't download, just list items
+      '--dump-json',       // Output JSON metadata
+      '--yes-playlist',    // Force playlist mode
+      '--no-warnings',     // Suppress warnings
+      sanitizedUrl
+    ];
+    
+    return new Promise((resolve, reject) => {
+      const playlistProcess = spawn(ytDlpPath, playlistArgs, {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      
+      let stdout = '';
+      let stderr = '';
+      let timeoutId = null;
+      
+      // Set timeout (15 seconds for playlist info extraction)
+      timeoutId = setTimeout(() => {
+        playlistProcess.kill();
+        reject(new Error('Playlist info extraction timed out.'));
+      }, 15000);
+      
+      playlistProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      playlistProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      playlistProcess.on('close', (code) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (code === 0 && stdout) {
+          try {
+            // Parse all JSON lines (one per video in playlist)
+            const lines = stdout.trim().split('\n').filter(line => line.trim());
+            
+            if (lines.length === 0) {
+              // Not a playlist or empty
+              const result = { success: true, isPlaylist: false };
+              playlistInfoCache.set(cacheKey, {
+                data: result,
+                timestamp: Date.now()
+              });
+              resolve(result);
+              return;
+            }
+            
+            // Parse first entry to get playlist metadata
+            const firstEntry = JSON.parse(lines[0]);
+            
+            // Check if this is actually a playlist or just a single video
+            const isPlaylist = lines.length > 1 || firstEntry.playlist || firstEntry.playlist_index !== undefined;
+            
+            if (!isPlaylist) {
+              const result = { success: true, isPlaylist: false };
+              playlistInfoCache.set(cacheKey, {
+                data: result,
+                timestamp: Date.now()
+              });
+              resolve(result);
+              return;
+            }
+            
+            // Calculate total duration
+            let totalDuration = 0;
+            lines.forEach(line => {
+              try {
+                const entry = JSON.parse(line);
+                if (entry.duration) {
+                  totalDuration += entry.duration;
+                }
+              } catch (e) {
+                // Skip invalid entries
+              }
+            });
+            
+            // Format total duration
+            let totalDurationFormatted = '';
+            if (totalDuration > 0) {
+              const hours = Math.floor(totalDuration / 3600);
+              const minutes = Math.floor((totalDuration % 3600) / 60);
+              
+              if (hours > 0) {
+                totalDurationFormatted = `${hours}h ${minutes}m`;
+              } else {
+                totalDurationFormatted = `${minutes}m`;
+              }
+            }
+            
+            const playlistInfo = {
+              success: true,
+              isPlaylist: true,
+              playlistTitle: firstEntry.playlist || firstEntry.playlist_title || 'Untitled Playlist',
+              playlistId: firstEntry.playlist_id || null,
+              playlistVideoCount: lines.length,
+              playlistTotalDuration: totalDuration,
+              playlistTotalDurationFormatted: totalDurationFormatted,
+              playlistUploader: firstEntry.playlist_uploader || firstEntry.channel || null,
+            };
+            
+            // Cache the result
+            playlistInfoCache.set(cacheKey, {
+              data: playlistInfo,
+              timestamp: Date.now()
+            });
+            
+            resolve(playlistInfo);
+          } catch (parseError) {
+            // If parsing fails, it might not be a playlist
+            const result = { success: true, isPlaylist: false };
+            playlistInfoCache.set(cacheKey, {
+              data: result,
+              timestamp: Date.now()
+            });
+            resolve(result);
+          }
+        } else {
+          // Try single video mode to check if URL is valid at all
+          const singleArgs = [
+            '--dump-json',
+            '--no-playlist',
+            '--no-warnings',
+            sanitizedUrl
+          ];
+          
+          const singleProcess = spawn(ytDlpPath, singleArgs, {
+        stdio: ['ignore', 'pipe', 'pipe']
+          });
+          
+          let singleStdout = '';
+          let singleStderr = '';
+          
+          const singleTimeout = setTimeout(() => {
+            singleProcess.kill();
+            reject(new Error('Failed to get playlist info. URL may be invalid.'));
+          }, 10000);
+          
+          singleProcess.stdout.on('data', (data) => {
+            singleStdout += data.toString();
+          });
+          
+          singleProcess.stderr.on('data', (data) => {
+            singleStderr += data.toString();
+          });
+          
+          singleProcess.on('close', (singleCode) => {
+            clearTimeout(singleTimeout);
+            if (singleCode === 0 && singleStdout) {
+              // It's a valid single video, not a playlist
+              const result = { success: true, isPlaylist: false };
+              playlistInfoCache.set(cacheKey, {
+                data: result,
+                timestamp: Date.now()
+              });
+              resolve(result);
+            } else {
+              reject(new Error('Failed to get playlist info. Please check the URL.'));
+            }
+          });
+        }
+      });
+      
+      playlistProcess.on('error', (error) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (error.code === 'ENOENT') {
+          reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+        } else {
+          reject(new Error(`Failed to get playlist info: ${error.message}`));
         }
       });
     });

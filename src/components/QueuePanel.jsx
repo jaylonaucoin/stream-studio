@@ -26,6 +26,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import ReplayIcon from '@mui/icons-material/Replay';
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 
 // Normalize URL - add protocol if missing
 const normalizeUrl = (url) => {
@@ -259,6 +260,9 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Paste video URLs (one per line) - supports 1000+ sites:
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}>
+            Note: Playlist URLs will download only the first video. Use the main form for full playlist downloads.
           </Typography>
           <TextField
             multiline

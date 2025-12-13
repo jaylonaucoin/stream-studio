@@ -17,6 +17,7 @@ import {
   Typography,
   Skeleton,
   Chip,
+  Divider,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -171,6 +172,10 @@ function ConversionForm({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const previewTimeoutRef = useRef(null);
+  
+  // Playlist state
+  const [playlistInfo, setPlaylistInfo] = useState(null);
+  const [playlistMode, setPlaylistMode] = useState('single'); // 'single' or 'full'
 
   // Update mode/format/quality when defaults change
   useEffect(() => {
@@ -182,7 +187,7 @@ function ConversionForm({
     setQuality(defaultQuality);
   }, [defaultQuality]);
 
-  // Fetch video preview when URL changes (debounced)
+  // Fetch video preview and playlist info when URL changes (debounced)
   useEffect(() => {
     // Clear previous timeout
     if (previewTimeoutRef.current) {
@@ -191,8 +196,10 @@ function ConversionForm({
     
     // Reset preview state
     setVideoInfo(null);
+    setPlaylistInfo(null);
     setPreviewError(null);
     setLoadingPreview(false);
+    setPlaylistMode('single'); // Reset to single mode
     
     // Validate URL first
     const trimmed = url.trim();
@@ -210,20 +217,37 @@ function ConversionForm({
     previewTimeoutRef.current = setTimeout(async () => {
       try {
         const normalizedUrl = normalizeUrl(trimmed);
-        if (window.api && window.api.getVideoInfo) {
-          const info = await window.api.getVideoInfo(normalizedUrl);
-          if (info.success) {
-            setVideoInfo(info);
-            setPreviewError(null);
+        
+        // Fetch both video info and playlist info in parallel
+        const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
+          window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
+          window.api?.getPlaylistInfo?.(normalizedUrl) || Promise.resolve({ success: false, isPlaylist: false })
+        ]);
+        
+        // Handle video info
+        if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
+          setVideoInfo(videoInfoResult.value);
+          setPreviewError(null);
+        } else if (videoInfoResult.status === 'rejected') {
+          setPreviewError('Failed to load video preview');
+          setVideoInfo(null);
+        }
+        
+        // Handle playlist info
+        if (playlistInfoResult.status === 'fulfilled' && playlistInfoResult.value.success) {
+          if (playlistInfoResult.value.isPlaylist) {
+            setPlaylistInfo(playlistInfoResult.value);
+            // Default to single mode even if playlist is detected
+            setPlaylistMode('single');
           } else {
-            setPreviewError('Failed to load video preview');
-            setVideoInfo(null);
+            setPlaylistInfo(null);
           }
         }
       } catch (error) {
         console.error('Preview fetch error:', error);
         setPreviewError(error.message || 'Failed to load video preview');
         setVideoInfo(null);
+        setPlaylistInfo(null);
       } finally {
         setLoadingPreview(false);
       }
@@ -302,10 +326,15 @@ function ConversionForm({
       if (isValid && url.trim() && !isConverting) {
         // Use normalized URL to ensure protocol is included
         const normalizedUrl = normalizeUrl(url.trim());
-        onConvert(normalizedUrl, { mode, format, quality });
+        // Only pass playlistMode if playlist is detected
+        const options = { mode, format, quality };
+        if (playlistInfo && playlistInfo.isPlaylist) {
+          options.playlistMode = playlistMode;
+        }
+        onConvert(normalizedUrl, options);
       }
     },
-    [url, isValid, isConverting, mode, format, quality, onConvert]
+    [url, isValid, isConverting, mode, format, quality, playlistMode, playlistInfo, onConvert]
   );
 
   const handleKeyPress = useCallback(
@@ -516,6 +545,81 @@ function ConversionForm({
         <Alert severity="info" sx={{ mb: 2 }}>
           {previewError}
         </Alert>
+      )}
+
+      {/* Playlist Info and Mode Toggle */}
+      {playlistInfo && !loadingPreview && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 2,
+            borderColor: 'primary.main',
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <PlayArrowIcon sx={{ color: 'primary.main' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  {playlistInfo.playlistTitle}
+                </Typography>
+                <Chip
+                  label="Playlist"
+                  size="small"
+                  sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                <Chip
+                  icon={<AccessTimeIcon />}
+                  label={`${playlistInfo.playlistVideoCount} videos`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: 'primary.main', color: 'text.primary' }}
+                />
+                {playlistInfo.playlistTotalDurationFormatted && (
+                  <Chip
+                    icon={<AccessTimeIcon />}
+                    label={`~${playlistInfo.playlistTotalDurationFormatted}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: 'primary.main', color: 'text.primary' }}
+                  />
+                )}
+              </Box>
+            </Box>
+          </Box>
+          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+          <Box>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.primary' }}>
+              Download mode:
+            </Typography>
+            <ToggleButtonGroup
+              value={playlistMode}
+              exclusive
+              onChange={(e, newMode) => {
+                if (newMode !== null) {
+                  setPlaylistMode(newMode);
+                }
+              }}
+              aria-label="Playlist download mode"
+              disabled={isConverting || disabled}
+              fullWidth
+              sx={{ height: '40px' }}
+            >
+              <ToggleButton value="single" aria-label="Single video mode">
+                Single Video
+              </ToggleButton>
+              <ToggleButton value="full" aria-label="Full playlist mode">
+                Full Playlist ({playlistInfo.playlistVideoCount} videos)
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Paper>
       )}
 
       <Box
