@@ -18,6 +18,13 @@ import {
   Skeleton,
   Chip,
   Divider,
+  Checkbox,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  ListItemIcon,
+  Collapse,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -25,6 +32,10 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },
@@ -176,6 +187,12 @@ function ConversionForm({
   // Playlist state
   const [playlistInfo, setPlaylistInfo] = useState(null);
   const [playlistMode, setPlaylistMode] = useState('single'); // 'single' or 'full'
+  
+  // Chapter state
+  const [chapterInfo, setChapterInfo] = useState(null);
+  const [loadingChapters, setLoadingChapters] = useState(false);
+  const [selectedChapters, setSelectedChapters] = useState([]); // Array of chapter indices
+  const chapterTimeoutRef = useRef(null);
 
   // Update mode/format/quality when defaults change
   useEffect(() => {
@@ -197,9 +214,11 @@ function ConversionForm({
     // Reset preview state
     setVideoInfo(null);
     setPlaylistInfo(null);
+    setChapterInfo(null);
     setPreviewError(null);
     setLoadingPreview(false);
     setPlaylistMode('single'); // Reset to single mode
+    setSelectedChapters([]); // Reset selected chapters
     
     // Validate URL first
     const trimmed = url.trim();
@@ -259,6 +278,75 @@ function ConversionForm({
       }
     };
   }, [url]);
+
+  // Fetch chapter info when video info is loaded
+  useEffect(() => {
+    // Clear previous timeout
+    if (chapterTimeoutRef.current) {
+      clearTimeout(chapterTimeoutRef.current);
+    }
+    
+    // Reset chapter state
+    setChapterInfo(null);
+    setSelectedChapters([]);
+    setLoadingChapters(false);
+    
+    // Only fetch chapters if we have valid video info
+    // Fetch chapters even if playlist is detected, as long as we're in single video mode
+    if (!videoInfo || !videoInfo.success) {
+      return;
+    }
+    
+    // Don't fetch chapters if we're in full playlist mode
+    if (playlistInfo?.isPlaylist && playlistMode === 'full') {
+      return;
+    }
+    
+    const trimmed = url.trim();
+    if (!trimmed) {
+      return;
+    }
+    
+    const validation = isValidUrl(trimmed);
+    if (!validation.valid) {
+      return;
+    }
+    
+    // Debounce chapter fetch (500ms after video info loads)
+    setLoadingChapters(true);
+    chapterTimeoutRef.current = setTimeout(async () => {
+      try {
+        const normalizedUrl = normalizeUrl(trimmed);
+        
+        const chapterInfoResult = await Promise.allSettled([
+          window.api?.getChapterInfo?.(normalizedUrl) || Promise.resolve({ success: false, hasChapters: false })
+        ]);
+        
+        // Handle chapter info
+        if (chapterInfoResult[0].status === 'fulfilled' && chapterInfoResult[0].value.success) {
+          if (chapterInfoResult[0].value.hasChapters) {
+            setChapterInfo(chapterInfoResult[0].value);
+            // Select all chapters by default
+            const allIndices = chapterInfoResult[0].value.chapters.map((_, idx) => idx);
+            setSelectedChapters(allIndices);
+          } else {
+            setChapterInfo(null);
+          }
+        }
+      } catch (error) {
+        console.error('Chapter fetch error:', error);
+        setChapterInfo(null);
+      } finally {
+        setLoadingChapters(false);
+      }
+    }, 500);
+    
+    return () => {
+      if (chapterTimeoutRef.current) {
+        clearTimeout(chapterTimeoutRef.current);
+      }
+    };
+  }, [videoInfo, playlistInfo, playlistMode, url]);
 
   const validateUrl = useCallback((urlToValidate) => {
     const trimmed = urlToValidate.trim();
@@ -320,6 +408,28 @@ function ConversionForm({
     setQuality(e.target.value);
   }, []);
 
+  // Chapter selection handlers
+  const handleChapterToggle = useCallback((chapterIndex) => {
+    setSelectedChapters((prev) => {
+      if (prev.includes(chapterIndex)) {
+        return prev.filter((idx) => idx !== chapterIndex);
+      } else {
+        return [...prev, chapterIndex].sort((a, b) => a - b);
+      }
+    });
+  }, []);
+
+  const handleSelectAllChapters = useCallback(() => {
+    if (chapterInfo && chapterInfo.chapters) {
+      const allIndices = chapterInfo.chapters.map((_, idx) => idx);
+      setSelectedChapters(allIndices);
+    }
+  }, [chapterInfo]);
+
+  const handleDeselectAllChapters = useCallback(() => {
+    setSelectedChapters([]);
+  }, []);
+
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
@@ -331,10 +441,14 @@ function ConversionForm({
         if (playlistInfo && playlistInfo.isPlaylist) {
           options.playlistMode = playlistMode;
         }
+        // Pass selected chapters if any are selected
+        if (selectedChapters && selectedChapters.length > 0 && chapterInfo && chapterInfo.hasChapters) {
+          options.chapters = selectedChapters;
+        }
         onConvert(normalizedUrl, options);
       }
     },
-    [url, isValid, isConverting, mode, format, quality, playlistMode, playlistInfo, onConvert]
+    [url, isValid, isConverting, mode, format, quality, playlistMode, playlistInfo, selectedChapters, chapterInfo, onConvert]
   );
 
   const handleKeyPress = useCallback(
@@ -619,6 +733,141 @@ function ConversionForm({
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
+        </Paper>
+      )}
+
+      {/* Chapter Selection */}
+      {loadingChapters && !(playlistInfo?.isPlaylist && playlistMode === 'full') && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Skeleton variant="circular" width={24} height={24} />
+            <Skeleton variant="text" width="60%" height={24} />
+          </Box>
+          <Box sx={{ mt: 1 }}>
+            <Skeleton variant="text" width="40%" height={20} />
+          </Box>
+        </Paper>
+      )}
+
+      {chapterInfo && !loadingChapters && !(playlistInfo?.isPlaylist && playlistMode === 'full') && chapterInfo.hasChapters && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 2,
+            borderColor: 'primary.main',
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PlayArrowIcon sx={{ color: 'primary.main' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                Chapters
+              </Typography>
+              <Chip
+                label={`${selectedChapters.length} of ${chapterInfo.totalChapters} selected`}
+                size="small"
+                sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                onClick={handleSelectAllChapters}
+                disabled={isConverting || disabled || selectedChapters.length === chapterInfo.totalChapters}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={handleDeselectAllChapters}
+                disabled={isConverting || disabled || selectedChapters.length === 0}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Deselect All
+              </Button>
+            </Box>
+          </Box>
+          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+          <Box
+            sx={{
+              maxHeight: 300,
+              overflowY: 'auto',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
+            <List dense sx={{ py: 0 }}>
+              {chapterInfo.chapters.map((chapter, index) => (
+                <ListItem
+                  key={index}
+                  disablePadding
+                  sx={{
+                    borderBottom: index < chapterInfo.chapters.length - 1 ? 1 : 0,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemButton
+                    onClick={() => handleChapterToggle(index)}
+                    disabled={isConverting || disabled}
+                    sx={{ py: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Checkbox
+                        edge="start"
+                        checked={selectedChapters.includes(index)}
+                        tabIndex={-1}
+                        disableRipple
+                        icon={<CheckBoxOutlineBlankIcon />}
+                        checkedIcon={<CheckBoxIcon />}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {chapter.title}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
+                          <Chip
+                            label={chapter.timeRange}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                          <Chip
+                            label={chapter.durationFormatted}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+          {selectedChapters.length === 0 && (
+            <Alert severity="info" sx={{ mt: 1.5 }}>
+              No chapters selected. The full video will be downloaded.
+            </Alert>
+          )}
         </Paper>
       )}
 

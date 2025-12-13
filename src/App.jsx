@@ -157,6 +157,7 @@ function App() {
     switch (data.type) {
       case 'progress':
       case 'playlist-progress':
+      case 'chapter-progress':
         if (data.percent !== undefined) {
           setProgress(data.percent);
           
@@ -176,6 +177,17 @@ function App() {
               message += ` (ETA: ${data.eta})`;
             }
             setStatusMessage(message);
+          } else if (data.type === 'chapter-progress') {
+            // Chapter download progress
+            let message = `Downloading chapters... ${data.percent.toFixed(1)}%`;
+            if (data.speed) {
+              message += ` @ ${data.speed}`;
+            }
+            if (data.eta) {
+              message += ` (ETA: ${data.eta})`;
+            }
+            setStatusMessage(message);
+            setPlaylistInfo(null); // Clear playlist info for chapters
           } else {
             // Regular single video progress
             let message = `Converting... ${data.percent.toFixed(1)}%`;
@@ -249,7 +261,15 @@ function App() {
 
       setConversionState('converting');
       setProgress(0);
-      setStatusMessage(options.playlistMode === 'full' ? 'Starting playlist download...' : 'Starting conversion...');
+      const isPlaylist = options.playlistMode === 'full';
+      const isChapters = options.chapters && options.chapters.length > 0;
+      setStatusMessage(
+        isPlaylist 
+          ? 'Starting playlist download...' 
+          : isChapters 
+            ? 'Starting chapter download...' 
+            : 'Starting conversion...'
+      );
       setProgressSpeed(null);
       setProgressEta(null);
       setProgressSize(null);
@@ -265,12 +285,15 @@ function App() {
           format: options.format || 'mp3',
           quality: options.quality || 'best',
           playlistMode: options.playlistMode || 'single',
+          chapters: options.chapters || null,
         });
 
         if (result.success) {
           setProgress(100);
           if (result.isPlaylist) {
             setStatusMessage(`Playlist download complete! ${result.fileCount} videos downloaded.`);
+          } else if (result.isChapters) {
+            setStatusMessage(`Chapter download complete! ${result.fileCount} chapter${result.fileCount > 1 ? 's' : ''} downloaded.`);
           } else {
             setStatusMessage('Conversion complete!');
           }
@@ -282,7 +305,9 @@ function App() {
               type: 'success',
               message: result.isPlaylist 
                 ? `✓ Playlist download completed successfully (${result.fileCount} videos)`
-                : '✓ Conversion completed successfully',
+                : result.isChapters
+                  ? `✓ Chapter download completed successfully (${result.fileCount} chapter${result.fileCount > 1 ? 's' : ''})`
+                  : '✓ Conversion completed successfully',
               timestamp: Date.now(),
             },
           ]);
@@ -291,10 +316,12 @@ function App() {
         }
       } catch (error) {
         setConversionState('error');
-        setStatusMessage(options.playlistMode === 'full' ? 'Playlist download failed' : 'Conversion failed');
+        const isPlaylist = options.playlistMode === 'full';
+        const isChapters = options.chapters && options.chapters.length > 0;
+        setStatusMessage(isPlaylist ? 'Playlist download failed' : isChapters ? 'Chapter download failed' : 'Conversion failed');
         setPlaylistInfo(null);
         setError({
-          title: options.playlistMode === 'full' ? 'Playlist Download Failed' : 'Conversion Failed',
+          title: isPlaylist ? 'Playlist Download Failed' : isChapters ? 'Chapter Download Failed' : 'Conversion Failed',
           message: error.message || 'An error occurred during conversion',
         });
         setLogs((prev) => [

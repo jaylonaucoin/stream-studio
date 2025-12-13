@@ -44,5 +44,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Playlist info (for playlist detection)
   getPlaylistInfo: (url) => ipcRenderer.invoke('getPlaylistInfo', url),
+  
+  // Chapter info (for chapter selection)
+  getChapterInfo: (url) => ipcRenderer.invoke('getChapterInfo', url),
 });
 
