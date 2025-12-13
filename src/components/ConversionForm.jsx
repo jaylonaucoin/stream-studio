@@ -186,12 +186,14 @@ function ConversionForm({
   
   // Playlist state
   const [playlistInfo, setPlaylistInfo] = useState(null);
-  const [playlistMode, setPlaylistMode] = useState('single'); // 'single' or 'full'
+  const [playlistMode, setPlaylistMode] = useState('single'); // 'single', 'full', or 'selected'
+  const [selectedVideos, setSelectedVideos] = useState([]); // Array of video indices (1-based)
   
   // Chapter state
   const [chapterInfo, setChapterInfo] = useState(null);
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState([]); // Array of chapter indices
+  const [chapterDownloadMode, setChapterDownloadMode] = useState('split'); // 'full' or 'split'
   const chapterTimeoutRef = useRef(null);
 
   // Update mode/format/quality when defaults change
@@ -219,6 +221,7 @@ function ConversionForm({
     setLoadingPreview(false);
     setPlaylistMode('single'); // Reset to single mode
     setSelectedChapters([]); // Reset selected chapters
+    setSelectedVideos([]); // Reset selected videos
     
     // Validate URL first
     const trimmed = url.trim();
@@ -258,8 +261,11 @@ function ConversionForm({
             setPlaylistInfo(playlistInfoResult.value);
             // Default to single mode even if playlist is detected
             setPlaylistMode('single');
+            // Reset selected videos
+            setSelectedVideos([]);
           } else {
             setPlaylistInfo(null);
+            setSelectedVideos([]);
           }
         }
       } catch (error) {
@@ -329,6 +335,8 @@ function ConversionForm({
             // Select all chapters by default
             const allIndices = chapterInfoResult[0].value.chapters.map((_, idx) => idx);
             setSelectedChapters(allIndices);
+            // Reset to split mode when chapters are detected
+            setChapterDownloadMode('split');
           } else {
             setChapterInfo(null);
           }
@@ -440,15 +448,23 @@ function ConversionForm({
         const options = { mode, format, quality };
         if (playlistInfo && playlistInfo.isPlaylist) {
           options.playlistMode = playlistMode;
+          // Pass selected videos when in 'selected' mode
+          if (playlistMode === 'selected' && selectedVideos && selectedVideos.length > 0) {
+            options.selectedVideos = selectedVideos;
+          }
         }
-        // Pass selected chapters if any are selected
-        if (selectedChapters && selectedChapters.length > 0 && chapterInfo && chapterInfo.hasChapters) {
-          options.chapters = selectedChapters;
+        // Pass chapter download mode and selected chapters if chapters exist
+        if (chapterInfo && chapterInfo.hasChapters) {
+          options.chapterDownloadMode = chapterDownloadMode;
+          // Only pass selectedChapters when mode is 'split'
+          if (chapterDownloadMode === 'split' && selectedChapters && selectedChapters.length > 0) {
+            options.chapters = selectedChapters;
+          }
         }
         onConvert(normalizedUrl, options);
       }
     },
-    [url, isValid, isConverting, mode, format, quality, playlistMode, playlistInfo, selectedChapters, chapterInfo, onConvert]
+    [url, isValid, isConverting, mode, format, quality, playlistMode, playlistInfo, selectedVideos, selectedChapters, chapterInfo, chapterDownloadMode, onConvert]
   );
 
   const handleKeyPress = useCallback(
@@ -718,6 +734,13 @@ function ConversionForm({
               onChange={(e, newMode) => {
                 if (newMode !== null) {
                   setPlaylistMode(newMode);
+                  // Auto-select all videos when switching to 'selected' mode
+                  if (newMode === 'selected' && playlistInfo && playlistInfo.videos) {
+                    const allIndices = playlistInfo.videos.map(v => v.index);
+                    setSelectedVideos(allIndices);
+                  } else if (newMode !== 'selected') {
+                    setSelectedVideos([]);
+                  }
                 }
               }}
               aria-label="Playlist download mode"
@@ -728,11 +751,161 @@ function ConversionForm({
               <ToggleButton value="single" aria-label="Single video mode">
                 Single Video
               </ToggleButton>
+              <ToggleButton value="selected" aria-label="Selected videos mode">
+                Selected Videos
+              </ToggleButton>
               <ToggleButton value="full" aria-label="Full playlist mode">
                 Full Playlist ({playlistInfo.playlistVideoCount} videos)
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
+        </Paper>
+      )}
+
+      {/* Playlist Video Selection */}
+      {playlistInfo && !loadingPreview && playlistInfo.isPlaylist && playlistMode === 'selected' && playlistInfo.videos && playlistInfo.videos.length > 0 && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 2,
+            borderColor: 'primary.main',
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PlayArrowIcon sx={{ color: 'primary.main' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                Select Videos
+              </Typography>
+              <Chip
+                label={`${selectedVideos.length} of ${playlistInfo.videos.length} selected`}
+                size="small"
+                sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  const allIndices = playlistInfo.videos.map(v => v.index);
+                  setSelectedVideos(allIndices);
+                }}
+                disabled={isConverting || disabled || selectedVideos.length === playlistInfo.videos.length}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setSelectedVideos([])}
+                disabled={isConverting || disabled || selectedVideos.length === 0}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Deselect All
+              </Button>
+            </Box>
+          </Box>
+          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+          <Box
+            sx={{
+              maxHeight: 300,
+              overflowY: 'auto',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
+            <List dense sx={{ py: 0 }}>
+              {playlistInfo.videos.map((video, index) => (
+                <ListItem
+                  key={video.index}
+                  disablePadding
+                  sx={{
+                    borderBottom: index < playlistInfo.videos.length - 1 ? 1 : 0,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemButton
+                    onClick={() => {
+                      if (selectedVideos.includes(video.index)) {
+                        setSelectedVideos(prev => prev.filter(idx => idx !== video.index));
+                      } else {
+                        setSelectedVideos(prev => [...prev, video.index].sort((a, b) => a - b));
+                      }
+                    }}
+                    disabled={isConverting || disabled}
+                    sx={{ py: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Checkbox
+                        edge="start"
+                        checked={selectedVideos.includes(video.index)}
+                        tabIndex={-1}
+                        disableRipple
+                        icon={<CheckBoxOutlineBlankIcon />}
+                        checkedIcon={<CheckBoxIcon />}
+                      />
+                    </ListItemIcon>
+                    <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center' }}>
+                      {video.thumbnail && (
+                        <Box
+                          component="img"
+                          src={video.thumbnail}
+                          alt={video.title}
+                          sx={{
+                            width: 80,
+                            height: 45,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            flexShrink: 0,
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {video.title}
+                            </Typography>
+                          }
+                          secondary={
+                            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
+                              <Chip
+                                label={`#${video.index}`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.7rem' }}
+                              />
+                              {video.durationFormatted && (
+                                <Chip
+                                  label={video.durationFormatted}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              )}
+                            </Box>
+                          }
+                        />
+                      </Box>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+          {selectedVideos.length === 0 && (
+            <Alert severity="info" sx={{ mt: 1.5 }}>
+              No videos selected. Please select at least one video to download.
+            </Alert>
+          )}
         </Paper>
       )}
 
@@ -801,6 +974,41 @@ function ConversionForm({
             </Box>
           </Box>
           <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Download mode:
+            </Typography>
+            <ToggleButtonGroup
+              value={chapterDownloadMode}
+              exclusive
+              onChange={(e, newMode) => {
+                if (newMode !== null) {
+                  setChapterDownloadMode(newMode);
+                }
+              }}
+              aria-label="Chapter download mode"
+              disabled={isConverting || disabled || selectedChapters.length === 0}
+              fullWidth
+              sx={{ height: '40px' }}
+            >
+              <ToggleButton value="full" aria-label="Full video mode">
+                Full Video
+              </ToggleButton>
+              <ToggleButton value="split" aria-label="Selected chapters mode">
+                Selected Chapters
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {selectedChapters.length > 0 && chapterDownloadMode === 'full' && (
+              <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
+                The entire video will be downloaded as one file, ignoring chapter selection.
+              </Typography>
+            )}
+            {selectedChapters.length > 0 && chapterDownloadMode === 'split' && (
+              <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
+                Selected chapters will be downloaded as separate files.
+              </Typography>
+            )}
+          </Box>
           <Box
             sx={{
               maxHeight: 300,

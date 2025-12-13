@@ -486,12 +486,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode, format, quality, playlistMode, and chapters from options
+    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, and selectedVideos from options
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
     const quality = options.quality || 'best';
-    const playlistMode = options.playlistMode || 'single'; // 'single' or 'full'
+    const playlistMode = options.playlistMode || 'single'; // 'single', 'full', or 'selected'
     const selectedChapters = options.chapters || null; // Array of chapter indices or null for full video
+    const chapterDownloadMode = options.chapterDownloadMode || 'split'; // 'full' or 'split'
+    const selectedVideos = options.selectedVideos || null; // Array of video indices (1-based) for playlist selection
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -540,7 +542,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
       } else {
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(playlist_index)02d - %(title)s.%(ext)s');
       }
-    } else if (selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
+    } else if (chapterDownloadMode === 'split' && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // For chapter downloads: --split-chapters creates files in output folder
       // We'll move them to a subfolder and rename them after download
       isChapterDownload = true;
@@ -671,6 +673,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Add playlist option based on mode
     if (playlistMode === 'full') {
       args.push('--yes-playlist');  // Explicitly download playlists
+    } else if (playlistMode === 'selected' && selectedVideos && Array.isArray(selectedVideos) && selectedVideos.length > 0) {
+      // For selected videos mode, use --playlist-items with comma-separated indices
+      // yt-dlp uses 1-based indexing for --playlist-items
+      const playlistItems = selectedVideos.sort((a, b) => a - b).join(',');
+      args.push('--playlist-items', playlistItems);
+      args.push('--yes-playlist');  // Need to enable playlist mode to use --playlist-items
     } else {
       args.push('--no-playlist');   // Don't download playlists (default behavior)
     }
@@ -918,11 +926,15 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
           
           // Calculate overall progress for playlists and chapters
           let finalPercent = progressPercent;
-          if (playlistMode === 'full' && progressInfo.playlistInfo) {
+          if ((playlistMode === 'full' || playlistMode === 'selected') && progressInfo.playlistInfo) {
             const { current, total } = progressInfo.playlistInfo;
-            // Overall progress = (completed videos / total) * 100 + (current video progress / 100) / total
+            // For selected videos mode, use selected count instead of total
+            const effectiveTotal = playlistMode === 'selected' && selectedVideos && selectedVideos.length > 0 
+              ? selectedVideos.length 
+              : total;
+            // Overall progress = (completed videos / effective total) * 100 + (current video progress / 100) / effective total
             const completedVideos = current - 1;
-            const overallProgress = (completedVideos / total) * 100 + (progressPercent / 100) / total * 100;
+            const overallProgress = (completedVideos / effectiveTotal) * 100 + (progressPercent / 100) / effectiveTotal * 100;
             finalPercent = Math.min(overallProgress, 100);
           } else if (isChapterDownload && selectedChapters) {
             // For chapters, we can't easily track individual chapter progress
@@ -930,7 +942,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             finalPercent = progressPercent;
           }
           
-          const progressType = playlistMode === 'full' && progressInfo.playlistInfo 
+          const progressType = (playlistMode === 'full' || playlistMode === 'selected') && progressInfo.playlistInfo 
             ? 'playlist-progress' 
             : isChapterDownload 
               ? 'chapter-progress' 
@@ -1403,7 +1415,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             }
             
             // Handle playlist mode differently
-            if (playlistMode === 'full') {
+            if (playlistMode === 'full' || playlistMode === 'selected') {
               // For playlists, find the playlist subfolder and collect all files
               // Look for directories in output folder that were recently created/modified
               const entries = fs.readdirSync(outputFolder, { withFileTypes: true });
@@ -1977,16 +1989,52 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
               return;
             }
             
-            // Calculate total duration
+            // Parse all videos and calculate total duration
             let totalDuration = 0;
-            lines.forEach(line => {
+            const videos = [];
+            
+            lines.forEach((line, lineIndex) => {
               try {
                 const entry = JSON.parse(line);
+                
+                // Extract video details
+                const videoId = entry.id || entry.url?.split('/').pop() || null;
+                const videoTitle = entry.title || `Video ${lineIndex + 1}`;
+                const videoDuration = entry.duration || 0;
+                const videoUrl = entry.url || entry.webpage_url || null;
+                const videoThumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
+                const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index + 1 : lineIndex + 1; // 1-based index
+                
+                // Format duration
+                let durationFormatted = '';
+                if (videoDuration > 0) {
+                  const hours = Math.floor(videoDuration / 3600);
+                  const minutes = Math.floor((videoDuration % 3600) / 60);
+                  const seconds = Math.floor(videoDuration % 60);
+                  
+                  if (hours > 0) {
+                    durationFormatted = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                  } else {
+                    durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                  }
+                }
+                
+                videos.push({
+                  id: videoId,
+                  title: videoTitle,
+                  duration: videoDuration,
+                  durationFormatted: durationFormatted,
+                  index: playlistIndex,
+                  url: videoUrl,
+                  thumbnail: videoThumbnail,
+                });
+                
                 if (entry.duration) {
                   totalDuration += entry.duration;
                 }
               } catch (e) {
                 // Skip invalid entries
+                console.warn('Failed to parse playlist entry:', e);
               }
             });
             
@@ -2012,6 +2060,7 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
               playlistTotalDuration: totalDuration,
               playlistTotalDurationFormatted: totalDurationFormatted,
               playlistUploader: firstEntry.playlist_uploader || firstEntry.channel || null,
+              videos: videos, // Array of individual video details
             };
             
             // Cache the result

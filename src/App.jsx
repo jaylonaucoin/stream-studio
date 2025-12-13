@@ -261,14 +261,18 @@ function App() {
 
       setConversionState('converting');
       setProgress(0);
-      const isPlaylist = options.playlistMode === 'full';
-      const isChapters = options.chapters && options.chapters.length > 0;
+      const isPlaylist = options.playlistMode === 'full' || options.playlistMode === 'selected';
+      const chapterDownloadMode = options.chapterDownloadMode || 'split';
+      const isChapters = chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
+      const isFullVideoWithChapters = chapterDownloadMode === 'full' && options.chapterDownloadMode !== undefined;
       setStatusMessage(
         isPlaylist 
           ? 'Starting playlist download...' 
           : isChapters 
             ? 'Starting chapter download...' 
-            : 'Starting conversion...'
+            : isFullVideoWithChapters
+              ? 'Downloading full video...'
+              : 'Starting conversion...'
       );
       setProgressSpeed(null);
       setProgressEta(null);
@@ -286,6 +290,7 @@ function App() {
           quality: options.quality || 'best',
           playlistMode: options.playlistMode || 'single',
           chapters: options.chapters || null,
+          chapterDownloadMode: options.chapterDownloadMode || null,
         });
 
         if (result.success) {
@@ -316,8 +321,9 @@ function App() {
         }
       } catch (error) {
         setConversionState('error');
-        const isPlaylist = options.playlistMode === 'full';
-        const isChapters = options.chapters && options.chapters.length > 0;
+        const isPlaylist = options.playlistMode === 'full' || options.playlistMode === 'selected';
+        const chapterDownloadMode = options.chapterDownloadMode || 'split';
+        const isChapters = chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
         setStatusMessage(isPlaylist ? 'Playlist download failed' : isChapters ? 'Chapter download failed' : 'Conversion failed');
         setPlaylistInfo(null);
         setError({
