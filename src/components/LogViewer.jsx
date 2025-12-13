@@ -110,9 +110,11 @@ function LogViewer({ logs, visible, onToggleVisibility, onClear }) {
           }}
         >
           {logs.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              No logs yet. Start a conversion to see progress logs.
-            </Typography>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                No logs yet. Start a conversion to see progress logs.
+              </Typography>
+            </Box>
           ) : (
             logs.map((log, index) => (
               <Box

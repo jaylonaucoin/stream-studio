@@ -23,11 +23,15 @@ import OutputFolderSelector from './components/OutputFolderSelector';
 import SettingsDialog from './components/SettingsDialog';
 import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
+import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
+  const [progressSpeed, setProgressSpeed] = useState(null);
+  const [progressEta, setProgressEta] = useState(null);
+  const [progressSize, setProgressSize] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsVisible, setLogsVisible] = useState(false);
   const [error, setError] = useState(null);
@@ -39,12 +43,42 @@ function App() {
   const [queueOpen, setQueueOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0);
   const [appVersion, setAppVersion] = useState('');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [defaultSettings, setDefaultSettings] = useState({
     defaultMode: 'audio',
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
     defaultQuality: 'best',
   });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+K or Cmd+K to open shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+      // Ctrl+H or Cmd+H to open history
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setHistoryOpen(true);
+      }
+      // Ctrl+Q or Cmd+Q to open queue
+      if ((e.ctrlKey || e.metaKey) && e.key === 'q') {
+        e.preventDefault();
+        setQueueOpen(true);
+      }
+      // Ctrl+, or Cmd+, to open settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Load output folder, settings, and history on mount
   useEffect(() => {
@@ -123,7 +157,20 @@ function App() {
       case 'progress':
         if (data.percent !== undefined) {
           setProgress(data.percent);
-          setStatusMessage(`Converting... ${data.percent.toFixed(1)}%`);
+          // Build status message with additional info
+          let message = `Converting... ${data.percent.toFixed(1)}%`;
+          if (data.speed) {
+            message += ` @ ${data.speed}`;
+          }
+          if (data.eta) {
+            message += ` (ETA: ${data.eta})`;
+          }
+          setStatusMessage(message);
+          
+          // Update progress details
+          setProgressSpeed(data.speed || null);
+          setProgressEta(data.eta || null);
+          setProgressSize(data.size || null);
         }
         if (data.message) {
           setLogs((prev) => [
@@ -147,6 +194,9 @@ function App() {
         setStatusMessage('Cancelled');
         setConversionState('idle');
         setProgress(0);
+        setProgressSpeed(null);
+        setProgressEta(null);
+        setProgressSize(null);
         if (data.message) {
           setLogs((prev) => [
             ...prev,
@@ -177,6 +227,9 @@ function App() {
       setConversionState('converting');
       setProgress(0);
       setStatusMessage('Starting conversion...');
+      setProgressSpeed(null);
+      setProgressEta(null);
+      setProgressSize(null);
       setLogs([]);
       setError(null);
       setLastConvertedFile(null);
@@ -284,20 +337,34 @@ function App() {
                 sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
               />
             )}
-            <Tooltip title="Batch Queue">
-              <IconButton color="inherit" onClick={() => setQueueOpen(true)} sx={{ mr: 1 }}>
+            <Tooltip title="Batch Queue (Ctrl+Q)">
+              <IconButton
+                color="inherit"
+                onClick={() => setQueueOpen(true)}
+                sx={{ mr: 1 }}
+                aria-label="Open batch queue"
+              >
                 <QueueIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Conversion History">
-              <IconButton color="inherit" onClick={() => setHistoryOpen(true)} sx={{ mr: 1 }}>
+            <Tooltip title={`Conversion History (Ctrl+H) - ${historyCount} items`}>
+              <IconButton
+                color="inherit"
+                onClick={() => setHistoryOpen(true)}
+                sx={{ mr: 1 }}
+                aria-label={`Open conversion history, ${historyCount} items`}
+              >
                 <Badge badgeContent={historyCount} color="error" max={99}>
                   <HistoryIcon />
                 </Badge>
               </IconButton>
             </Tooltip>
-            <Tooltip title="Settings">
-              <IconButton color="inherit" onClick={() => setSettingsOpen(true)}>
+            <Tooltip title="Settings (Ctrl+,)">
+              <IconButton
+                color="inherit"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Open settings"
+              >
                 <SettingsIcon />
               </IconButton>
             </Tooltip>
@@ -323,6 +390,9 @@ function App() {
               state={conversionState}
               lastConvertedFile={lastConvertedFile}
               onOpenFileLocation={handleOpenFileLocation}
+              progressSpeed={progressSpeed}
+              progressEta={progressEta}
+              progressSize={progressSize}
             />
           </Box>
 
@@ -392,6 +462,8 @@ function App() {
             }
           }}
         />
+
+        <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </Box>
     </ThemeProvider>
   );

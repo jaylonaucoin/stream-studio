@@ -633,37 +633,126 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     
     let outputFilePath = null;
     let errorOutput = '';
+    let lastProgressPercent = 0;
+    const conversionStartTime = Date.now();
     
-    // Handle stdout (info messages)
+    /**
+     * Parse progress from yt-dlp output
+     * Handles multiple progress formats:
+     * - [download] X%
+     * - [download] X.X% of Y.YMiB
+     * - [ExtractAudio] X%
+     * - [Merger] X%
+     * - [ffmpeg] X%
+     */
+    const parseProgress = (message) => {
+      // Try multiple progress patterns
+      const patterns = [
+        /\[download\]\s+(\d+(?:\.\d+)?)%/i,           // [download] 45.2%
+        /\[ExtractAudio\]\s+(\d+(?:\.\d+)?)%/i,        // [ExtractAudio] 50%
+        /\[Merger\]\s+(\d+(?:\.\d+)?)%/i,              // [Merger] 75%
+        /\[ffmpeg\]\s+(\d+(?:\.\d+)?)%/i,               // [ffmpeg] 80%
+        /\[PostProcessor\]\s+(\d+(?:\.\d+)?)%/i,        // [PostProcessor] 90%
+        /(\d+(?:\.\d+)?)%\s+of\s+[\d.]+[KMGT]?i?B/i,   // 45.2% of 123.45MiB
+        /(\d+(?:\.\d+)?)%\s+at\s+[\d.]+[KMGT]?i?B\/s/i, // 45.2% at 1.23MiB/s
+      ];
+      
+      for (const pattern of patterns) {
+        const match = message.match(pattern);
+        if (match) {
+          const percent = parseFloat(match[1]);
+          if (!isNaN(percent) && percent >= 0 && percent <= 100) {
+            return percent;
+          }
+        }
+      }
+      
+      return null;
+    };
+    
+    /**
+     * Extract additional info from progress message (speed, ETA, file size)
+     */
+    const parseProgressInfo = (message) => {
+      const info = {};
+      
+      // Extract download speed (e.g., "at 1.23MiB/s")
+      const speedMatch = message.match(/at\s+([\d.]+)\s*([KMGT]?i?B)\/s/i);
+      if (speedMatch) {
+        info.speed = `${speedMatch[1]} ${speedMatch[2]}/s`;
+      }
+      
+      // Extract ETA (e.g., "ETA 00:45" or "ETA 1:23:45")
+      const etaMatch = message.match(/ETA\s+(\d{1,2}:\d{2}(?::\d{2})?)/i);
+      if (etaMatch) {
+        info.eta = etaMatch[1];
+      }
+      
+      // Extract file size (e.g., "of 123.45MiB")
+      const sizeMatch = message.match(/of\s+([\d.]+)\s*([KMGT]?i?B)/i);
+      if (sizeMatch) {
+        info.size = `${sizeMatch[1]} ${sizeMatch[2]}`;
+      }
+      
+      return info;
+    };
+    
+    // Handle stdout (info messages and sometimes progress)
     currentConversionProcess.stdout.on('data', (data) => {
       const message = data.toString();
-      // Send progress updates to renderer
-      mainWindow?.webContents.send('conversion-progress', {
-        type: 'info',
-        message: message.trim()
-      });
+      const lines = message.split('\n').filter(line => line.trim());
+      
+      for (const line of lines) {
+        // Check for progress in stdout too
+        const progressPercent = parseProgress(line);
+        if (progressPercent !== null) {
+          lastProgressPercent = progressPercent;
+          const progressInfo = parseProgressInfo(line);
+          mainWindow?.webContents.send('conversion-progress', {
+            type: 'progress',
+            percent: progressPercent,
+            speed: progressInfo.speed,
+            eta: progressInfo.eta,
+            size: progressInfo.size,
+            message: line.trim()
+          });
+        } else {
+          // Send other messages as info
+          mainWindow?.webContents.send('conversion-progress', {
+            type: 'info',
+            message: line.trim()
+          });
+        }
+      }
     });
     
     // Handle stderr (progress and errors)
     currentConversionProcess.stderr.on('data', (data) => {
       const message = data.toString();
       errorOutput += message;
+      const lines = message.split('\n').filter(line => line.trim());
       
-      // Parse progress from yt-dlp output
-      const progressMatch = message.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
-      if (progressMatch) {
-        const percent = parseFloat(progressMatch[1]);
-        mainWindow?.webContents.send('conversion-progress', {
-          type: 'progress',
-          percent: percent,
-          message: message.trim()
-        });
-      } else {
-        // Send other messages
-        mainWindow?.webContents.send('conversion-progress', {
-          type: 'status',
-          message: message.trim()
-        });
+      for (const line of lines) {
+        // Parse progress from stderr
+        const progressPercent = parseProgress(line);
+        if (progressPercent !== null) {
+          lastProgressPercent = progressPercent;
+          const progressInfo = parseProgressInfo(line);
+          mainWindow?.webContents.send('conversion-progress', {
+            type: 'progress',
+            percent: progressPercent,
+            speed: progressInfo.speed,
+            eta: progressInfo.eta,
+            size: progressInfo.size,
+            message: line.trim()
+          });
+        } else {
+          // Send other messages as status
+          mainWindow?.webContents.send('conversion-progress', {
+            type: 'status',
+            message: line.trim()
+          });
+        }
       }
     });
     
@@ -965,6 +1054,141 @@ ipcMain.handle('cancel', () => {
     return { cancelled: true };
   }
   return { cancelled: false };
+});
+
+// Video info cache to avoid repeated calls
+const videoInfoCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Get video info handler (for preview)
+ipcMain.handle('getVideoInfo', async (event, url) => {
+  try {
+    // Sanitize URL
+    const sanitizedUrl = sanitizeUrl(url);
+    
+    // Check cache first
+    const cacheKey = sanitizedUrl;
+    const cached = videoInfoCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+    
+    // Get yt-dlp path
+    const ytDlpPath = getYtDlpPath();
+    
+    // Use yt-dlp to extract video info without downloading
+    const args = [
+      '--dump-json',      // Output JSON metadata
+      '--no-playlist',    // Don't download playlists
+      '--no-warnings',    // Suppress warnings
+      sanitizedUrl
+    ];
+    
+    return new Promise((resolve, reject) => {
+      const infoProcess = spawn(ytDlpPath, args, {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      
+      let stdout = '';
+      let stderr = '';
+      let timeoutId = null;
+      
+      // Set timeout (10 seconds for info extraction)
+      timeoutId = setTimeout(() => {
+        infoProcess.kill();
+        reject(new Error('Video info extraction timed out. The URL may be invalid or the video may be unavailable.'));
+      }, 10000);
+      
+      infoProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      infoProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      infoProcess.on('close', (code) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (code === 0 && stdout) {
+          try {
+            const info = JSON.parse(stdout);
+            
+            // Extract relevant information
+            const videoInfo = {
+              title: info.title || 'Unknown Title',
+              thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
+              duration: info.duration || null,
+              uploader: info.uploader || info.channel || null,
+              viewCount: info.view_count || null,
+              uploadDate: info.upload_date || null,
+              description: info.description || null,
+              webpageUrl: info.webpage_url || sanitizedUrl,
+            };
+            
+            // Format duration as MM:SS or HH:MM:SS
+            if (videoInfo.duration) {
+              const hours = Math.floor(videoInfo.duration / 3600);
+              const minutes = Math.floor((videoInfo.duration % 3600) / 60);
+              const seconds = Math.floor(videoInfo.duration % 60);
+              
+              if (hours > 0) {
+                videoInfo.durationFormatted = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+              } else {
+                videoInfo.durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+              }
+            }
+            
+            // Cache the result
+            videoInfoCache.set(cacheKey, {
+              data: { success: true, ...videoInfo },
+              timestamp: Date.now()
+            });
+            
+            resolve({ success: true, ...videoInfo });
+          } catch (parseError) {
+            reject(new Error(`Failed to parse video info: ${parseError.message}`));
+          }
+        } else {
+          // Parse error from stderr
+          const errorLower = stderr.toLowerCase();
+          let errorMsg = 'Failed to get video info. ';
+          
+          if (errorLower.includes('private') || errorLower.includes('unavailable')) {
+            errorMsg += 'Video is private or unavailable.';
+          } else if (errorLower.includes('sign in') || errorLower.includes('login')) {
+            errorMsg += 'This video requires sign-in to access.';
+          } else if (errorLower.includes('age')) {
+            errorMsg += 'This video is age-restricted.';
+          } else if (errorLower.includes('not found') || errorLower.includes('does not exist')) {
+            errorMsg += 'Video not found.';
+          } else {
+            errorMsg += 'Please check the URL and try again.';
+          }
+          
+          reject(new Error(errorMsg));
+        }
+      });
+      
+      infoProcess.on('error', (error) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (error.code === 'ENOENT') {
+          reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+        } else {
+          reject(new Error(`Failed to get video info: ${error.message}`));
+        }
+      });
+    });
+  } catch (error) {
+    throw new Error(`Invalid URL: ${error.message}`);
+  }
 });
 
 // Get default output folder

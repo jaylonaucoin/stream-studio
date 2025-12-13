@@ -38,5 +38,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // External links
   openExternal: (url) => ipcRenderer.invoke('openExternal', url),
+  
+  // Video info (for preview)
+  getVideoInfo: (url) => ipcRenderer.invoke('getVideoInfo', url),
 });
 

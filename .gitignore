@@ -9,6 +9,7 @@ dist/
 dist-renderer/
 build/
 out/
+bin/
 
 # OS files
 .DS_Store
