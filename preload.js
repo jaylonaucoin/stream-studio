@@ -47,5 +47,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Chapter info (for chapter selection)
   getChapterInfo: (url) => ipcRenderer.invoke('getChapterInfo', url),
+  
+  // Image selection (for thumbnail replacement)
+  selectImageFile: () => ipcRenderer.invoke('selectImageFile'),
 });
 

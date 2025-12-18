@@ -80,7 +80,12 @@ function ErrorDialog({ open, onClose, title, message }) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} variant="contained" color="primary" aria-label="Close error dialog">
+        <Button
+          onClick={handleClose}
+          variant="contained"
+          color="primary"
+          aria-label="Close error dialog"
+        >
           OK
         </Button>
       </DialogActions>

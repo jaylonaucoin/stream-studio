@@ -64,7 +64,15 @@ const isValidUrl = (url) => {
   }
 };
 
-function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete }) {
+function QueuePanel({
+  open,
+  onClose,
+  outputFolder,
+  defaultMode,
+  defaultFormat,
+  defaultQuality,
+  onQueueComplete,
+}) {
   const [urls, setUrls] = useState('');
   const [queue, setQueue] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -191,7 +199,15 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
     if (onQueueComplete) {
       onQueueComplete();
     }
-  }, [queue, isProcessing, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete]);
+  }, [
+    queue,
+    isProcessing,
+    outputFolder,
+    defaultMode,
+    defaultFormat,
+    defaultQuality,
+    onQueueComplete,
+  ]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -261,8 +277,13 @@ function QueuePanel({ open, onClose, outputFolder, defaultMode, defaultFormat, d
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Paste video URLs (one per line) - supports 1000+ sites:
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}>
-            Note: Playlist URLs will download only the first video. Use the main form for full playlist downloads.
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}
+          >
+            Note: Playlist URLs will download only the first video. Use the main form for full
+            playlist downloads.
           </Typography>
           <TextField
             multiline

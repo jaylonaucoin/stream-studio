@@ -77,7 +77,12 @@ function KeyboardShortcutsDialog({ open, onClose }) {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {SHORTCUTS.map((category, idx) => (
             <Box key={category.category}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 {category.category}
               </Typography>
               <List dense>

@@ -119,7 +119,7 @@ function HistoryPanel({ open, onClose }) {
   // Filter history based on search query
   const filteredHistory = useMemo(() => {
     if (!searchQuery.trim()) return history;
-    
+
     const query = searchQuery.toLowerCase();
     return history.filter((item) => {
       const fileName = item.fileName?.toLowerCase() || '';
@@ -144,9 +144,9 @@ function HistoryPanel({ open, onClose }) {
             <HistoryIcon />
             <Typography variant="h6">Conversion History</Typography>
             {history.length > 0 && (
-              <Chip 
-                label={history.length} 
-                size="small" 
+              <Chip
+                label={history.length}
+                size="small"
                 color="primary"
                 title={`${history.length} item${history.length !== 1 ? 's' : ''} in history`}
               />
@@ -184,11 +184,7 @@ function HistoryPanel({ open, onClose }) {
               ),
               endAdornment: searchQuery && (
                 <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={() => setSearchQuery('')}
-                    edge="end"
-                  >
+                  <IconButton size="small" onClick={() => setSearchQuery('')} edge="end">
                     <ClearIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -292,7 +288,9 @@ function HistoryPanel({ open, onClose }) {
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title={item.isPlaylist ? "Open playlist folder" : "Open file location"}>
+                    <Tooltip
+                      title={item.isPlaylist ? 'Open playlist folder' : 'Open file location'}
+                    >
                       <IconButton size="small" onClick={() => handleOpenLocation(item)}>
                         <FolderOpenIcon fontSize="small" />
                       </IconButton>

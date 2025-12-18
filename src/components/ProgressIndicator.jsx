@@ -80,8 +80,15 @@ function ProgressIndicator({
                     </Box>
                   </Box>
                 )}
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
                   <LinearProgress
                     variant="determinate"
                     value={progress}
@@ -92,7 +99,11 @@ function ProgressIndicator({
                       mr: 2,
                     }}
                   />
-                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 50, textAlign: 'right' }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ minWidth: 50, textAlign: 'right' }}
+                  >
                     {progress.toFixed(0)}%
                   </Typography>
                 </Box>
@@ -139,7 +150,7 @@ function ProgressIndicator({
                     }}
                   />
                   <Typography variant="h6" color="success.main" gutterBottom>
-                    {lastConvertedFile?.isPlaylist 
+                    {lastConvertedFile?.isPlaylist
                       ? `Playlist Complete! (${lastConvertedFile.fileCount} videos)`
                       : 'Conversion Complete!'}
                   </Typography>
@@ -149,10 +160,17 @@ function ProgressIndicator({
 
             {lastConvertedFile && (
               <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  gutterBottom
+                  sx={{ fontWeight: 500 }}
+                >
                   {lastConvertedFile.isPlaylist ? 'Playlist saved:' : 'File saved:'}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}
+                >
                   <Typography
                     variant="body2"
                     sx={{
@@ -164,15 +182,27 @@ function ProgressIndicator({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolderName : lastConvertedFile.fileName}
+                    title={
+                      lastConvertedFile.isPlaylist
+                        ? lastConvertedFile.playlistFolderName
+                        : lastConvertedFile.fileName
+                    }
                   >
-                    {lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolderName : lastConvertedFile.fileName}
+                    {lastConvertedFile.isPlaylist
+                      ? lastConvertedFile.playlistFolderName
+                      : lastConvertedFile.fileName}
                   </Typography>
                   <Button
                     size="small"
                     variant="outlined"
                     startIcon={<FolderOpenIcon />}
-                    onClick={() => onOpenFileLocation(lastConvertedFile.isPlaylist ? lastConvertedFile.playlistFolder : lastConvertedFile.filePath)}
+                    onClick={() =>
+                      onOpenFileLocation(
+                        lastConvertedFile.isPlaylist
+                          ? lastConvertedFile.playlistFolder
+                          : lastConvertedFile.filePath
+                      )
+                    }
                   >
                     Open Location
                   </Button>

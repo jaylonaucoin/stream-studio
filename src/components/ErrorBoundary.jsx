@@ -57,11 +57,7 @@ class ErrorBoundary extends React.Component {
               An unexpected error occurred. Please try refreshing the application.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-              <Button
-                variant="contained"
-                startIcon={<RefreshIcon />}
-                onClick={this.handleReset}
-              >
+              <Button variant="contained" startIcon={<RefreshIcon />} onClick={this.handleReset}>
                 Reload Application
               </Button>
             </Box>
@@ -75,7 +71,11 @@ class ErrorBoundary extends React.Component {
                   textAlign: 'left',
                 }}
               >
-                <Typography variant="caption" component="pre" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                <Typography
+                  variant="caption"
+                  component="pre"
+                  sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                >
                   {this.state.error.toString()}
                 </Typography>
               </Box>

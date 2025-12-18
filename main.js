@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
+const NodeID3 = require('node-id3');
 
 // Initialize electron-store for preferences and history
 const store = new Store({
@@ -450,6 +451,154 @@ function sanitizeUrl(url) {
   return normalized;
 }
 
+// Helper function to apply metadata to a file
+async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // Convert base64 data URL to buffer for thumbnail
+    let thumbnailBuffer = null;
+    if (thumbnailDataUrl) {
+      const base64Data = thumbnailDataUrl.replace(/^data:image\/\w+;base64,/, '');
+      thumbnailBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    if (ext === '.mp3') {
+      // Use node-id3 for MP3 files
+      const tags = {
+        title: metadata.title || '',
+        artist: metadata.artist || '',
+        album: metadata.album || '',
+        performerInfo: metadata.albumArtist || '',
+        genre: metadata.genre || '',
+        year: metadata.year || '',
+        trackNumber: metadata.trackNumber || '',
+        partOfSet: metadata.totalTracks ? `1/${metadata.totalTracks}` : '',
+        composer: metadata.composer || '',
+        publisher: metadata.publisher || '',
+        comment: {
+          language: metadata.language || 'eng',
+          text: metadata.comment || metadata.description || '',
+        },
+        copyright: metadata.copyright || '',
+        bpm: metadata.bpm ? parseInt(metadata.bpm, 10) : undefined,
+      };
+
+      // Add thumbnail if provided
+      if (thumbnailBuffer) {
+        tags.image = {
+          mime: 'image/jpeg',
+          type: { id: 3, name: 'front cover' },
+          description: 'Cover',
+          imageBuffer: thumbnailBuffer,
+        };
+      }
+
+      // Remove undefined values
+      Object.keys(tags).forEach(key => {
+        if (tags[key] === undefined || tags[key] === '') {
+          delete tags[key];
+        }
+      });
+
+      const success = NodeID3.write(tags, filePath);
+      if (!success) {
+        throw new Error('Failed to write ID3 tags');
+      }
+    } else if (ext === '.m4a' || ext === '.mp4') {
+      // Use ffmpeg for M4A/MP4 files (iTunes tags)
+      const ffmpegPath = getFfmpegPath();
+      const args = ['-i', filePath, '-c', 'copy'];
+      
+      // Add metadata
+      if (metadata.title) args.push('-metadata', `title=${metadata.title}`);
+      if (metadata.artist) args.push('-metadata', `artist=${metadata.artist}`);
+      if (metadata.album) args.push('-metadata', `album=${metadata.album}`);
+      if (metadata.albumArtist) args.push('-metadata', `album_artist=${metadata.albumArtist}`);
+      if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`);
+      if (metadata.year) args.push('-metadata', `date=${metadata.year}`);
+      if (metadata.trackNumber) args.push('-metadata', `track=${metadata.trackNumber}${metadata.totalTracks ? `/${metadata.totalTracks}` : ''}`);
+      if (metadata.composer) args.push('-metadata', `composer=${metadata.composer}`);
+      if (metadata.publisher) args.push('-metadata', `publisher=${metadata.publisher}`);
+      if (metadata.comment || metadata.description) args.push('-metadata', `comment=${metadata.comment || metadata.description}`);
+      if (metadata.copyright) args.push('-metadata', `copyright=${metadata.copyright}`);
+      if (metadata.bpm) args.push('-metadata', `TBPM=${metadata.bpm}`);
+
+      // Add thumbnail/cover art
+      if (thumbnailBuffer) {
+        const tempThumbnailPath = path.join(os.tmpdir(), `thumb_${Date.now()}.jpg`);
+        fs.writeFileSync(tempThumbnailPath, thumbnailBuffer);
+        args.push('-i', tempThumbnailPath, '-map', '0', '-map', '1', '-c', 'copy', '-c:v:1', 'mjpeg', '-disposition:v:1', 'attached_pic');
+        
+        const outputPath = filePath.replace(ext, `.temp${ext}`);
+        args.push(outputPath);
+        
+        await new Promise((resolve, reject) => {
+          const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
+          ffmpegProc.on('close', (code) => {
+            if (code === 0) {
+              fs.renameSync(outputPath, filePath);
+              fs.unlinkSync(tempThumbnailPath);
+              resolve();
+            } else {
+              fs.unlinkSync(tempThumbnailPath);
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+          ffmpegProc.on('error', reject);
+        });
+      } else {
+        const outputPath = filePath.replace(ext, `.temp${ext}`);
+        args.push(outputPath);
+        
+        await new Promise((resolve, reject) => {
+          const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
+          ffmpegProc.on('close', (code) => {
+            if (code === 0) {
+              fs.renameSync(outputPath, filePath);
+              resolve();
+            } else {
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+          ffmpegProc.on('error', reject);
+        });
+      }
+    } else {
+      // For other formats, use ffmpeg with generic metadata
+      const ffmpegPath = getFfmpegPath();
+      const args = ['-i', filePath, '-c', 'copy'];
+      
+      if (metadata.title) args.push('-metadata', `title=${metadata.title}`);
+      if (metadata.artist) args.push('-metadata', `artist=${metadata.artist}`);
+      if (metadata.album) args.push('-metadata', `album=${metadata.album}`);
+      if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`);
+      if (metadata.year) args.push('-metadata', `date=${metadata.year}`);
+      
+      const outputPath = filePath.replace(ext, `.temp${ext}`);
+      args.push(outputPath);
+      
+      await new Promise((resolve, reject) => {
+        const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
+        ffmpegProc.on('close', (code) => {
+          if (code === 0) {
+            fs.renameSync(outputPath, filePath);
+            resolve();
+          } else {
+            reject(new Error(`FFmpeg failed with code ${code}`));
+          }
+        });
+        ffmpegProc.on('error', reject);
+      });
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to apply metadata:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Convert handler
 ipcMain.handle('convert', async (event, url, options = {}) => {
   // Cancel any existing conversion
@@ -486,7 +635,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, and selectedVideos from options
+    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, selectedVideos, and customMetadata from options
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
     const quality = options.quality || 'best';
@@ -494,6 +643,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     const selectedChapters = options.chapters || null; // Array of chapter indices or null for full video
     const chapterDownloadMode = options.chapterDownloadMode || 'split'; // 'full' or 'split'
     const selectedVideos = options.selectedVideos || null; // Array of video indices (1-based) for playlist selection
+    const customMetadata = options.customMetadata || null; // Custom metadata object
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -535,12 +685,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         return name.replace(/[<>:"/\\|?*]/g, '_').trim();
       };
       
-      // Create output template with playlist subfolder and numbered files
+      // Create output template with playlist subfolder (no numbered prefix, using metadata track numbers)
       if (fileExtension) {
-        // Template: PlaylistName/%(playlist_index)02d - %(title)s.%(ext)s
-        outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(playlist_index)02d - %(title)s.${fileExtension}`);
+        // Template: PlaylistName/%(title)s.%(ext)s
+        outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(title)s.${fileExtension}`);
       } else {
-        outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(playlist_index)02d - %(title)s.%(ext)s');
+        outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(title)s.%(ext)s');
       }
     } else if (chapterDownloadMode === 'split' && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // For chapter downloads: --split-chapters creates files in output folder
@@ -1371,6 +1521,53 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               }
               
                   if (keptFiles.length > 0) {
+                    // Apply custom metadata if provided (async - already in async IIFE, but keeping structure consistent)
+                    if (customMetadata && customMetadata.type === 'chapter' && customMetadata.chapterMetadata) {
+                      try {
+                        const albumMeta = customMetadata.chapterMetadata.albumMetadata || {};
+                        const template = customMetadata.chapterMetadata.chapterTitleTemplate || '{chapterTitle}';
+                        const useChapterTitles = customMetadata.chapterMetadata.useChapterTitles !== false;
+                        
+                        // Sort keptFiles to match chapter order
+                        const sortedFiles = [...keptFiles].sort((a, b) => {
+                          const numA = a.fileName.match(/\s+-\s+(\d{3})/);
+                          const numB = b.fileName.match(/\s+-\s+(\d{3})/);
+                          if (numA && numB) {
+                            return parseInt(numA[1], 10) - parseInt(numB[1], 10);
+                          }
+                          return 0;
+                        });
+                        
+                        // Apply metadata to each chapter file
+                        for (let i = 0; i < sortedFiles.length; i++) {
+                          const file = sortedFiles[i];
+                          const chapterIndex = selectedChapters[i];
+                          const chapter = chapterInfoForDownload.chapters[chapterIndex];
+                          
+                          // Build title from template
+                          let title = chapter?.title || `Chapter ${i + 1}`;
+                          if (!useChapterTitles && template) {
+                            title = template
+                              .replace('{chapterTitle}', chapter?.title || `Chapter ${i + 1}`)
+                              .replace('{album}', albumMeta.album || '')
+                              .replace('{trackNumber}', (i + 1).toString());
+                          }
+                          
+                          const metadata = {
+                            ...albumMeta,
+                            title: title,
+                            trackNumber: (i + 1).toString(),
+                            totalTracks: sortedFiles.length.toString(),
+                          };
+                          
+                          await applyMetadataToFile(file.filePath, metadata, customMetadata.thumbnail);
+                        }
+                      } catch (metaError) {
+                        console.warn('Failed to apply chapter metadata:', metaError);
+                        // Continue even if metadata fails
+                      }
+                    }
+                    
                     // Add to history with chapter info
                     addToHistory({
                       url: videoUrl,
@@ -1452,6 +1649,38 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort by filename (numbered)
                 
                 if (playlistFiles.length > 0) {
+                  // Apply custom metadata if provided (async)
+                  if (customMetadata && customMetadata.type === 'playlist') {
+                    (async () => {
+                      try {
+                        if (customMetadata.mode === 'bulk' && customMetadata.bulkMetadata) {
+                          // Apply bulk metadata to all files with auto-incremented track numbers
+                          // Use totalTracks from metadata if provided (for selected videos mode), otherwise use file count
+                          const totalTracks = customMetadata.totalTracks || playlistFiles.length;
+                          for (let i = 0; i < playlistFiles.length; i++) {
+                            const file = playlistFiles[i];
+                            const metadata = {
+                              ...customMetadata.bulkMetadata,
+                              trackNumber: (i + 1).toString(),
+                              totalTracks: totalTracks.toString(),
+                            };
+                            await applyMetadataToFile(file.filePath, metadata, customMetadata.thumbnail);
+                          }
+                        } else if (customMetadata.mode === 'individual' && customMetadata.perFileMetadata) {
+                          // Apply per-file metadata (shared thumbnail applies to all)
+                          for (let i = 0; i < playlistFiles.length && i < customMetadata.perFileMetadata.length; i++) {
+                            const file = playlistFiles[i];
+                            const metadata = customMetadata.perFileMetadata[i];
+                            await applyMetadataToFile(file.filePath, metadata, customMetadata.thumbnail);
+                          }
+                        }
+                      } catch (metaError) {
+                        console.warn('Failed to apply playlist metadata:', metaError);
+                        // Continue even if metadata fails
+                      }
+                    })();
+                  }
+                  
                   // Add to history with playlist info
                   addToHistory({
                     url: videoUrl,
@@ -1564,6 +1793,18 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     fs.renameSync(tempFilePath, uniqueFilePath);
                     outputFilePath = uniqueFilePath;
                     currentOutputPath = outputFilePath;
+                    
+                    // Apply custom metadata if provided (async)
+                    if (customMetadata && customMetadata.type === 'single' && customMetadata.metadata) {
+                      (async () => {
+                        try {
+                          await applyMetadataToFile(outputFilePath, customMetadata.metadata, customMetadata.thumbnail);
+                        } catch (metaError) {
+                          console.warn('Failed to apply metadata:', metaError);
+                          // Continue even if metadata fails
+                        }
+                      })();
+                    }
                     
                     const fileName = path.basename(uniqueFilePath);
                     
@@ -2364,6 +2605,39 @@ ipcMain.handle('openFileLocation', async (event, filePath) => {
     }
   } catch (error) {
     throw new Error(`Failed to open file location: ${error.message}`);
+  }
+});
+
+// Select image file handler (for thumbnail replacement)
+ipcMain.handle('selectImageFile', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      title: 'Select Image File'
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      const imagePath = result.filePaths[0];
+      // Read image file and convert to base64 data URL
+      const imageBuffer = fs.readFileSync(imagePath);
+      const base64 = imageBuffer.toString('base64');
+      const ext = path.extname(imagePath).toLowerCase().substring(1);
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+                       ext === 'png' ? 'image/png' :
+                       ext === 'gif' ? 'image/gif' :
+                       ext === 'bmp' ? 'image/bmp' :
+                       ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+      return { success: true, dataUrl };
+    }
+
+    return { success: false, dataUrl: null };
+  } catch (error) {
+    throw new Error(`Failed to select image file: ${error.message}`);
   }
 });
 

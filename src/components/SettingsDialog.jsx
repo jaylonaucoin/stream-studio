@@ -98,7 +98,12 @@ function SettingsDialog({ open, onClose }) {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Notifications */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 Notifications
               </Typography>
               <FormControlLabel
@@ -117,7 +122,12 @@ function SettingsDialog({ open, onClose }) {
 
             {/* Default Formats */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 Default Conversion Settings
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -188,7 +198,12 @@ function SettingsDialog({ open, onClose }) {
 
             {/* History */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 History
               </Typography>
               <Typography variant="body2" gutterBottom>
@@ -212,11 +227,17 @@ function SettingsDialog({ open, onClose }) {
             {/* Keyboard Shortcuts Info */}
             <Divider />
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
                 Keyboard Shortcuts
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Press <strong>Ctrl+K</strong> (or <strong>⌘K</strong> on Mac) to view all keyboard shortcuts.
+                Press <strong>Ctrl+K</strong> (or <strong>⌘K</strong> on Mac) to view all keyboard
+                shortcuts.
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <Typography variant="body2">
