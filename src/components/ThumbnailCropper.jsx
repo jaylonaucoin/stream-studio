@@ -26,10 +26,24 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
 
   const onImageLoad = useCallback((e) => {
     const image = e.currentTarget;
+    // Ensure image is fully loaded
+    if (!image.complete || image.naturalWidth === 0) {
+      console.warn('Image not fully loaded yet');
+      return;
+    }
+    
     const { naturalWidth, naturalHeight } = image;
     const displayWidth = image.width;
     const displayHeight = image.height;
+    
+    console.log('Image loaded', {
+      naturalSize: { width: naturalWidth, height: naturalHeight },
+      displaySize: { width: displayWidth, height: displayHeight },
+      complete: image.complete,
+    });
+    
     setImageLoaded(true);
+    
     // Set initial crop to center square using displayed dimensions (ReactCrop works with displayed size)
     const cropSize = Math.min(displayWidth, displayHeight) * 0.8;
     const initialCrop = {
@@ -41,11 +55,7 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     };
     setCrop(initialCrop);
     setCompletedCrop(initialCrop); // Set completedCrop immediately so button is enabled
-    console.log('Image loaded', {
-      naturalSize: { width: naturalWidth, height: naturalHeight },
-      displaySize: { width: displayWidth, height: displayHeight },
-      initialCrop,
-    });
+    console.log('Initial crop set:', initialCrop);
   }, []);
 
   const getCroppedImg = useCallback((cropToUse) => {
@@ -128,53 +138,62 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       }
 
       tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-      return new Promise((resolve) => {
-        tempCanvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            } else {
-              resolve(null);
-            }
-          },
-          'image/jpeg',
-          0.95
-        );
-      });
+      // Use toDataURL for more reliable conversion
+      const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
+      return Promise.resolve(dataUrl);
     }
 
-    return new Promise((resolve) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-          } else {
-            resolve(null);
-          }
-        },
-        'image/jpeg',
-        0.95
-      );
-    });
+    // Use toDataURL for more reliable conversion
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    return Promise.resolve(dataUrl);
   }, []);
 
   const handleCrop = useCallback(async () => {
     try {
-      // Use current crop if completedCrop is not set yet
-      const finalCrop = completedCrop || crop;
+      console.log('handleCrop called', {
+        hasImgRef: !!imgRef.current,
+        hasCanvasRef: !!canvasRef.current,
+        completedCrop: !!completedCrop,
+        crop: !!crop,
+        imageLoaded,
+      });
 
-      if (!finalCrop || !finalCrop.width || !finalCrop.height || !imgRef.current) {
+      if (!imgRef.current || !canvasRef.current) {
+        console.error('Image or canvas ref not available', {
+          imgRef: imgRef.current,
+          canvasRef: canvasRef.current,
+        });
         return;
       }
 
+      const image = imgRef.current;
+      if (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
+        console.error('Image not fully loaded', {
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+        });
+        return;
+      }
+
+      // Use completedCrop if available, otherwise fall back to current crop
+      const finalCrop = completedCrop || crop;
+
+      if (!finalCrop || !finalCrop.width || !finalCrop.height) {
+        console.error('Invalid crop values:', finalCrop);
+        return;
+      }
+
+      console.log('Calling getCroppedImg with crop:', finalCrop);
       const croppedImageUrl = await getCroppedImg(finalCrop);
+      console.log('getCroppedImg result:', croppedImageUrl ? 'Success (length: ' + croppedImageUrl.length + ')' : 'Failed');
 
       if (croppedImageUrl) {
+        console.log('Calling onCropComplete');
         onCropComplete(croppedImageUrl);
+        console.log('onCropComplete called successfully');
+      } else {
+        console.error('Failed to generate cropped image');
       }
     } catch (error) {
       console.error('Error cropping image:', error);
@@ -259,19 +278,26 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           Cancel
         </Button>
         <Button
-          onClick={(e) => {
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             console.log('Apply Crop button clicked', {
               imageLoaded,
               completedCrop: !!completedCrop,
               crop: !!crop,
               cropWidth: crop?.width,
               cropHeight: crop?.height,
+              hasImgRef: !!imgRef.current,
+              hasCanvasRef: !!canvasRef.current,
             });
-            handleCrop(e);
+            await handleCrop();
           }}
           variant="contained"
           startIcon={<CheckIcon />}
-          disabled={!imageLoaded || (!completedCrop && (!crop || !crop.width || !crop.height))}
+          disabled={
+            !imageLoaded ||
+            (!completedCrop && (!crop || !crop.width || !crop.height))
+          }
         >
           Apply Crop
         </Button>

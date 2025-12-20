@@ -176,6 +176,7 @@ function MetadataEditor({
   chapterInfo,
   selectedChapters,
   selectedVideos, // For playlist selected mode
+  customMetadata, // Previously saved metadata to restore
   mode = 'single', // 'single', 'playlist', 'chapter'
 }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -381,6 +382,68 @@ function MetadataEditor({
     
     const currentYear = new Date().getFullYear();
     
+    // If customMetadata exists, restore from it (user's previously saved changes)
+    if (customMetadata) {
+      if (customMetadata.type === 'single' && customMetadata.metadata) {
+        // Restore single video metadata
+        setMetadata(customMetadata.metadata);
+        if (customMetadata.thumbnail) {
+          setThumbnailUrl(customMetadata.thumbnail);
+          setCustomThumbnail(customMetadata.thumbnail);
+        }
+      } else if (customMetadata.type === 'playlist') {
+        if (customMetadata.mode === 'bulk' && customMetadata.bulkMetadata) {
+          // Restore playlist bulk metadata
+          setMetadata(customMetadata.bulkMetadata);
+          if (customMetadata.thumbnail) {
+            setThumbnailUrl(customMetadata.thumbnail);
+            setCustomThumbnail(customMetadata.thumbnail);
+          }
+        } else if (customMetadata.mode === 'individual' && customMetadata.perFileMetadata) {
+          // Restore playlist individual metadata
+          // Extract shared metadata from first file (all files share the same metadata except title/artist/trackNumber)
+          const firstFile = customMetadata.perFileMetadata[0];
+          if (firstFile) {
+            // Determine if artist is shared (all files have same artist)
+            const artists = customMetadata.perFileMetadata.map(f => f.artist || '').filter(Boolean);
+            const isSharedArtist = artists.length > 0 && new Set(artists).size === 1;
+            
+            const sharedMeta = { ...firstFile };
+            // Remove per-file specific fields
+            delete sharedMeta.title;
+            delete sharedMeta.trackNumber;
+            // If artist is shared, keep it in shared metadata; otherwise remove it
+            if (!isSharedArtist) {
+              delete sharedMeta.artist;
+            }
+            setPlaylistSharedMetadata(sharedMeta);
+            setUseSharedArtist(isSharedArtist);
+            
+            // Extract per-file metadata
+            const perFile = customMetadata.perFileMetadata.map((fileMeta) => ({
+              title: fileMeta.title || '',
+              artist: fileMeta.artist || '',
+              trackNumber: fileMeta.trackNumber || '',
+            }));
+            setPerFileMetadata(perFile);
+          }
+          if (customMetadata.thumbnail) {
+            setThumbnailUrl(customMetadata.thumbnail);
+            setCustomThumbnail(customMetadata.thumbnail);
+          }
+        }
+      } else if (customMetadata.type === 'chapter' && customMetadata.chapterMetadata) {
+        // Restore chapter metadata
+        setChapterMetadata(customMetadata.chapterMetadata);
+        if (customMetadata.thumbnail) {
+          setThumbnailUrl(customMetadata.thumbnail);
+          setCustomThumbnail(customMetadata.thumbnail);
+        }
+      }
+      return; // Don't initialize from videoInfo if we restored from customMetadata
+    }
+    
+    // No customMetadata exists, initialize from videoInfo/playlistInfo/chapterInfo
     // Initialize single video / bulk playlist metadata
     if (videoInfo && (mode === 'single' || (mode === 'playlist' && playlistEditMode === 'bulk'))) {
       setMetadata((prev) => ({
@@ -441,7 +504,7 @@ function MetadataEditor({
         },
       }));
     }
-  }, [videoInfo, playlistInfo, chapterInfo, open, mode, playlistEditMode, selectedVideos]);
+  }, [videoInfo, playlistInfo, chapterInfo, open, mode, playlistEditMode, selectedVideos, customMetadata]);
 
   const handleMetadataChange = useCallback((field, value) => {
     setMetadata((prev) => ({ ...prev, [field]: value }));
@@ -521,13 +584,20 @@ function MetadataEditor({
   }, []);
 
   const handleCropComplete = useCallback((croppedImageUrl) => {
-    setImageLoading(true);
+    if (!croppedImageUrl) {
+      console.error('No cropped image URL provided');
+      setErrorMessage('Failed to crop image. Please try again.');
+      return;
+    }
+    
     try {
       setThumbnailUrl(croppedImageUrl);
       setCustomThumbnail(croppedImageUrl);
       setCropDialogOpen(false);
-    } finally {
-      setImageLoading(false);
+      setErrorMessage(null);
+    } catch (error) {
+      console.error('Error saving cropped image:', error);
+      setErrorMessage('Failed to save cropped image. Please try again.');
     }
   }, []);
 
@@ -721,6 +791,7 @@ function MetadataEditor({
         totalTracksDisplay={mode === 'playlist' ? (selectedVideos && selectedVideos.length > 0
           ? selectedVideos.length
           : playlistInfo?.playlistVideoCount || 0) : null}
+        hideTitle={mode === 'playlist' && playlistEditMode === 'bulk'}
       />
       {renderThumbnailSection()}
     </Box>

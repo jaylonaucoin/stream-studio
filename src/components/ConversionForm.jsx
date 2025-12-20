@@ -1292,6 +1292,7 @@ function ConversionForm({
         chapterInfo={chapterInfo}
         selectedChapters={selectedChapters}
         selectedVideos={selectedVideos}
+        customMetadata={customMetadata}
         mode={
           chapterInfo && chapterInfo.hasChapters
             ? 'chapter'

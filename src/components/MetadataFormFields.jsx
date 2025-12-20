@@ -75,18 +75,21 @@ export function MetadataFormFields({
   errors = {},
   showTrackNumbers = false,
   totalTracksDisplay = null,
+  hideTitle = false,
 }) {
   return (
     <>
-      <TextField
-        fullWidth
-        label="Title"
-        value={metadata.title || ''}
-        onChange={(e) => onChange('title', e.target.value)}
-        margin="normal"
-        error={!!errors.title}
-        helperText={errors.title}
-      />
+      {!hideTitle && (
+        <TextField
+          fullWidth
+          label="Title"
+          value={metadata.title || ''}
+          onChange={(e) => onChange('title', e.target.value)}
+          margin="normal"
+          error={!!errors.title}
+          helperText={errors.title}
+        />
+      )}
       <TextField
         fullWidth
         label="Artist"
