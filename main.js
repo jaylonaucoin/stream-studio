@@ -1642,11 +1642,16 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                       return f.toLowerCase().endsWith(`.${expectedExtension}`);
                     }
                   })
-                  .map(f => ({
-                    fileName: f,
-                    filePath: path.join(playlistFolder, f)
-                  }))
-                  .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort by filename (numbered)
+                  .map(f => {
+                    const filePath = path.join(playlistFolder, f);
+                    const stats = fs.statSync(filePath);
+                    return {
+                      fileName: f,
+                      filePath: filePath,
+                      mtime: stats.mtime.getTime()
+                    };
+                  });
+                playlistFiles.sort((a, b) => a.mtime - b.mtime); // Sort by modification time to preserve playlist order
                 
                 if (playlistFiles.length > 0) {
                   // Apply custom metadata if provided (await to ensure it completes)
