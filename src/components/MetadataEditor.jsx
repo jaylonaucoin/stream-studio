@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +27,8 @@ import {
   Paper,
   Switch,
   FormControlLabel,
+  CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,7 +37,68 @@ import CropIcon from '@mui/icons-material/Crop';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ThumbnailCropper from './ThumbnailCropper';
+import { MetadataFormFields } from './MetadataFormFields';
 
+// PlaylistVideoItem must be defined outside the component to prevent remounting on parent re-renders
+const PlaylistVideoItem = ({
+  video,
+  index,
+  fileMeta,
+  onMetadataChange,
+  totalTracks,
+  useSharedArtist,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <ListItem disablePadding>
+      <Box sx={{ width: '100%' }}>
+        <ListItemButton onClick={() => setExpanded(!expanded)}>
+          <ListItemText
+            primary={`${video.title}`}
+            secondary={`Track ${fileMeta.trackNumber || index + 1} of ${totalTracks}`}
+          />
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </ListItemButton>
+        <Collapse in={expanded} timeout="auto" unmountOnExit>
+          <Box sx={{ p: 2, bgcolor: 'background.default' }}>
+              <TextField
+              fullWidth
+              label="Title"
+              value={fileMeta.title || ''}
+              onChange={(e) => onMetadataChange(index, 'title', e.target.value)}
+              margin="normal"
+              size="small"
+            />
+            {!useSharedArtist && (
+              <TextField
+                fullWidth
+                label="Artist"
+                value={fileMeta.artist || ''}
+                onChange={(e) => onMetadataChange(index, 'artist', e.target.value)}
+                margin="normal"
+                size="small"
+                helperText="Artist for this song (can be different for each song)"
+              />
+            )}
+            <TextField
+              fullWidth
+              label="Track Number"
+              value={fileMeta.trackNumber || ''}
+              onChange={(e) => onMetadataChange(index, 'trackNumber', e.target.value)}
+              type="number"
+              margin="normal"
+              size="small"
+              helperText={`Total tracks: ${totalTracks} (automatic)`}
+            />
+          </Box>
+        </Collapse>
+      </Box>
+    </ListItem>
+  );
+};
+
+// Sort GENRES once at module level to avoid sorting on every render
 const GENRES = [
   'African', 'African Dancehall', 'African Reggae', 'Afrikaans', 'Afro House', 'Afro Soul', 
   'Afro-Beat', 'Afro-folk', 'Afro-fusion', 'Afro-Pop', 'Afrobeats', 'Alte', 'Amapiano', 
@@ -121,6 +184,15 @@ function MetadataEditor({
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState(videoInfo?.thumbnail || '');
   const [customThumbnail, setCustomThumbnail] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [playlistPage, setPlaylistPage] = useState(0);
+  const PLAYLIST_ITEMS_PER_PAGE = 20;
+  
+  // Track previous mode and open state to detect changes
+  const prevModeRef = useRef(mode);
+  const prevOpenRef = useRef(open);
 
   // Single video / Bulk playlist metadata
   const [metadata, setMetadata] = useState({
@@ -181,10 +253,136 @@ function MetadataEditor({
     chapterTitleTemplate: '{chapterTitle}',
   });
 
-  // Load defaults from video info
+  // Reset state when dialog closes or mode changes
   useEffect(() => {
-    if (videoInfo && open) {
-      const currentYear = new Date().getFullYear();
+    if (!open && prevOpenRef.current) {
+      // Dialog just closed - reset all state
+      setMetadata({
+        title: '',
+        artist: '',
+        album: '',
+        albumArtist: '',
+        genre: '',
+        year: '',
+        trackNumber: '',
+        totalTracks: '',
+        composer: '',
+        publisher: '',
+        comment: '',
+        description: '',
+        language: '',
+        copyright: '',
+        bpm: '',
+      });
+      setPerFileMetadata([]);
+      setPlaylistSharedMetadata({
+        artist: '',
+        album: '',
+        albumArtist: '',
+        genre: '',
+        year: '',
+        composer: '',
+        publisher: '',
+        comment: '',
+        description: '',
+        language: '',
+        copyright: '',
+        bpm: '',
+      });
+      setChapterMetadata({
+        albumMetadata: {
+          artist: '',
+          album: '',
+          albumArtist: '',
+          genre: '',
+          year: '',
+          composer: '',
+          publisher: '',
+          comment: '',
+          description: '',
+          language: '',
+          copyright: '',
+          bpm: '',
+        },
+        useChapterTitles: true,
+        chapterTitleTemplate: '{chapterTitle}',
+      });
+      setThumbnailUrl('');
+      setCustomThumbnail(null);
+      setPlaylistEditMode('bulk');
+      setUseSharedArtist(true);
+      setPlaylistPage(0);
+      setValidationErrors({});
+      setErrorMessage(null);
+    }
+    
+    // Reset state when mode changes
+    if (prevModeRef.current !== mode && open) {
+      setMetadata({
+        title: '',
+        artist: '',
+        album: '',
+        albumArtist: '',
+        genre: '',
+        year: '',
+        trackNumber: '',
+        totalTracks: '',
+        composer: '',
+        publisher: '',
+        comment: '',
+        description: '',
+        language: '',
+        copyright: '',
+        bpm: '',
+      });
+      setPerFileMetadata([]);
+      setPlaylistSharedMetadata({
+        artist: '',
+        album: '',
+        albumArtist: '',
+        genre: '',
+        year: '',
+        composer: '',
+        publisher: '',
+        comment: '',
+        description: '',
+        language: '',
+        copyright: '',
+        bpm: '',
+      });
+      setChapterMetadata({
+        albumMetadata: {
+          artist: '',
+          album: '',
+          albumArtist: '',
+          genre: '',
+          year: '',
+          composer: '',
+          publisher: '',
+          comment: '',
+          description: '',
+          language: '',
+          copyright: '',
+          bpm: '',
+        },
+        useChapterTitles: true,
+        chapterTitleTemplate: '{chapterTitle}',
+      });
+      setValidationErrors({});
+    }
+    
+    prevModeRef.current = mode;
+    prevOpenRef.current = open;
+  }, [open, mode]);
+
+  // Consolidated initialization effect
+  useEffect(() => {
+    if (!open) return;
+    
+    const currentYear = new Date().getFullYear();
+    
+    // Initialize single video / bulk playlist metadata
+    if (videoInfo && (mode === 'single' || (mode === 'playlist' && playlistEditMode === 'bulk'))) {
       setMetadata((prev) => ({
         ...prev,
         title: videoInfo.title || '',
@@ -195,15 +393,16 @@ function MetadataEditor({
       setThumbnailUrl(videoInfo.thumbnail || '');
       setCustomThumbnail(null);
     }
-  }, [videoInfo, open]);
 
-  // Initialize shared metadata and per-file metadata for playlist
-  useEffect(() => {
-    if (playlistInfo && playlistInfo.videos && playlistEditMode === 'individual' && open) {
-      const currentYear = new Date().getFullYear();
-      // Initialize shared metadata (artist can be shared or per-video based on toggle)
+    // Initialize playlist individual mode
+    if (playlistInfo && playlistInfo.videos && playlistEditMode === 'individual' && mode === 'playlist') {
+      // Get videos to display (filter by selectedVideos if provided)
+      const videosToUse = selectedVideos && selectedVideos.length > 0
+        ? playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1))
+        : playlistInfo.videos;
+      
       setPlaylistSharedMetadata({
-        artist: videoInfo?.uploader || '', // Default to shared artist
+        artist: videoInfo?.uploader || '',
         album: playlistInfo.playlistTitle || '',
         albumArtist: videoInfo?.uploader || '',
         genre: '',
@@ -216,21 +415,19 @@ function MetadataEditor({
         copyright: '',
         bpm: '',
       });
-      // Initialize per-file metadata (title, artist if not shared, and track number)
-      const perFile = playlistInfo.videos.map((video, index) => ({
+      
+      // Initialize per-file metadata for displayed videos
+      const perFile = videosToUse.map((video, index) => ({
         title: video.title || '',
-        artist: videoInfo?.uploader || '', // Default to uploader, but can be changed per video if not shared
+        artist: videoInfo?.uploader || '',
         trackNumber: (index + 1).toString(),
       }));
       setPerFileMetadata(perFile);
-      // Default to shared artist
       setUseSharedArtist(true);
     }
-  }, [playlistInfo, playlistEditMode, open, videoInfo]);
 
-  // Initialize chapter metadata
-  useEffect(() => {
-    if (chapterInfo && open && mode === 'chapter') {
+    // Initialize chapter metadata
+    if (chapterInfo && mode === 'chapter') {
       setChapterMetadata((prev) => ({
         ...prev,
         albumMetadata: {
@@ -240,11 +437,11 @@ function MetadataEditor({
           albumArtist: videoInfo?.uploader || '',
           year: videoInfo?.uploadDate
             ? videoInfo.uploadDate.substring(0, 4)
-            : new Date().getFullYear().toString(),
+            : currentYear.toString(),
         },
       }));
     }
-  }, [chapterInfo, open, mode, videoInfo]);
+  }, [videoInfo, playlistInfo, chapterInfo, open, mode, playlistEditMode, selectedVideos]);
 
   const handleMetadataChange = useCallback((field, value) => {
     setMetadata((prev) => ({ ...prev, [field]: value }));
@@ -272,27 +469,118 @@ function MetadataEditor({
     }));
   }, []);
 
+  // Validation function
+  const validateMetadata = useCallback((meta, type = 'single') => {
+    const errors = {};
+    const currentYear = new Date().getFullYear();
+    
+    if (meta.year) {
+      const yearNum = parseInt(meta.year, 10);
+      if (isNaN(yearNum) || yearNum < 1900 || yearNum > currentYear + 1) {
+        errors.year = `Year must be between 1900 and ${currentYear + 1}`;
+      }
+    }
+    
+    if (meta.trackNumber && meta.totalTracks) {
+      const trackNum = parseInt(meta.trackNumber, 10);
+      const totalNum = parseInt(meta.totalTracks, 10);
+      if (!isNaN(trackNum) && !isNaN(totalNum) && trackNum > totalNum) {
+        errors.trackNumber = `Track number cannot exceed total tracks (${totalNum})`;
+      }
+    }
+    
+    if (meta.bpm) {
+      const bpmNum = parseInt(meta.bpm, 10);
+      if (isNaN(bpmNum) || bpmNum < 1 || bpmNum > 300) {
+        errors.bpm = 'BPM must be between 1 and 300';
+      }
+    }
+    
+    return errors;
+  }, []);
+
   const handleImageSelect = useCallback(async () => {
     if (window.api && window.api.selectImageFile) {
+      setImageLoading(true);
+      setErrorMessage(null);
       try {
         const result = await window.api.selectImageFile();
         if (result.success && result.dataUrl) {
           setThumbnailUrl(result.dataUrl);
           setCustomThumbnail(result.dataUrl);
+        } else {
+          setErrorMessage('Failed to select image. Please try again.');
         }
       } catch (err) {
         console.error('Failed to select image:', err);
+        setErrorMessage('Failed to select image: ' + (err.message || 'Unknown error'));
+      } finally {
+        setImageLoading(false);
       }
     }
   }, []);
 
   const handleCropComplete = useCallback((croppedImageUrl) => {
-    setThumbnailUrl(croppedImageUrl);
-    setCustomThumbnail(croppedImageUrl);
-    setCropDialogOpen(false);
+    setImageLoading(true);
+    try {
+      setThumbnailUrl(croppedImageUrl);
+      setCustomThumbnail(croppedImageUrl);
+      setCropDialogOpen(false);
+    } finally {
+      setImageLoading(false);
+    }
   }, []);
 
+  // Memoize totalTracks calculation
+  const totalTracks = useMemo(() => {
+    if (mode === 'playlist') {
+      if (selectedVideos && selectedVideos.length > 0) {
+        return selectedVideos.length;
+      }
+      if (playlistEditMode === 'individual') {
+        // Get videos to display (filter by selectedVideos if provided)
+        const videosToUse = selectedVideos && selectedVideos.length > 0
+          ? playlistInfo?.videos?.filter((_, idx) => selectedVideos.includes(idx + 1)) || []
+          : playlistInfo?.videos || [];
+        return videosToUse.length || playlistInfo?.playlistVideoCount || perFileMetadata.length;
+      }
+      return playlistInfo?.playlistVideoCount || perFileMetadata.length;
+    }
+    return 0;
+  }, [mode, selectedVideos, playlistInfo, playlistEditMode, perFileMetadata.length]);
+
   const handleSave = useCallback(() => {
+    // Validate metadata
+    let errors = {};
+    if (mode === 'single' || (mode === 'playlist' && playlistEditMode === 'bulk')) {
+      errors = validateMetadata(metadata, mode);
+    } else if (mode === 'playlist' && playlistEditMode === 'individual') {
+      // Validate shared metadata
+      errors = validateMetadata(playlistSharedMetadata, 'playlist');
+      // Validate per-file metadata
+      perFileMetadata.forEach((fileMeta, index) => {
+        const fileErrors = validateMetadata({
+          ...playlistSharedMetadata,
+          ...fileMeta,
+          totalTracks: totalTracks.toString(),
+        }, 'playlist');
+        if (Object.keys(fileErrors).length > 0) {
+          errors[`file_${index}`] = fileErrors;
+        }
+      });
+    } else if (mode === 'chapter') {
+      errors = validateMetadata(chapterMetadata.albumMetadata, 'chapter');
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setErrorMessage('Please fix validation errors before saving.');
+      return;
+    }
+    
+    setValidationErrors({});
+    setErrorMessage(null);
+    
     let metadataToSave = null;
 
     if (mode === 'single') {
@@ -302,12 +590,6 @@ function MetadataEditor({
         thumbnail: customThumbnail || thumbnailUrl,
       };
     } else if (mode === 'playlist') {
-      // Calculate total tracks (use selected videos count if in selected mode, otherwise full playlist)
-      const totalTracks =
-        selectedVideos && selectedVideos.length > 0
-          ? selectedVideos.length
-          : playlistInfo?.playlistVideoCount || perFileMetadata.length;
-
       if (playlistEditMode === 'bulk') {
         // Remove totalTracks from metadata since it's auto-calculated
         const { totalTracks: _, ...bulkMeta } = metadata;
@@ -316,14 +598,17 @@ function MetadataEditor({
           mode: 'bulk',
           bulkMetadata: { ...bulkMeta },
           thumbnail: customThumbnail || thumbnailUrl,
-          totalTracks: totalTracks, // Pass separately for auto-calculation
+          totalTracks: totalTracks,
         };
       } else {
-        // Merge shared metadata with per-file metadata (artist is per-file, not shared)
+        // Merge shared metadata with per-file metadata
+        // Use shared artist if useSharedArtist is true, otherwise use per-file artist
         const mergedPerFile = perFileMetadata.map((fileMeta, index) => ({
           ...playlistSharedMetadata,
           title: fileMeta.title || '',
-          artist: fileMeta.artist || '', // Artist is per-video (for compilations)
+          artist: useSharedArtist 
+            ? playlistSharedMetadata.artist 
+            : (fileMeta.artist || ''),
           trackNumber: fileMeta.trackNumber || (index + 1).toString(),
           totalTracks: totalTracks.toString(),
         }));
@@ -352,12 +637,34 @@ function MetadataEditor({
     metadata,
     playlistEditMode,
     perFileMetadata,
+    playlistSharedMetadata,
+    useSharedArtist,
     chapterMetadata,
     customThumbnail,
     thumbnailUrl,
+    totalTracks,
+    validateMetadata,
     onSave,
     onClose,
   ]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!open) return;
+    
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleSave, onClose]);
 
   const renderThumbnailSection = () => (
     <Box sx={{ mt: 2 }}>
@@ -371,8 +678,8 @@ function MetadataEditor({
             src={thumbnailUrl}
             alt="Thumbnail"
             sx={{
-              width: 150,
-              height: 150,
+              width: 200,
+              height: 200,
               objectFit: 'cover',
               borderRadius: 1,
               border: 1,
@@ -384,17 +691,18 @@ function MetadataEditor({
           <Button
             variant="outlined"
             size="small"
-            startIcon={<CropIcon />}
+            startIcon={imageLoading ? <CircularProgress size={16} /> : <CropIcon />}
             onClick={() => setCropDialogOpen(true)}
-            disabled={!thumbnailUrl}
+            disabled={!thumbnailUrl || imageLoading}
           >
             Crop
           </Button>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<ImageIcon />}
+            startIcon={imageLoading ? <CircularProgress size={16} /> : <ImageIcon />}
             onClick={handleImageSelect}
+            disabled={imageLoading}
           >
             Replace
           </Button>
@@ -405,140 +713,14 @@ function MetadataEditor({
 
   const renderSingleVideoForm = () => (
     <Box>
-      <TextField
-        fullWidth
-        label="Title"
-        value={metadata.title}
-        onChange={(e) => handleMetadataChange('title', e.target.value)}
-        margin="normal"
-      />
-      <TextField
-        fullWidth
-        label="Artist"
-        value={metadata.artist}
-        onChange={(e) => handleMetadataChange('artist', e.target.value)}
-        margin="normal"
-      />
-      <TextField
-        fullWidth
-        label="Album"
-        value={metadata.album}
-        onChange={(e) => handleMetadataChange('album', e.target.value)}
-        margin="normal"
-      />
-      <TextField
-        fullWidth
-        label="Album Artist"
-        value={metadata.albumArtist}
-        onChange={(e) => handleMetadataChange('albumArtist', e.target.value)}
-        margin="normal"
-      />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <FormControl fullWidth>
-          <InputLabel>Genre</InputLabel>
-          <Select
-            value={metadata.genre}
-            label="Genre"
-            onChange={(e) => handleMetadataChange('genre', e.target.value)}
-          >
-            <MenuItem value="">None</MenuItem>
-            {GENRES.map((genre) => (
-              <MenuItem key={genre} value={genre}>
-                {genre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          fullWidth
-          label="Year"
-          value={metadata.year}
-          onChange={(e) => handleMetadataChange('year', e.target.value)}
-          type="number"
-        />
-      </Box>
-      {mode !== 'playlist' && (
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <TextField
-            fullWidth
-            label="Track Number"
-            value={metadata.trackNumber}
-            onChange={(e) => handleMetadataChange('trackNumber', e.target.value)}
-            type="number"
-          />
-          <TextField
-            fullWidth
-            label="Total Tracks"
-            value={metadata.totalTracks}
-            onChange={(e) => handleMetadataChange('totalTracks', e.target.value)}
-            type="number"
-          />
-        </Box>
-      )}
-      {mode === 'playlist' && (
-        <Box sx={{ mt: 2, mb: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Track numbers will auto-increment. Total tracks:{' '}
-            {selectedVideos && selectedVideos.length > 0
-              ? selectedVideos.length
-              : playlistInfo?.playlistVideoCount || 0}{' '}
-            (automatic)
-          </Typography>
-        </Box>
-      )}
-      <TextField
-        fullWidth
-        label="Composer"
-        value={metadata.composer}
-        onChange={(e) => handleMetadataChange('composer', e.target.value)}
-        margin="normal"
-      />
-      <TextField
-        fullWidth
-        label="Publisher"
-        value={metadata.publisher}
-        onChange={(e) => handleMetadataChange('publisher', e.target.value)}
-        margin="normal"
-      />
-      <TextField
-        fullWidth
-        label="Comment"
-        value={metadata.comment}
-        onChange={(e) => handleMetadataChange('comment', e.target.value)}
-        margin="normal"
-        multiline
-        rows={2}
-      />
-      <TextField
-        fullWidth
-        label="Description"
-        value={metadata.description}
-        onChange={(e) => handleMetadataChange('description', e.target.value)}
-        margin="normal"
-        multiline
-        rows={3}
-      />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <TextField
-          fullWidth
-          label="Language"
-          value={metadata.language}
-          onChange={(e) => handleMetadataChange('language', e.target.value)}
-        />
-        <TextField
-          fullWidth
-          label="BPM"
-          value={metadata.bpm}
-          onChange={(e) => handleMetadataChange('bpm', e.target.value)}
-          type="number"
-        />
-      </Box>
-      <TextField
-        fullWidth
-        label="Copyright"
-        value={metadata.copyright}
-        onChange={(e) => handleMetadataChange('copyright', e.target.value)}
-        margin="normal"
+      <MetadataFormFields
+        metadata={metadata}
+        onChange={handleMetadataChange}
+        errors={validationErrors}
+        showTrackNumbers={mode !== 'playlist'}
+        totalTracksDisplay={mode === 'playlist' ? (selectedVideos && selectedVideos.length > 0
+          ? selectedVideos.length
+          : playlistInfo?.playlistVideoCount || 0) : null}
       />
       {renderThumbnailSection()}
     </Box>
@@ -554,72 +736,26 @@ function MetadataEditor({
     </Box>
   );
 
-  const PlaylistVideoItem = ({
-    video,
-    index,
-    fileMeta,
-    onMetadataChange,
-    totalTracks,
-    useSharedArtist,
-  }) => {
-    const [expanded, setExpanded] = useState(false);
+  // Memoize videos to display for playlist individual mode
+  const videosToDisplay = useMemo(() => {
+    if (!playlistInfo || !playlistInfo.videos) return [];
+    if (selectedVideos && selectedVideos.length > 0) {
+      return playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1));
+    }
+    return playlistInfo.videos;
+  }, [playlistInfo?.videos, selectedVideos]);
 
-    return (
-      <ListItem disablePadding>
-        <Box sx={{ width: '100%' }}>
-          <ListItemButton onClick={() => setExpanded(!expanded)}>
-            <ListItemText
-              primary={`${video.title}`}
-              secondary={`Track ${fileMeta.trackNumber || index + 1} of ${totalTracks}`}
-            />
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </ListItemButton>
-          <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <Box sx={{ p: 2, bgcolor: 'background.default' }}>
-              <TextField
-                fullWidth
-                label="Title"
-                value={fileMeta.title || ''}
-                onChange={(e) => onMetadataChange(index, 'title', e.target.value)}
-                margin="normal"
-                size="small"
-              />
-              {!useSharedArtist && (
-                <TextField
-                  fullWidth
-                  label="Artist"
-                  value={fileMeta.artist || ''}
-                  onChange={(e) => onMetadataChange(index, 'artist', e.target.value)}
-                  margin="normal"
-                  size="small"
-                  helperText="Artist for this song (can be different for each song)"
-                />
-              )}
-              <TextField
-                fullWidth
-                label="Track Number"
-                value={fileMeta.trackNumber || ''}
-                onChange={(e) => onMetadataChange(index, 'trackNumber', e.target.value)}
-                type="number"
-                margin="normal"
-                size="small"
-                helperText={`Total tracks: ${totalTracks} (automatic)`}
-              />
-            </Box>
-          </Collapse>
-        </Box>
-      </ListItem>
-    );
-  };
+  // Paginate videos for performance
+  const paginatedVideos = useMemo(() => {
+    const start = playlistPage * PLAYLIST_ITEMS_PER_PAGE;
+    const end = start + PLAYLIST_ITEMS_PER_PAGE;
+    return videosToDisplay.slice(start, end);
+  }, [videosToDisplay, playlistPage]);
+
+  const totalPages = Math.ceil(videosToDisplay.length / PLAYLIST_ITEMS_PER_PAGE);
 
   const renderPlaylistIndividualForm = () => {
     if (!playlistInfo || !playlistInfo.videos) return null;
-
-    // Calculate total tracks (use selected videos count if in selected mode, otherwise full playlist)
-    const totalTracks =
-      selectedVideos && selectedVideos.length > 0
-        ? selectedVideos.length
-        : playlistInfo.playlistVideoCount;
 
     return (
       <Box>
@@ -627,9 +763,20 @@ function MetadataEditor({
           Shared metadata (genre, album, album artist, etc.) applies to all videos. Title and track
           number can be customized per video.
         </Alert>
-        {playlistInfo.videos.length > 20 && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Large playlist detected. Consider using bulk mode for better performance.
+        {videosToDisplay.length > 20 && (
+          <Alert 
+            severity="warning" 
+            sx={{ mb: 2 }}
+            action={
+              <Button 
+                size="small" 
+                onClick={() => setPlaylistEditMode('bulk')}
+              >
+                Switch to Bulk
+              </Button>
+            }
+          >
+            Large playlist detected ({videosToDisplay.length} videos). Consider using bulk mode for better performance.
           </Alert>
         )}
 
@@ -708,6 +855,8 @@ function MetadataEditor({
             value={playlistSharedMetadata.year}
             onChange={(e) => handlePlaylistSharedMetadataChange('year', e.target.value)}
             type="number"
+            error={!!validationErrors.year}
+            helperText={validationErrors.year}
           />
         </Box>
         <TextField
@@ -746,6 +895,8 @@ function MetadataEditor({
             value={playlistSharedMetadata.bpm}
             onChange={(e) => handlePlaylistSharedMetadataChange('bpm', e.target.value)}
             type="number"
+            error={!!validationErrors.bpm}
+            helperText={validationErrors.bpm}
           />
         </Box>
         <TextField
@@ -766,16 +917,41 @@ function MetadataEditor({
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="h6" gutterBottom>
-          Individual Video Titles
+          Individual Video Titles {selectedVideos && selectedVideos.length > 0 && `(${videosToDisplay.length} selected)`}
         </Typography>
+        {videosToDisplay.length > PLAYLIST_ITEMS_PER_PAGE && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {playlistPage * PLAYLIST_ITEMS_PER_PAGE + 1}-{Math.min((playlistPage + 1) * PLAYLIST_ITEMS_PER_PAGE, videosToDisplay.length)} of {videosToDisplay.length}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                onClick={() => setPlaylistPage((p) => Math.max(0, p - 1))}
+                disabled={playlistPage === 0}
+              >
+                Previous
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setPlaylistPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={playlistPage >= totalPages - 1}
+              >
+                Next
+              </Button>
+            </Box>
+          </Box>
+        )}
         <List>
-          {playlistInfo.videos.map((video, index) => {
-            const fileMeta = perFileMetadata[index] || {};
+          {paginatedVideos.map((video, pageIndex) => {
+            // Map page index to actual display index
+            const displayIndex = playlistPage * PLAYLIST_ITEMS_PER_PAGE + pageIndex;
+            const fileMeta = perFileMetadata[displayIndex] || {};
             return (
               <PlaylistVideoItem
-                key={video.index}
+                key={video.index || displayIndex}
                 video={video}
-                index={index}
+                index={displayIndex}
                 fileMeta={fileMeta}
                 onMetadataChange={handlePerFileMetadataChange}
                 totalTracks={totalTracks}
@@ -784,6 +960,13 @@ function MetadataEditor({
             );
           })}
         </List>
+        {videosToDisplay.length > PLAYLIST_ITEMS_PER_PAGE && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Page {playlistPage + 1} of {totalPages}
+            </Typography>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -867,9 +1050,9 @@ function MetadataEditor({
         <Select
           value={chapterMetadata.chapterTitleTemplate}
           label="Title Template"
-          onChange={(e) =>
-            setChapterMetadata((prev) => ({ ...prev, chapterTitleTemplate: e.target.value }))
-          }
+          onChange={(e) => {
+            setChapterMetadata((prev) => ({ ...prev, chapterTitleTemplate: e.target.value }));
+          }}
         >
           <MenuItem value="{chapterTitle}">Use Original Chapter Title</MenuItem>
           <MenuItem value="{album} - {chapterTitle}">Album - Chapter Title</MenuItem>
@@ -931,6 +1114,13 @@ function MetadataEditor({
         imageUrl={thumbnailUrl}
         onClose={() => setCropDialogOpen(false)}
         onCropComplete={handleCropComplete}
+      />
+      <Snackbar
+        open={!!errorMessage}
+        autoHideDuration={6000}
+        onClose={() => setErrorMessage(null)}
+        message={errorMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
     </>
   );

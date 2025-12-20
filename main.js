@@ -473,7 +473,7 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
         genre: metadata.genre || '',
         year: metadata.year || '',
         trackNumber: metadata.trackNumber || '',
-        partOfSet: metadata.totalTracks ? `1/${metadata.totalTracks}` : '',
+        partOfSet: metadata.totalTracks && metadata.trackNumber ? `${metadata.trackNumber}/${metadata.totalTracks}` : (metadata.totalTracks ? `1/${metadata.totalTracks}` : ''),
         composer: metadata.composer || '',
         publisher: metadata.publisher || '',
         comment: {
@@ -1649,7 +1649,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort by filename (numbered)
                 
                 if (playlistFiles.length > 0) {
-                  // Apply custom metadata if provided (async)
+                  // Apply custom metadata if provided (await to ensure it completes)
                   if (customMetadata && customMetadata.type === 'playlist') {
                     (async () => {
                       try {
@@ -1678,43 +1678,112 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                         console.warn('Failed to apply playlist metadata:', metaError);
                         // Continue even if metadata fails
                       }
-                    })();
+                    })().then(() => {
+                      // Add to history with playlist info
+                      addToHistory({
+                        url: videoUrl,
+                        fileName: `${playlistFolderName} (${playlistFiles.length} files)`,
+                        filePath: playlistFolder,
+                        mode,
+                        format,
+                        quality,
+                        status: 'completed',
+                        isPlaylist: true,
+                        playlistFiles: playlistFiles.map(f => ({
+                          fileName: f.fileName,
+                          filePath: f.filePath
+                        })),
+                        playlistFolderName
+                      });
+                      
+                      // Show notification
+                      showNotification(
+                        'Playlist Download Complete',
+                        `${playlistFiles.length} videos downloaded to ${playlistFolderName}`,
+                        () => {
+                          shell.showItemInFolder(playlistFolder);
+                        }
+                      );
+                      
+                      resolve({
+                        success: true,
+                        isPlaylist: true,
+                        playlistFolder: playlistFolder,
+                        playlistFolderName: playlistFolderName,
+                        files: playlistFiles,
+                        fileCount: playlistFiles.length
+                      });
+                    }).catch((err) => {
+                      console.error('Error in playlist metadata application:', err);
+                      // Still resolve even if metadata fails
+                      addToHistory({
+                        url: videoUrl,
+                        fileName: `${playlistFolderName} (${playlistFiles.length} files)`,
+                        filePath: playlistFolder,
+                        mode,
+                        format,
+                        quality,
+                        status: 'completed',
+                        isPlaylist: true,
+                        playlistFiles: playlistFiles.map(f => ({
+                          fileName: f.fileName,
+                          filePath: f.filePath
+                        })),
+                        playlistFolderName
+                      });
+                      
+                      showNotification(
+                        'Playlist Download Complete',
+                        `${playlistFiles.length} videos downloaded to ${playlistFolderName}`,
+                        () => {
+                          shell.showItemInFolder(playlistFolder);
+                        }
+                      );
+                      
+                      resolve({
+                        success: true,
+                        isPlaylist: true,
+                        playlistFolder: playlistFolder,
+                        playlistFolderName: playlistFolderName,
+                        files: playlistFiles,
+                        fileCount: playlistFiles.length
+                      });
+                    });
+                  } else {
+                    // No metadata to apply, proceed immediately
+                    addToHistory({
+                      url: videoUrl,
+                      fileName: `${playlistFolderName} (${playlistFiles.length} files)`,
+                      filePath: playlistFolder,
+                      mode,
+                      format,
+                      quality,
+                      status: 'completed',
+                      isPlaylist: true,
+                      playlistFiles: playlistFiles.map(f => ({
+                        fileName: f.fileName,
+                        filePath: f.filePath
+                      })),
+                      playlistFolderName
+                    });
+                    
+                    showNotification(
+                      'Playlist Download Complete',
+                      `${playlistFiles.length} videos downloaded to ${playlistFolderName}`,
+                      () => {
+                        shell.showItemInFolder(playlistFolder);
+                      }
+                    );
+                    
+                    resolve({
+                      success: true,
+                      isPlaylist: true,
+                      playlistFolder: playlistFolder,
+                      playlistFolderName: playlistFolderName,
+                      files: playlistFiles,
+                      fileCount: playlistFiles.length
+                    });
                   }
-                  
-                  // Add to history with playlist info
-                  addToHistory({
-                    url: videoUrl,
-                    fileName: `${playlistFolderName} (${playlistFiles.length} files)`,
-                    filePath: playlistFolder,
-                    mode,
-                    format,
-                    quality,
-                    status: 'completed',
-                    isPlaylist: true,
-                    playlistFiles: playlistFiles.map(f => ({
-                      fileName: f.fileName,
-                      filePath: f.filePath
-                    })),
-                    playlistFolderName
-                  });
-                  
-                  // Show notification
-                  showNotification(
-                    'Playlist Download Complete',
-                    `${playlistFiles.length} videos downloaded to ${playlistFolderName}`,
-                    () => {
-                      shell.showItemInFolder(playlistFolder);
-                    }
-                  );
-                  
-                  resolve({
-                    success: true,
-                    isPlaylist: true,
-                    playlistFolder: playlistFolder,
-                    playlistFolderName: playlistFolderName,
-                    files: playlistFiles,
-                    fileCount: playlistFiles.length
-                  });
                   return;
                 }
               }
@@ -1794,45 +1863,102 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     outputFilePath = uniqueFilePath;
                     currentOutputPath = outputFilePath;
                     
-                    // Apply custom metadata if provided (async)
+                    // Apply custom metadata if provided (await to ensure it completes)
                     if (customMetadata && customMetadata.type === 'single' && customMetadata.metadata) {
                       (async () => {
                         try {
                           await applyMetadataToFile(outputFilePath, customMetadata.metadata, customMetadata.thumbnail);
                         } catch (metaError) {
                           console.warn('Failed to apply metadata:', metaError);
-                          // Continue even if metadata fails
+                          // Continue even if metadata fails, but log the error
                         }
-                      })();
+                      })().then(() => {
+                        const fileName = path.basename(uniqueFilePath);
+                        
+                        // Add to history
+                        addToHistory({
+                          url: videoUrl,
+                          fileName,
+                          filePath: outputFilePath,
+                          mode,
+                          format,
+                          quality,
+                          status: 'completed'
+                        });
+                        
+                        // Show notification
+                        showNotification(
+                          'Conversion Complete',
+                          `${fileName} has been saved`,
+                          () => {
+                            shell.showItemInFolder(outputFilePath);
+                          }
+                        );
+                        
+                        resolve({
+                          success: true,
+                          filePath: outputFilePath,
+                          fileName
+                        });
+                      }).catch((err) => {
+                        console.error('Error in metadata application:', err);
+                        // Still resolve even if metadata fails
+                        const fileName = path.basename(uniqueFilePath);
+                        
+                        addToHistory({
+                          url: videoUrl,
+                          fileName,
+                          filePath: outputFilePath,
+                          mode,
+                          format,
+                          quality,
+                          status: 'completed'
+                        });
+                        
+                        showNotification(
+                          'Conversion Complete',
+                          `${fileName} has been saved`,
+                          () => {
+                            shell.showItemInFolder(outputFilePath);
+                          }
+                        );
+                        
+                        resolve({
+                          success: true,
+                          filePath: outputFilePath,
+                          fileName
+                        });
+                      });
+                    } else {
+                      // No metadata to apply, proceed immediately
+                      const fileName = path.basename(uniqueFilePath);
+                      
+                      // Add to history
+                      addToHistory({
+                        url: videoUrl,
+                        fileName,
+                        filePath: outputFilePath,
+                        mode,
+                        format,
+                        quality,
+                        status: 'completed'
+                      });
+                      
+                      // Show notification
+                      showNotification(
+                        'Conversion Complete',
+                        `${fileName} has been saved`,
+                        () => {
+                          shell.showItemInFolder(outputFilePath);
+                        }
+                      );
+                      
+                      resolve({
+                        success: true,
+                        filePath: outputFilePath,
+                        fileName
+                      });
                     }
-                    
-                    const fileName = path.basename(uniqueFilePath);
-                    
-                    // Add to history
-                    addToHistory({
-                      url: videoUrl,
-                      fileName,
-                      filePath: outputFilePath,
-                      mode,
-                      format,
-                      quality,
-                      status: 'completed'
-                    });
-                    
-                    // Show notification
-                    showNotification(
-                      'Conversion Complete',
-                      `${fileName} has been saved`,
-                      () => {
-                        shell.showItemInFolder(outputFilePath);
-                      }
-                    );
-                    
-                    resolve({
-                      success: true,
-                      filePath: outputFilePath,
-                      fileName
-                    });
                   } catch (renameError) {
                     // If rename fails, return the temp file
                     console.warn('Failed to rename temp file to final name:', renameError);

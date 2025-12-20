@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { ListItem, ListItemButton, ListItemText } from '@mui/material';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import {
@@ -165,30 +166,15 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     try {
       // Use current crop if completedCrop is not set yet
       const finalCrop = completedCrop || crop;
-      console.log('handleCrop called', {
-        finalCrop,
-        imageLoaded,
-        hasImgRef: !!imgRef.current,
-        hasCanvasRef: !!canvasRef.current,
-      });
 
       if (!finalCrop || !finalCrop.width || !finalCrop.height || !imgRef.current) {
-        console.error('No crop area selected or image not loaded', {
-          finalCrop,
-          hasImgRef: !!imgRef.current,
-          imageLoaded,
-        });
         return;
       }
 
-      console.log('Calling getCroppedImg with crop:', finalCrop);
       const croppedImageUrl = await getCroppedImg(finalCrop);
-      console.log('Got cropped image URL:', croppedImageUrl ? 'Success' : 'Failed');
 
       if (croppedImageUrl) {
         onCropComplete(croppedImageUrl);
-      } else {
-        console.error('Failed to generate cropped image');
       }
     } catch (error) {
       console.error('Error cropping image:', error);
@@ -252,7 +238,15 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
                 ref={imgRef}
                 alt="Crop me"
                 src={imageUrl}
+                crossOrigin="anonymous"
                 onLoad={onImageLoad}
+                onError={(e) => {
+                  // If crossOrigin fails, try without it (for same-origin images)
+                  if (e.currentTarget.crossOrigin === 'anonymous') {
+                    e.currentTarget.crossOrigin = null;
+                    e.currentTarget.src = imageUrl;
+                  }
+                }}
                 style={{ maxWidth: '100%', maxHeight: '70vh' }}
               />
             </ReactCrop>

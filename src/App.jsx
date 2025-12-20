@@ -24,7 +24,7 @@ import SettingsDialog from './components/SettingsDialog';
 import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
-
+import logo from '../assets/icon.png';
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
   const [progress, setProgress] = useState(0);
@@ -407,6 +407,7 @@ function App() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <AppBar position="static" elevation={1}>
           <Toolbar>
+            <img src={logo} alt="Media Converter" style={{ width: 32, height: 32, marginRight: 8 }} />
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               Media Converter
             </Typography>
