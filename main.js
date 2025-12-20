@@ -3,6 +3,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const https = require('https');
+const http = require('http');
+const urlModule = require('url');
 const Store = require('electron-store');
 const NodeID3 = require('node-id3');
 
@@ -459,8 +462,39 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
     // Convert base64 data URL to buffer for thumbnail
     let thumbnailBuffer = null;
     if (thumbnailDataUrl) {
-      const base64Data = thumbnailDataUrl.replace(/^data:image\/\w+;base64,/, '');
-      thumbnailBuffer = Buffer.from(base64Data, 'base64');
+      // Check if it's a data URL or regular URL
+      if (thumbnailDataUrl.startsWith('data:image/')) {
+        const base64Data = thumbnailDataUrl.replace(/^data:image\/\w+;base64,/, '');
+        try {
+          thumbnailBuffer = Buffer.from(base64Data, 'base64');
+        } catch (e) {
+          thumbnailBuffer = null;
+        }
+      } else {
+        // It's a regular URL, need to fetch and convert to buffer
+        try {
+          const parsedUrl = urlModule.parse(thumbnailDataUrl);
+          const client = parsedUrl.protocol === 'https:' ? https : http;
+          
+          thumbnailBuffer = await new Promise((resolve, reject) => {
+            const req = client.get(thumbnailDataUrl, (res) => {
+              const chunks = [];
+              res.on('data', (chunk) => chunks.push(chunk));
+              res.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                resolve(buffer);
+              });
+            });
+            req.on('error', reject);
+            req.setTimeout(10000, () => {
+              req.destroy();
+              reject(new Error('Timeout fetching thumbnail'));
+            });
+          });
+        } catch (fetchError) {
+          thumbnailBuffer = null;
+        }
+      }
     }
 
     if (ext === '.mp3') {
@@ -473,7 +507,6 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
         genre: metadata.genre || '',
         year: metadata.year || '',
         trackNumber: metadata.trackNumber || '',
-        partOfSet: metadata.totalTracks && metadata.trackNumber ? `${metadata.trackNumber}/${metadata.totalTracks}` : (metadata.totalTracks ? `1/${metadata.totalTracks}` : ''),
         composer: metadata.composer || '',
         publisher: metadata.publisher || '',
         comment: {
@@ -486,8 +519,17 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
 
       // Add thumbnail if provided
       if (thumbnailBuffer) {
+        // Detect MIME type from buffer signature
+        let mimeType = 'image/jpeg'; // default
+        if (thumbnailBuffer[0] === 0x89 && thumbnailBuffer[1] === 0x50 && thumbnailBuffer[2] === 0x4E && thumbnailBuffer[3] === 0x47) {
+          mimeType = 'image/png';
+        } else if (thumbnailBuffer[0] === 0xFF && thumbnailBuffer[1] === 0xD8) {
+          mimeType = 'image/jpeg';
+        } else if (thumbnailBuffer[0] === 0x52 && thumbnailBuffer[1] === 0x49 && thumbnailBuffer[2] === 0x46 && thumbnailBuffer[3] === 0x46) {
+          mimeType = 'image/webp';
+        }
         tags.image = {
-          mime: 'image/jpeg',
+          mime: mimeType,
           type: { id: 3, name: 'front cover' },
           description: 'Cover',
           imageBuffer: thumbnailBuffer,
