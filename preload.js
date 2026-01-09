@@ -50,5 +50,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Image selection (for thumbnail replacement)
   selectImageFile: () => ipcRenderer.invoke('selectImageFile'),
+  
+  // Fetch remote image as data URL (for thumbnail cropping - avoids CORS)
+  fetchImageAsDataUrl: (imageUrl) => ipcRenderer.invoke('fetchImageAsDataUrl', imageUrl),
 });
 

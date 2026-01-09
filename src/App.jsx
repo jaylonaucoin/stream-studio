@@ -358,13 +358,23 @@ function App() {
   const handleCancel = useCallback(async () => {
     if (conversionState !== 'converting') return;
 
+    // Show immediate feedback
+    setStatusMessage('Cancelling...');
+    setProgressSpeed(null);
+    setProgressEta(null);
+    
     try {
       await window.api.cancel();
       setConversionState('idle');
       setProgress(0);
       setStatusMessage('Cancelled');
+      setPlaylistInfo(null);
     } catch (error) {
       console.error('Failed to cancel:', error);
+      // Reset state even if cancel fails
+      setConversionState('idle');
+      setProgress(0);
+      setStatusMessage('Cancel failed - please close the app if download continues');
     }
   }, [conversionState]);
 

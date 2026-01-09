@@ -1263,6 +1263,47 @@ function ConversionForm({
         </Box>
       </Box>
 
+      {/* Download Summary */}
+      {url.trim() && isValid && !isConverting && (videoInfo || playlistInfo) && (
+        <Box
+          sx={{
+            mb: 2,
+            p: 1.5,
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {(() => {
+              const modeLabel = mode === 'audio' ? '🎵 Audio' : '🎬 Video';
+              const formatLabel = format === 'best' ? 'Best Quality' : format.toUpperCase();
+              
+              if (playlistInfo && playlistInfo.isPlaylist) {
+                if (playlistMode === 'full') {
+                  return `${modeLabel} • ${formatLabel} • Full playlist (${playlistInfo.playlistVideoCount} videos)`;
+                } else if (playlistMode === 'selected') {
+                  const count = selectedVideos.length || 0;
+                  return `${modeLabel} • ${formatLabel} • ${count} selected video${count !== 1 ? 's' : ''} from playlist`;
+                } else {
+                  return `${modeLabel} • ${formatLabel} • Single video from playlist`;
+                }
+              } else if (chapterInfo && chapterInfo.hasChapters) {
+                if (chapterDownloadMode === 'full') {
+                  return `${modeLabel} • ${formatLabel} • Full video (includes ${chapterInfo.totalChapters} chapters)`;
+                } else {
+                  const count = selectedChapters.length || 0;
+                  return `${modeLabel} • ${formatLabel} • ${count} chapter${count !== 1 ? 's' : ''}`;
+                }
+              } else {
+                return `${modeLabel} • ${formatLabel} • Single video`;
+              }
+            })()}
+          </Typography>
+        </Box>
+      )}
+
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
         {isConverting ? (
           <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
@@ -1275,7 +1316,7 @@ function ConversionForm({
             startIcon={<SyncIcon />}
             disabled={!isValid || !url.trim() || disabled}
           >
-            Convert
+            Download
           </Button>
         )}
       </Box>

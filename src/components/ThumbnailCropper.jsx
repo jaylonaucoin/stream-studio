@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ListItem, ListItemButton, ListItemText } from '@mui/material';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import {
@@ -148,7 +147,13 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     return Promise.resolve(dataUrl);
   }, []);
 
+  const [cropError, setCropError] = useState(null);
+  const [isCropping, setIsCropping] = useState(false);
+
   const handleCrop = useCallback(async () => {
+    setCropError(null);
+    setIsCropping(true);
+    
     try {
       console.log('handleCrop called', {
         hasImgRef: !!imgRef.current,
@@ -163,6 +168,8 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           imgRef: imgRef.current,
           canvasRef: canvasRef.current,
         });
+        setCropError('Image not ready. Please wait for the image to load.');
+        setIsCropping(false);
         return;
       }
 
@@ -173,6 +180,8 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           naturalWidth: image.naturalWidth,
           naturalHeight: image.naturalHeight,
         });
+        setCropError('Image not fully loaded. Please wait and try again.');
+        setIsCropping(false);
         return;
       }
 
@@ -181,6 +190,8 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
 
       if (!finalCrop || !finalCrop.width || !finalCrop.height) {
         console.error('Invalid crop values:', finalCrop);
+        setCropError('Please select an area to crop.');
+        setIsCropping(false);
         return;
       }
 
@@ -188,15 +199,24 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       const croppedImageUrl = await getCroppedImg(finalCrop);
       console.log('getCroppedImg result:', croppedImageUrl ? 'Success (length: ' + croppedImageUrl.length + ')' : 'Failed');
 
-      if (croppedImageUrl) {
+      if (croppedImageUrl && croppedImageUrl.length > 100) {
         console.log('Calling onCropComplete');
         onCropComplete(croppedImageUrl);
         console.log('onCropComplete called successfully');
+        // Reset state after successful crop
+        setImageLoaded(false);
+        setCrop({ unit: '%', width: 80, aspect: 1 });
+        setCompletedCrop(null);
+        setCropError(null);
       } else {
         console.error('Failed to generate cropped image');
+        setCropError('Failed to generate cropped image. The image may have loading issues.');
       }
     } catch (error) {
       console.error('Error cropping image:', error);
+      setCropError('Error cropping image: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsCropping(false);
     }
   }, [getCroppedImg, onCropComplete, completedCrop, crop, imageLoaded]);
 
@@ -204,6 +224,8 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     setImageLoaded(false);
     setCrop({ unit: '%', width: 80, aspect: 1 });
     setCompletedCrop(null);
+    setCropError(null);
+    setIsCropping(false);
     onClose();
   }, [onClose]);
 
@@ -212,6 +234,8 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       setImageLoaded(false);
       setCrop({ unit: '%', width: 80, aspect: 1 });
       setCompletedCrop(null);
+      setCropError(null);
+      setIsCropping(false);
     }
   }, [open]);
 
@@ -229,6 +253,13 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
         </Box>
       </DialogTitle>
       <DialogContent>
+        {cropError && (
+          <Box sx={{ mb: 2, p: 1, bgcolor: 'error.light', borderRadius: 1 }}>
+            <Typography color="error.contrastText" variant="body2">
+              {cropError}
+            </Typography>
+          </Box>
+        )}
         <Box
           sx={{
             display: 'flex',
@@ -257,24 +288,23 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
                 ref={imgRef}
                 alt="Crop me"
                 src={imageUrl}
-                crossOrigin="anonymous"
                 onLoad={onImageLoad}
                 onError={(e) => {
-                  // If crossOrigin fails, try without it (for same-origin images)
-                  if (e.currentTarget.crossOrigin === 'anonymous') {
-                    e.currentTarget.crossOrigin = null;
-                    e.currentTarget.src = imageUrl;
-                  }
+                  console.error('Image load error');
+                  setCropError('Failed to load image for cropping.');
                 }}
                 style={{ maxWidth: '100%', maxHeight: '70vh' }}
               />
             </ReactCrop>
           )}
+          {!imageUrl && (
+            <Typography color="text.secondary">No image to crop</Typography>
+          )}
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} startIcon={<CancelIcon />}>
+        <Button onClick={handleClose} startIcon={<CancelIcon />} disabled={isCropping}>
           Cancel
         </Button>
         <Button
@@ -295,11 +325,12 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           variant="contained"
           startIcon={<CheckIcon />}
           disabled={
+            isCropping ||
             !imageLoaded ||
             (!completedCrop && (!crop || !crop.width || !crop.height))
           }
         >
-          Apply Crop
+          {isCropping ? 'Cropping...' : 'Apply Crop'}
         </Button>
       </DialogActions>
     </Dialog>

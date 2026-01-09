@@ -8,6 +8,7 @@ const http = require('http');
 const urlModule = require('url');
 const Store = require('electron-store');
 const NodeID3 = require('node-id3');
+const treeKill = require('tree-kill');
 
 // Initialize electron-store for preferences and history
 const store = new Store({
@@ -29,6 +30,7 @@ const store = new Store({
 let mainWindow;
 let currentConversionProcess = null;
 let currentOutputPath = null;
+let isCancelling = false; // Flag to track cancellation state
 
 function createWindow() {
   // Restore window bounds from store
@@ -719,8 +721,8 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     let playlistSubfolder = null;
     let isChapterDownload = false;
     
-    if (playlistMode === 'full') {
-      // For playlists: save in subfolder with numbered files
+    if (playlistMode === 'full' || playlistMode === 'selected') {
+      // For playlists (full or selected): save in subfolder with numbered files
       // Sanitize folder name function (remove invalid characters for file system)
       const sanitizeFolderName = (name) => {
         // Remove invalid characters for folder names
@@ -1176,11 +1178,15 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
           
           // Calculate overall progress for playlists and chapters
           let finalPercent = progressPercent;
-          if (playlistMode === 'full' && progressInfo.playlistInfo) {
+          if ((playlistMode === 'full' || playlistMode === 'selected') && progressInfo.playlistInfo) {
             const { current, total } = progressInfo.playlistInfo;
-            // Overall progress = (completed videos / total) * 100 + (current video progress / 100) / total
+            // For selected videos mode, use selected count instead of total
+            const effectiveTotal = playlistMode === 'selected' && selectedVideos && selectedVideos.length > 0 
+              ? selectedVideos.length 
+              : total;
+            // Overall progress = (completed videos / effective total) * 100 + (current video progress / 100) / effective total
             const completedVideos = current - 1;
-            const overallProgress = (completedVideos / total) * 100 + (progressPercent / 100) / total * 100;
+            const overallProgress = (completedVideos / effectiveTotal) * 100 + (progressPercent / 100) / effectiveTotal * 100;
             finalPercent = Math.min(overallProgress, 100);
           } else if (isChapterDownload && selectedChapters) {
             // For chapters, we can't easily track individual chapter progress
@@ -1188,7 +1194,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             finalPercent = progressPercent;
           }
           
-          const progressType = playlistMode === 'full' && progressInfo.playlistInfo 
+          const progressType = (playlistMode === 'full' || playlistMode === 'selected') && progressInfo.playlistInfo 
             ? 'playlist-progress' 
             : isChapterDownload 
               ? 'chapter-progress' 
@@ -1216,7 +1222,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     
     // Handle process completion with timeout
     // Longer timeout for playlists and chapter downloads
-    const CONVERSION_TIMEOUT = playlistMode === 'full' 
+    const CONVERSION_TIMEOUT = (playlistMode === 'full' || playlistMode === 'selected')
       ? 120 * 60 * 1000  // 2 hours for playlists
       : isChapterDownload
         ? 60 * 60 * 1000  // 1 hour for chapter downloads
@@ -2121,61 +2127,141 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
   }
 });
 
-// Cancel handler
-ipcMain.handle('cancel', () => {
-  if (currentConversionProcess) {
-    // Try graceful shutdown first, then force kill
-    currentConversionProcess.kill('SIGTERM');
+// Cancel handler - uses tree-kill to terminate the entire process tree
+ipcMain.handle('cancel', async () => {
+  if (currentConversionProcess && !isCancelling) {
+    isCancelling = true;
+    const pid = currentConversionProcess.pid;
     
-    // Force kill after 3 seconds if still running
-    const forceKillTimeout = setTimeout(() => {
-      if (currentConversionProcess) {
-        currentConversionProcess.kill('SIGKILL');
-      }
-    }, 3000);
+    console.log(`Cancelling conversion process (PID: ${pid})...`);
     
-    currentConversionProcess.on('close', () => {
-      clearTimeout(forceKillTimeout);
-    });
-    
-    // Clean up partial files in output folder
-    try {
-      const outputFolder = getDefaultOutputFolder();
-      if (fs.existsSync(outputFolder)) {
-        const files = fs.readdirSync(outputFolder);
-        // Look for incomplete files (very small .mp3 files or .part files)
-        files.forEach(file => {
-          if (file.endsWith('.part') || (file.endsWith('.mp3') && file.includes(' - '))) {
-            const filePath = path.join(outputFolder, file);
-            try {
-              const stats = fs.statSync(filePath);
-              const now = Date.now();
-              const fileTime = stats.mtime.getTime();
-              // If file was modified in the last 5 minutes and is small, it might be incomplete
-              if (now - fileTime < 5 * 60 * 1000 && stats.size < 50 * 1024) { // Less than 50KB
-                fs.unlinkSync(filePath);
-              }
-            } catch (err) {
-              // Ignore cleanup errors
-            }
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Failed to clean up partial files:', err);
-    }
-    
-    currentConversionProcess = null;
-    currentOutputPath = null;
-    
+    // Send immediate feedback to UI
     mainWindow?.webContents.send('conversion-progress', {
-      type: 'cancelled',
-      message: 'Conversion cancelled'
+      type: 'status',
+      message: 'Cancelling download...'
     });
     
-    return { cancelled: true };
+    return new Promise((resolve) => {
+      // Use tree-kill to kill the entire process tree (yt-dlp + ffmpeg children)
+      treeKill(pid, 'SIGKILL', (err) => {
+        if (err) {
+          console.error('tree-kill error:', err);
+          // Fallback: try direct kill
+          try {
+            currentConversionProcess.kill('SIGKILL');
+          } catch (killErr) {
+            console.error('Fallback kill error:', killErr);
+          }
+        }
+        
+        console.log('Process tree terminated');
+        
+        // Clean up partial files in output folder
+        try {
+          const outputFolder = getDefaultOutputFolder();
+          if (fs.existsSync(outputFolder)) {
+            const files = fs.readdirSync(outputFolder);
+            const now = Date.now();
+            
+            // Look for incomplete files
+            files.forEach(file => {
+              const filePath = path.join(outputFolder, file);
+              try {
+                const stats = fs.statSync(filePath);
+                const fileTime = stats.mtime.getTime();
+                const isRecent = now - fileTime < 5 * 60 * 1000; // Modified in last 5 minutes
+                
+                // Delete partial/temp files
+                const shouldDelete = 
+                  file.endsWith('.part') || 
+                  file.endsWith('.ytdl') ||
+                  file.includes('.temp.') ||
+                  (isRecent && (
+                    // Very small audio files that are likely incomplete
+                    (file.match(/\.(mp3|m4a|opus|ogg)$/i) && stats.size < 50 * 1024) ||
+                    // Very small video files
+                    (file.match(/\.(mp4|webm|mkv|mov)$/i) && stats.size < 100 * 1024)
+                  ));
+                  
+                if (shouldDelete) {
+                  fs.unlinkSync(filePath);
+                  console.log(`Cleaned up incomplete file: ${file}`);
+                }
+              } catch (err) {
+                // Ignore cleanup errors for individual files
+              }
+            });
+            
+            // Also check for and clean up recently created empty subdirectories
+            const entries = fs.readdirSync(outputFolder, { withFileTypes: true });
+            entries.forEach(entry => {
+              if (entry.isDirectory()) {
+                const dirPath = path.join(outputFolder, entry.name);
+                try {
+                  const dirStats = fs.statSync(dirPath);
+                  const dirTime = dirStats.mtime.getTime();
+                  const isRecent = now - dirTime < 5 * 60 * 1000;
+                  
+                  if (isRecent) {
+                    const dirContents = fs.readdirSync(dirPath);
+                    // Check if directory only contains partial/incomplete files
+                    const allPartial = dirContents.every(f => 
+                      f.endsWith('.part') || f.endsWith('.ytdl') || f.includes('.temp.')
+                    );
+                    
+                    if (dirContents.length === 0 || allPartial) {
+                      // Clean up empty or all-partial directory
+                      dirContents.forEach(f => {
+                        try {
+                          fs.unlinkSync(path.join(dirPath, f));
+                        } catch (e) {}
+                      });
+                      fs.rmdirSync(dirPath);
+                      console.log(`Cleaned up partial directory: ${entry.name}`);
+                    }
+                  }
+                } catch (err) {
+                  // Ignore
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Failed to clean up partial files:', err);
+        }
+        
+        currentConversionProcess = null;
+        currentOutputPath = null;
+        isCancelling = false;
+        
+        mainWindow?.webContents.send('conversion-progress', {
+          type: 'cancelled',
+          message: 'Download cancelled'
+        });
+        
+        resolve({ cancelled: true });
+      });
+      
+      // Timeout: force resolve after 5 seconds even if tree-kill hangs
+      setTimeout(() => {
+        if (isCancelling) {
+          console.log('Cancel timeout - force cleanup');
+          currentConversionProcess = null;
+          currentOutputPath = null;
+          isCancelling = false;
+          
+          mainWindow?.webContents.send('conversion-progress', {
+            type: 'cancelled',
+            message: 'Download cancelled'
+          });
+          
+          resolve({ cancelled: true });
+        }
+      }, 5000);
+    });
   }
-  return { cancelled: false };
+  
+  return { cancelled: !isCancelling };
 });
 
 // Video info cache to avoid repeated calls
@@ -2778,6 +2864,84 @@ ipcMain.handle('openFileLocation', async (event, filePath) => {
     }
   } catch (error) {
     throw new Error(`Failed to open file location: ${error.message}`);
+  }
+});
+
+// Fetch and convert remote image to base64 data URL (for thumbnail cropping)
+ipcMain.handle('fetchImageAsDataUrl', async (event, imageUrl) => {
+  try {
+    if (!imageUrl) {
+      return { success: false, error: 'No image URL provided' };
+    }
+
+    // If it's already a data URL, return it as-is
+    if (imageUrl.startsWith('data:')) {
+      return { success: true, dataUrl: imageUrl };
+    }
+
+    // Fetch the image from the remote URL
+    const parsedUrl = urlModule.parse(imageUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    return new Promise((resolve) => {
+      const req = client.get(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      }, (res) => {
+        // Handle redirects
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const redirectUrl = res.headers.location;
+          const redirectParsed = urlModule.parse(redirectUrl);
+          const redirectClient = redirectParsed.protocol === 'https:' ? https : http;
+          
+          redirectClient.get(redirectUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          }, (redirectRes) => {
+            const chunks = [];
+            redirectRes.on('data', (chunk) => chunks.push(chunk));
+            redirectRes.on('end', () => {
+              const buffer = Buffer.concat(chunks);
+              const contentType = redirectRes.headers['content-type'] || 'image/jpeg';
+              const base64 = buffer.toString('base64');
+              const dataUrl = `data:${contentType};base64,${base64}`;
+              resolve({ success: true, dataUrl });
+            });
+          }).on('error', (err) => {
+            resolve({ success: false, error: `Failed to fetch redirected image: ${err.message}` });
+          });
+          return;
+        }
+
+        if (res.statusCode !== 200) {
+          resolve({ success: false, error: `Failed to fetch image: HTTP ${res.statusCode}` });
+          return;
+        }
+
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const contentType = res.headers['content-type'] || 'image/jpeg';
+          const base64 = buffer.toString('base64');
+          const dataUrl = `data:${contentType};base64,${base64}`;
+          resolve({ success: true, dataUrl });
+        });
+      });
+
+      req.on('error', (err) => {
+        resolve({ success: false, error: `Failed to fetch image: ${err.message}` });
+      });
+
+      req.setTimeout(15000, () => {
+        req.destroy();
+        resolve({ success: false, error: 'Image fetch timed out' });
+      });
+    });
+  } catch (error) {
+    return { success: false, error: `Failed to fetch image: ${error.message}` };
   }
 });
 

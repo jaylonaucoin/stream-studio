@@ -736,6 +736,38 @@ function MetadataEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, handleSave, onClose]);
 
+  // State for cropping - we need a local data URL for the cropper to avoid CORS
+  const [cropImageUrl, setCropImageUrl] = useState(null);
+
+  const handleOpenCropDialog = useCallback(async () => {
+    if (!thumbnailUrl) return;
+    
+    setImageLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      // If it's already a data URL, use it directly
+      if (thumbnailUrl.startsWith('data:')) {
+        setCropImageUrl(thumbnailUrl);
+        setCropDialogOpen(true);
+      } else {
+        // Fetch the remote image through the main process to avoid CORS
+        const result = await window.api?.fetchImageAsDataUrl?.(thumbnailUrl);
+        if (result && result.success && result.dataUrl) {
+          setCropImageUrl(result.dataUrl);
+          setCropDialogOpen(true);
+        } else {
+          setErrorMessage(result?.error || 'Failed to load image for cropping. Please try replacing the image.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to prepare image for cropping:', err);
+      setErrorMessage('Failed to load image for cropping: ' + (err.message || 'Unknown error'));
+    } finally {
+      setImageLoading(false);
+    }
+  }, [thumbnailUrl]);
+
   const renderThumbnailSection = () => (
     <Box sx={{ mt: 2 }}>
       <Typography variant="subtitle2" gutterBottom>
@@ -762,7 +794,7 @@ function MetadataEditor({
             variant="outlined"
             size="small"
             startIcon={imageLoading ? <CircularProgress size={16} /> : <CropIcon />}
-            onClick={() => setCropDialogOpen(true)}
+            onClick={handleOpenCropDialog}
             disabled={!thumbnailUrl || imageLoading}
           >
             Crop
@@ -1182,8 +1214,11 @@ function MetadataEditor({
       </Dialog>
       <ThumbnailCropper
         open={cropDialogOpen}
-        imageUrl={thumbnailUrl}
-        onClose={() => setCropDialogOpen(false)}
+        imageUrl={cropImageUrl}
+        onClose={() => {
+          setCropDialogOpen(false);
+          setCropImageUrl(null);
+        }}
         onCropComplete={handleCropComplete}
       />
       <Snackbar
