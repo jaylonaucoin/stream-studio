@@ -19,7 +19,7 @@
     "start": "electron .",
     "build": "npm run build:renderer && electron-builder --publish never",
     "build:mac": "npm run build:renderer && electron-builder --mac --x64",
-    "build:linux": "npm run build:renderer && electron-builder --linux --x64",
+    "build:linux": "npm run build:renderer && electron-builder --linux --x64"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

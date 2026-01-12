@@ -616,22 +616,57 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
       if (metadata.album) args.push('-metadata', `album=${metadata.album}`);
       if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`);
       if (metadata.year) args.push('-metadata', `date=${metadata.year}`);
-      
-      const outputPath = filePath.replace(ext, `.temp${ext}`);
-      args.push(outputPath);
-      
-      await new Promise((resolve, reject) => {
-        const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
-        ffmpegProc.on('close', (code) => {
-          if (code === 0) {
-            fs.renameSync(outputPath, filePath);
-            resolve();
-          } else {
-            reject(new Error(`FFmpeg failed with code ${code}`));
-          }
+      if (metadata.albumArtist) args.push('-metadata', `album_artist=${metadata.albumArtist}`);
+      if (metadata.composer) args.push('-metadata', `composer=${metadata.composer}`);
+      if (metadata.publisher) args.push('-metadata', `publisher=${metadata.publisher}`);
+      if (metadata.comment || metadata.description) args.push('-metadata', `comment=${metadata.comment || metadata.description}`);
+      if (metadata.copyright) args.push('-metadata', `copyright=${metadata.copyright}`);
+      if (metadata.bpm) args.push('-metadata', `TBPM=${metadata.bpm}`);
+      if (metadata.trackNumber) {
+        const trackMeta = metadata.totalTracks ? `${metadata.trackNumber}/${metadata.totalTracks}` : metadata.trackNumber;
+        args.push('-metadata', `track=${trackMeta}`);
+      }
+
+      // Add thumbnail/cover art
+      if (thumbnailBuffer) {
+        const tempThumbnailPath = path.join(os.tmpdir(), `thumb_${Date.now()}.jpg`);
+        fs.writeFileSync(tempThumbnailPath, thumbnailBuffer);
+        args.push('-i', tempThumbnailPath, '-map', '0', '-map', '1', '-c', 'copy', '-c:v:1', 'mjpeg', '-disposition:v:1', 'attached_pic');
+        
+        const outputPath = filePath.replace(ext, `.temp${ext}`);
+        args.push(outputPath);
+        
+        await new Promise((resolve, reject) => {
+          const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
+          ffmpegProc.on('close', (code) => {
+            if (code === 0) {
+              fs.renameSync(outputPath, filePath);
+              fs.unlinkSync(tempThumbnailPath);
+              resolve();
+            } else {
+              fs.unlinkSync(tempThumbnailPath);
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+          ffmpegProc.on('error', reject);
         });
-        ffmpegProc.on('error', reject);
-      });
+      } else {
+        const outputPath = filePath.replace(ext, `.temp${ext}`);
+        args.push(outputPath);
+        
+        await new Promise((resolve, reject) => {
+          const ffmpegProc = spawn(ffmpegPath, args, { stdio: 'ignore' });
+          ffmpegProc.on('close', (code) => {
+            if (code === 0) {
+              fs.renameSync(outputPath, filePath);
+              resolve();
+            } else {
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+          ffmpegProc.on('error', reject);
+        });
+      }
     }
     
     return { success: true };
@@ -912,7 +947,11 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         args.push('--postprocessor-args', `ffmpeg:-b:a ${audioSettings.bitrate}`);
       }
       
-      args.push('--embed-thumbnail');      // Embed thumbnail as album art
+      // Only embed thumbnail if no custom metadata with thumbnail is provided
+      // (custom thumbnail will be applied after download via applyMetadataToFile)
+      if (!customMetadata || !customMetadata.thumbnail) {
+        args.push('--embed-thumbnail');      // Embed thumbnail as album art
+      }
     } else {
       // Video mode: download video+audio and merge to specified format
       const heightLimit = videoHeightMap[quality];
@@ -2811,6 +2850,63 @@ ipcMain.handle('selectImageFile', async () => {
     return { success: false, dataUrl: null };
   } catch (error) {
     throw new Error(`Failed to select image file: ${error.message}`);
+  }
+});
+
+// Fetch image as data URL (for thumbnail cropping - avoids CORS tainted canvas)
+ipcMain.handle('fetchImageAsDataUrl', async (event, imageUrl) => {
+  try {
+    // If it's already a data URL, return it directly
+    if (imageUrl.startsWith('data:')) {
+      return { success: true, dataUrl: imageUrl };
+    }
+
+    // Fetch image using Node.js (no CORS restrictions)
+    const parsedUrl = urlModule.parse(imageUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    
+    const imageBuffer = await new Promise((resolve, reject) => {
+      const req = client.get(imageUrl, (res) => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`Failed to fetch image: ${res.statusCode}`));
+          return;
+        }
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          resolve(buffer);
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Timeout fetching image'));
+      });
+    });
+
+    // Convert to base64 data URL
+    const base64 = imageBuffer.toString('base64');
+    
+    // Detect MIME type from buffer signature
+    let mimeType = 'image/jpeg'; // default
+    if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4E && imageBuffer[3] === 0x47) {
+      mimeType = 'image/png';
+    } else if (imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8) {
+      mimeType = 'image/jpeg';
+    } else if (imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46) {
+      mimeType = 'image/gif';
+    } else if (imageBuffer[0] === 0x42 && imageBuffer[1] === 0x4D) {
+      mimeType = 'image/bmp';
+    } else if (imageBuffer[8] === 0x57 && imageBuffer[9] === 0x45 && imageBuffer[10] === 0x42 && imageBuffer[11] === 0x50) {
+      mimeType = 'image/webp';
+    }
+    
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+    return { success: true, dataUrl };
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    return { success: false, error: error.message };
   }
 });
 
