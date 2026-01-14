@@ -454,6 +454,33 @@ function sanitizeUrl(url) {
   return normalized;
 }
 
+// Helper function to safely encode metadata values for ffmpeg
+// Ensures UTF-8 characters are properly handled
+// Since we use spawn with array arguments, we don't need shell escaping
+// But we need to ensure the string is properly UTF-8 encoded
+function encodeMetadataValue(value) {
+  if (!value) return '';
+  
+  // Convert to string - Node.js strings are already UTF-8
+  // But ensure we're working with a clean UTF-8 string
+  let encoded = String(value);
+  
+  // Remove any null bytes or other problematic characters that could break ffmpeg
+  encoded = encoded.replace(/\0/g, '');  // Remove null bytes
+  
+  // Ensure proper UTF-8 encoding by converting to Buffer and back
+  // This normalizes the encoding and ensures it's valid UTF-8
+  try {
+    const buffer = Buffer.from(encoded, 'utf8');
+    encoded = buffer.toString('utf8');
+  } catch (e) {
+    // If encoding fails, try to recover by replacing invalid characters
+    encoded = encoded.replace(/[\uFFFD]/g, ''); // Remove replacement characters
+  }
+  
+  return encoded;
+}
+
 // Helper function to apply metadata to a file
 async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
   try {
@@ -499,21 +526,22 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
 
     if (ext === '.mp3') {
       // Use node-id3 for MP3 files
+      // Encode metadata values to ensure proper UTF-8 handling
       const tags = {
-        title: metadata.title || '',
-        artist: metadata.artist || '',
-        album: metadata.album || '',
-        performerInfo: metadata.albumArtist || '',
-        genre: metadata.genre || '',
-        year: metadata.year || '',
-        trackNumber: metadata.trackNumber || '',
-        composer: metadata.composer || '',
-        publisher: metadata.publisher || '',
+        title: encodeMetadataValue(metadata.title || ''),
+        artist: encodeMetadataValue(metadata.artist || ''),
+        album: encodeMetadataValue(metadata.album || ''),
+        performerInfo: encodeMetadataValue(metadata.albumArtist || ''),
+        genre: encodeMetadataValue(metadata.genre || ''),
+        year: encodeMetadataValue(metadata.year || ''),
+        trackNumber: encodeMetadataValue(metadata.trackNumber || ''),
+        composer: encodeMetadataValue(metadata.composer || ''),
+        publisher: encodeMetadataValue(metadata.publisher || ''),
         comment: {
           language: metadata.language || 'eng',
-          text: metadata.comment || metadata.description || '',
+          text: encodeMetadataValue(metadata.comment || metadata.description || ''),
         },
-        copyright: metadata.copyright || '',
+        copyright: encodeMetadataValue(metadata.copyright || ''),
         bpm: metadata.bpm ? parseInt(metadata.bpm, 10) : undefined,
       };
 
@@ -552,19 +580,25 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
       const ffmpegPath = getFfmpegPath();
       const args = ['-i', filePath, '-c', 'copy'];
       
-      // Add metadata
-      if (metadata.title) args.push('-metadata', `title=${metadata.title}`);
-      if (metadata.artist) args.push('-metadata', `artist=${metadata.artist}`);
-      if (metadata.album) args.push('-metadata', `album=${metadata.album}`);
-      if (metadata.albumArtist) args.push('-metadata', `album_artist=${metadata.albumArtist}`);
-      if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`);
-      if (metadata.year) args.push('-metadata', `date=${metadata.year}`);
-      if (metadata.trackNumber) args.push('-metadata', `track=${metadata.trackNumber}${metadata.totalTracks ? `/${metadata.totalTracks}` : ''}`);
-      if (metadata.composer) args.push('-metadata', `composer=${metadata.composer}`);
-      if (metadata.publisher) args.push('-metadata', `publisher=${metadata.publisher}`);
-      if (metadata.comment || metadata.description) args.push('-metadata', `comment=${metadata.comment || metadata.description}`);
-      if (metadata.copyright) args.push('-metadata', `copyright=${metadata.copyright}`);
-      if (metadata.bpm) args.push('-metadata', `TBPM=${metadata.bpm}`);
+      // Add metadata with proper UTF-8 encoding
+      if (metadata.title) args.push('-metadata', `title=${encodeMetadataValue(metadata.title)}`);
+      if (metadata.artist) args.push('-metadata', `artist=${encodeMetadataValue(metadata.artist)}`);
+      if (metadata.album) args.push('-metadata', `album=${encodeMetadataValue(metadata.album)}`);
+      if (metadata.albumArtist) args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
+      if (metadata.genre) args.push('-metadata', `genre=${encodeMetadataValue(metadata.genre)}`);
+      if (metadata.year) args.push('-metadata', `date=${encodeMetadataValue(metadata.year)}`);
+      if (metadata.trackNumber) {
+        const trackMeta = metadata.totalTracks ? `${metadata.trackNumber}/${metadata.totalTracks}` : metadata.trackNumber;
+        args.push('-metadata', `track=${encodeMetadataValue(trackMeta)}`);
+      }
+      if (metadata.composer) args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
+      if (metadata.publisher) args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
+      if (metadata.comment || metadata.description) {
+        const commentValue = encodeMetadataValue(metadata.comment || metadata.description);
+        args.push('-metadata', `comment=${commentValue}`);
+      }
+      if (metadata.copyright) args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
+      if (metadata.bpm) args.push('-metadata', `TBPM=${encodeMetadataValue(metadata.bpm)}`);
 
       // Add thumbnail/cover art
       if (thumbnailBuffer) {
@@ -611,20 +645,24 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
       const ffmpegPath = getFfmpegPath();
       const args = ['-i', filePath, '-c', 'copy'];
       
-      if (metadata.title) args.push('-metadata', `title=${metadata.title}`);
-      if (metadata.artist) args.push('-metadata', `artist=${metadata.artist}`);
-      if (metadata.album) args.push('-metadata', `album=${metadata.album}`);
-      if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`);
-      if (metadata.year) args.push('-metadata', `date=${metadata.year}`);
-      if (metadata.albumArtist) args.push('-metadata', `album_artist=${metadata.albumArtist}`);
-      if (metadata.composer) args.push('-metadata', `composer=${metadata.composer}`);
-      if (metadata.publisher) args.push('-metadata', `publisher=${metadata.publisher}`);
-      if (metadata.comment || metadata.description) args.push('-metadata', `comment=${metadata.comment || metadata.description}`);
-      if (metadata.copyright) args.push('-metadata', `copyright=${metadata.copyright}`);
-      if (metadata.bpm) args.push('-metadata', `TBPM=${metadata.bpm}`);
+      // Encode metadata values to ensure proper UTF-8 handling
+      if (metadata.title) args.push('-metadata', `title=${encodeMetadataValue(metadata.title)}`);
+      if (metadata.artist) args.push('-metadata', `artist=${encodeMetadataValue(metadata.artist)}`);
+      if (metadata.album) args.push('-metadata', `album=${encodeMetadataValue(metadata.album)}`);
+      if (metadata.genre) args.push('-metadata', `genre=${encodeMetadataValue(metadata.genre)}`);
+      if (metadata.year) args.push('-metadata', `date=${encodeMetadataValue(metadata.year)}`);
+      if (metadata.albumArtist) args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
+      if (metadata.composer) args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
+      if (metadata.publisher) args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
+      if (metadata.comment || metadata.description) {
+        const commentValue = encodeMetadataValue(metadata.comment || metadata.description);
+        args.push('-metadata', `comment=${commentValue}`);
+      }
+      if (metadata.copyright) args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
+      if (metadata.bpm) args.push('-metadata', `TBPM=${encodeMetadataValue(metadata.bpm)}`);
       if (metadata.trackNumber) {
         const trackMeta = metadata.totalTracks ? `${metadata.trackNumber}/${metadata.totalTracks}` : metadata.trackNumber;
-        args.push('-metadata', `track=${trackMeta}`);
+        args.push('-metadata', `track=${encodeMetadataValue(trackMeta)}`);
       }
 
       // Add thumbnail/cover art
@@ -2356,6 +2394,26 @@ ipcMain.handle('getVideoInfo', async (event, url) => {
 const playlistInfoCache = new Map();
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Helper function to get high-quality thumbnail for a video
+async function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
+  // For YouTube, construct high-quality thumbnail URL
+  if (platform === 'youtube' || videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be')) {
+    // YouTube thumbnail URL patterns (in order of quality)
+    const thumbnailUrls = [
+      `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,  // Highest quality (1280x720 or 1920x1080)
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,      // High quality (480x360)
+      `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,      // Medium quality (320x180)
+    ];
+    
+    // Try maxresdefault first, fallback to hqdefault
+    // We'll return maxresdefault as it's the best quality
+    return thumbnailUrls[0]; // Return maxresdefault, browser will handle 404 fallback
+  }
+  
+  // For other platforms, return null to use the thumbnail from flat-playlist
+  return null;
+}
+
 // Get playlist info handler
 ipcMain.handle('getPlaylistInfo', async (event, url) => {
   try {
@@ -2404,7 +2462,7 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
         stderr += data.toString();
       });
       
-      playlistProcess.on('close', (code) => {
+      playlistProcess.on('close', async (code) => {
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
@@ -2498,6 +2556,73 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
                 console.warn('Failed to parse playlist entry:', e);
               }
             });
+            
+            // Get high-quality thumbnail for first video (used as playlist thumbnail)
+            if (videos.length > 0 && videos[0].id) {
+              try {
+                const firstVideo = videos[0];
+                const platform = sanitizedUrl.includes('youtube.com') || sanitizedUrl.includes('youtu.be') ? 'youtube' : 'other';
+                const highQualityThumbnail = await getHighQualityThumbnail(firstVideo.id, firstVideo.url, platform);
+                
+                if (highQualityThumbnail) {
+                  // Update first video's thumbnail to high-quality version
+                  firstVideo.thumbnail = highQualityThumbnail;
+                  videos[0] = firstVideo;
+                } else if (firstVideo.url) {
+                  // For non-YouTube platforms, try fetching full video info for better thumbnail
+                  try {
+                    const videoInfoResult = await new Promise((resolve) => {
+                      const ytDlpPath = getYtDlpPath();
+                      const args = [
+                        '--dump-json',
+                        '--no-playlist',
+                        '--no-warnings',
+                        firstVideo.url
+                      ];
+                      
+                      const infoProcess = spawn(ytDlpPath, args, {
+                        stdio: ['ignore', 'pipe', 'pipe']
+                      });
+                      
+                      let stdout = '';
+                      let timeoutId = setTimeout(() => {
+                        infoProcess.kill();
+                        resolve(null);
+                      }, 5000);
+                      
+                      infoProcess.stdout.on('data', (data) => {
+                        stdout += data.toString();
+                      });
+                      
+                      infoProcess.on('close', (code) => {
+                        clearTimeout(timeoutId);
+                        if (code === 0 && stdout) {
+                          try {
+                            const info = JSON.parse(stdout);
+                            resolve(info.thumbnail || info.thumbnails?.[0]?.url || null);
+                          } catch {
+                            resolve(null);
+                          }
+                        } else {
+                          resolve(null);
+                        }
+                      });
+                    });
+                    
+                    if (videoInfoResult) {
+                      firstVideo.thumbnail = videoInfoResult;
+                      videos[0] = firstVideo;
+                    }
+                  } catch (err) {
+                    // Fall back to original thumbnail if fetch fails
+                    console.warn('Failed to fetch high-quality thumbnail for first video:', err);
+                  }
+                }
+              } catch (err) {
+                // Continue with original thumbnail if high-quality fetch fails
+                console.warn('Failed to get high-quality thumbnail:', err);
+              }
+            }
             
             // Format total duration
             let totalDurationFormatted = '';
