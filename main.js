@@ -2317,11 +2317,16 @@ ipcMain.handle('getVideoInfo', async (event, url) => {
             const info = JSON.parse(stdout);
             
             // Extract relevant information
+            // For music, prefer 'artist' field over 'uploader'/'channel' (which may be "Release - Topic")
+            const artist = info.artist || info.artists?.[0] || info.creator || info.creators?.[0] || null;
+            const uploader = info.uploader || info.channel || null;
+            
             const videoInfo = {
               title: info.title || 'Unknown Title',
               thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
               duration: info.duration || null,
-              uploader: info.uploader || info.channel || null,
+              artist: artist, // Actual artist name (preferred for music)
+              uploader: uploader, // Channel/uploader name (fallback)
               viewCount: info.view_count || null,
               uploadDate: info.upload_date || null,
               description: info.description || null,
@@ -2523,6 +2528,8 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
                 const videoUrl = entry.url || entry.webpage_url || null;
                 const videoThumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
                 const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index + 1 : lineIndex + 1; // 1-based index
+                // Extract artist if available (for music playlists)
+                const videoArtist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
                 
                 // Format duration
                 let durationFormatted = '';
@@ -2546,6 +2553,7 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
                   index: playlistIndex,
                   url: videoUrl,
                   thumbnail: videoThumbnail,
+                  artist: videoArtist, // Actual artist name (if available)
                 });
                 
                 if (entry.duration) {
