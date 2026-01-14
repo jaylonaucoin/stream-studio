@@ -288,8 +288,8 @@ function ConversionForm({
         if (playlistInfoResult.status === 'fulfilled' && playlistInfoResult.value.success) {
           if (playlistInfoResult.value.isPlaylist) {
             setPlaylistInfo(playlistInfoResult.value);
-            // Default to single mode even if playlist is detected
-            setPlaylistMode('single');
+            // Default to full playlist mode
+            setPlaylistMode('full');
             // Reset selected videos
             setSelectedVideos([]);
           } else {
