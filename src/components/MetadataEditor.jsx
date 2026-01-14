@@ -444,8 +444,8 @@ function MetadataEditor({
     }
     
     // No customMetadata exists, initialize from videoInfo/playlistInfo/chapterInfo
-    // Initialize single video / bulk playlist metadata
-    if (videoInfo && (mode === 'single' || (mode === 'playlist' && playlistEditMode === 'bulk'))) {
+    // Initialize single video metadata
+    if (videoInfo && mode === 'single') {
       setMetadata((prev) => ({
         ...prev,
         title: videoInfo.title || '',
@@ -453,10 +453,24 @@ function MetadataEditor({
         year: videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
         description: videoInfo.description || '',
       }));
-      // For playlists, use first video's thumbnail if available, otherwise fall back to videoInfo thumbnail
-      const thumbnailToUse = mode === 'playlist' && playlistInfo?.videos?.[0]?.thumbnail 
-        ? playlistInfo.videos[0].thumbnail 
-        : (videoInfo.thumbnail || '');
+      setThumbnailUrl(videoInfo.thumbnail || '');
+      setCustomThumbnail(null);
+    }
+
+    // Initialize playlist bulk metadata - works even if videoInfo is null
+    if (mode === 'playlist' && playlistEditMode === 'bulk') {
+      // Set metadata from videoInfo if available
+      if (videoInfo) {
+        setMetadata((prev) => ({
+          ...prev,
+          title: videoInfo.title || '',
+          artist: videoInfo.uploader || '',
+          year: videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+          description: videoInfo.description || '',
+        }));
+      }
+      // Always try to set thumbnail from playlist first video, fallback to videoInfo
+      const thumbnailToUse = playlistInfo?.videos?.[0]?.thumbnail || videoInfo?.thumbnail || '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
@@ -491,6 +505,11 @@ function MetadataEditor({
       }));
       setPerFileMetadata(perFile);
       setUseSharedArtist(true);
+      
+      // Set thumbnail to first video's thumbnail for individual mode
+      const thumbnailToUse = playlistInfo.videos[0]?.thumbnail || videoInfo?.thumbnail || '';
+      setThumbnailUrl(thumbnailToUse);
+      setCustomThumbnail(null);
     }
 
     // Initialize chapter metadata
@@ -588,13 +607,7 @@ function MetadataEditor({
   }, []);
 
   const handleCropComplete = useCallback((croppedImageUrl) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MetadataEditor.jsx:586',message:'handleCropComplete entry',data:{hasCroppedImageUrl:!!croppedImageUrl,urlLength:croppedImageUrl?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     if (!croppedImageUrl) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MetadataEditor.jsx:587',message:'handleCropComplete - no URL',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       console.error('No cropped image URL provided');
       setErrorMessage('Failed to crop image. Please try again.');
       return;
@@ -603,18 +616,9 @@ function MetadataEditor({
     try {
       setThumbnailUrl(croppedImageUrl);
       setCustomThumbnail(croppedImageUrl);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MetadataEditor.jsx:596',message:'handleCropComplete - calling setCropDialogOpen(false)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       setCropDialogOpen(false);
       setErrorMessage(null);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MetadataEditor.jsx:597',message:'handleCropComplete - setCropDialogOpen(false) called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MetadataEditor.jsx:599',message:'handleCropComplete error',data:{error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       console.error('Error saving cropped image:', error);
       setErrorMessage('Failed to save cropped image. Please try again.');
     }

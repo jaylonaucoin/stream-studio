@@ -2430,7 +2430,15 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
             const firstEntry = JSON.parse(lines[0]);
             
             // Check if this is actually a playlist or just a single video
-            const isPlaylist = lines.length > 1 || firstEntry.playlist || firstEntry.playlist_index !== undefined;
+            // Be strict: only consider it a playlist if:
+            // 1. There are multiple videos (lines.length > 1), OR
+            // 2. There's a meaningful playlist title (not empty, not "Untitled Playlist")
+            // Note: playlist_index can be set even for single videos (auto-mixes, watch history), so don't rely on it alone
+            const playlistTitle = firstEntry.playlist || firstEntry.playlist_title || '';
+            const hasValidPlaylistTitle = playlistTitle && 
+              playlistTitle !== 'Untitled Playlist' && 
+              playlistTitle.trim() !== '';
+            const isPlaylist = lines.length > 1 || hasValidPlaylistTitle;
             
             if (!isPlaylist) {
               const result = { success: true, isPlaylist: false };

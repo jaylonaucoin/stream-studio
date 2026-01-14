@@ -15,6 +15,9 @@ import {
   LinearProgress,
   Alert,
   Tooltip,
+  CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import QueueIcon from '@mui/icons-material/Queue';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -27,6 +30,8 @@ import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import ReplayIcon from '@mui/icons-material/Replay';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 
 // Normalize URL - add protocol if missing
 const normalizeUrl = (url) => {
@@ -77,24 +82,109 @@ function QueuePanel({
   const [queue, setQueue] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
+  const [isChecking, setIsChecking] = useState(false);
   const stopRequestedRef = useRef(false);
 
-  const handleAddToQueue = useCallback(() => {
+  // Handle adding URLs to queue with playlist detection
+  const handleAddToQueue = useCallback(async () => {
     const lines = urls.split('\n').filter((line) => line.trim());
     const validUrls = lines.filter(isValidUrl);
 
     if (validUrls.length === 0) return;
 
-    const newItems = validUrls.map((url, index) => ({
-      id: Date.now().toString() + index,
-      url: normalizeUrl(url.trim()),
-      status: 'pending', // pending, processing, completed, error
+    setIsChecking(true);
+
+    try {
+      // Check each URL for playlist info
+      const newItems = await Promise.all(
+        validUrls.map(async (url, index) => {
+          const normalizedUrl = normalizeUrl(url.trim());
+          const baseItem = {
+            id: Date.now().toString() + index,
+            url: normalizedUrl,
+            status: 'pending',
+            error: null,
+            isPlaylist: false,
+            playlistInfo: null,
+            playlistMode: 'full', // 'full' or 'single' for playlists
+            title: null,
+            thumbnail: null,
+          };
+
+          try {
+            // Try to get video info and playlist info in parallel
+            const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
+              window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
+              window.api?.getPlaylistInfo?.(normalizedUrl) ||
+                Promise.resolve({ success: false, isPlaylist: false }),
+            ]);
+
+            // Handle video info
+            if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
+              baseItem.title = videoInfoResult.value.title;
+              baseItem.thumbnail = videoInfoResult.value.thumbnail;
+            }
+
+            // Handle playlist info
+            if (
+              playlistInfoResult.status === 'fulfilled' &&
+              playlistInfoResult.value.success &&
+              playlistInfoResult.value.isPlaylist
+            ) {
+              baseItem.isPlaylist = true;
+              baseItem.playlistInfo = playlistInfoResult.value;
+              baseItem.title = playlistInfoResult.value.playlistTitle;
+              baseItem.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
+            }
+          } catch (error) {
+            console.error('Error checking URL:', error);
+            // Continue with basic item if check fails
+          }
+
+          return baseItem;
+        })
+      );
+
+      setQueue((prev) => [...prev, ...newItems]);
+      setUrls('');
+    } finally {
+      setIsChecking(false);
+    }
+  }, [urls]);
+
+  // Expand playlist into individual video items
+  const handleExpandPlaylist = useCallback((item) => {
+    if (!item.isPlaylist || !item.playlistInfo?.videos) return;
+
+    const videos = item.playlistInfo.videos;
+    const newItems = videos.map((video, index) => ({
+      id: `${item.id}-video-${index}`,
+      url: video.url || item.url,
+      status: 'pending',
       error: null,
+      isPlaylist: false,
+      playlistInfo: null,
+      playlistMode: 'single',
+      title: video.title,
+      thumbnail: video.thumbnail,
+      parentPlaylistId: item.id,
     }));
 
-    setQueue((prev) => [...prev, ...newItems]);
-    setUrls('');
-  }, [urls]);
+    // Replace the playlist item with individual video items
+    setQueue((prev) => {
+      const index = prev.findIndex((q) => q.id === item.id);
+      if (index === -1) return prev;
+      return [...prev.slice(0, index), ...newItems, ...prev.slice(index + 1)];
+    });
+  }, []);
+
+  // Toggle playlist mode between full and single
+  const handleTogglePlaylistMode = useCallback((id, newMode) => {
+    if (newMode === null) return;
+    setQueue((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, playlistMode: newMode } : item))
+    );
+  }, []);
 
   const handleRemoveItem = useCallback((id) => {
     setQueue((prev) => prev.filter((item) => item.id !== id));
@@ -157,7 +247,10 @@ function QueuePanel({
       try {
         // Set up progress listener for this item
         const progressHandler = (data) => {
-          if (data.type === 'progress' && data.percent !== undefined) {
+          if (
+            (data.type === 'progress' || data.type === 'playlist-progress') &&
+            data.percent !== undefined
+          ) {
             setCurrentProgress(data.percent);
           }
         };
@@ -167,17 +260,34 @@ function QueuePanel({
           window.api.onProgress(progressHandler);
         }
 
-        const result = await window.api.convert(item.url, {
+        // Determine playlist mode for conversion
+        const convertOptions = {
           outputFolder,
           mode: defaultMode || 'audio',
           format: defaultFormat || 'mp3',
           quality: defaultQuality || 'best',
-        });
+        };
+
+        // If it's a playlist, pass the playlist mode
+        if (item.isPlaylist) {
+          convertOptions.playlistMode = item.playlistMode;
+        }
+
+        const result = await window.api.convert(item.url, convertOptions);
 
         if (result.success) {
           setQueue((prev) =>
             prev.map((q) =>
-              q.id === item.id ? { ...q, status: 'completed', fileName: result.fileName } : q
+              q.id === item.id
+                ? {
+                    ...q,
+                    status: 'completed',
+                    fileName: result.isPlaylist
+                      ? `${result.fileCount} files`
+                      : result.fileName,
+                    fileCount: result.fileCount,
+                  }
+                : q
             )
           );
         }
@@ -199,15 +309,7 @@ function QueuePanel({
     if (onQueueComplete) {
       onQueueComplete();
     }
-  }, [
-    queue,
-    isProcessing,
-    outputFolder,
-    defaultMode,
-    defaultFormat,
-    defaultQuality,
-    onQueueComplete,
-  ]);
+  }, [queue, isProcessing, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -238,6 +340,7 @@ function QueuePanel({
   const pendingCount = queue.filter((item) => item.status === 'pending').length;
   const completedCount = queue.filter((item) => item.status === 'completed').length;
   const errorCount = queue.filter((item) => item.status === 'error').length;
+  const playlistCount = queue.filter((item) => item.isPlaylist).length;
 
   return (
     <Drawer
@@ -245,7 +348,7 @@ function QueuePanel({
       open={open}
       onClose={isProcessing ? undefined : onClose}
       PaperProps={{
-        sx: { width: { xs: '100%', sm: 450 }, bgcolor: 'background.default' },
+        sx: { width: { xs: '100%', sm: 480 }, bgcolor: 'background.default' },
       }}
     >
       <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -275,24 +378,16 @@ function QueuePanel({
 
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Paste video URLs (one per line) - supports 1000+ sites:
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}
-          >
-            Note: Playlist URLs will download only the first video. Use the main form for full
-            playlist downloads.
+            Paste video or playlist URLs (one per line) - supports 1000+ sites:
           </Typography>
           <TextField
             multiline
             rows={4}
             fullWidth
-            placeholder="https://www.youtube.com/watch?v=...&#10;https://vimeo.com/...&#10;https://twitter.com/user/status/...&#10;https://tiktok.com/@user/video/..."
+            placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/playlist?list=...&#10;https://vimeo.com/...&#10;https://twitter.com/user/status/..."
             value={urls}
             onChange={(e) => setUrls(e.target.value)}
-            disabled={isProcessing}
+            disabled={isProcessing || isChecking}
             size="small"
             sx={{ mb: 1 }}
           />
@@ -300,9 +395,10 @@ function QueuePanel({
             variant="contained"
             size="small"
             onClick={handleAddToQueue}
-            disabled={!urls.trim() || isProcessing}
+            disabled={!urls.trim() || isProcessing || isChecking}
+            startIcon={isChecking ? <CircularProgress size={16} color="inherit" /> : null}
           >
-            Add to Queue
+            {isChecking ? 'Checking URLs...' : 'Add to Queue'}
           </Button>
         </Paper>
 
@@ -368,7 +464,8 @@ function QueuePanel({
                 Queue is empty
               </Typography>
               <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
-                Paste multiple URLs above and click "Add to Queue" to batch convert multiple files
+                Paste multiple URLs above and click "Add to Queue" to batch convert multiple files.
+                Playlists are automatically detected!
               </Typography>
             </Box>
           ) : (
@@ -381,6 +478,8 @@ function QueuePanel({
                     mb: 1,
                     bgcolor: 'background.paper',
                     transition: 'all 0.2s ease-in-out',
+                    border: item.isPlaylist ? 2 : 0,
+                    borderColor: item.isPlaylist ? 'primary.main' : 'transparent',
                     '&:hover': {
                       elevation: 2,
                     },
@@ -390,6 +489,18 @@ function QueuePanel({
                     secondaryAction={
                       item.status !== 'processing' && !isProcessing ? (
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {item.isPlaylist && item.status === 'pending' && (
+                            <Tooltip title="Expand to individual videos">
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => handleExpandPlaylist(item)}
+                                color="primary"
+                              >
+                                <UnfoldMoreIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {item.status === 'error' && (
                             <Tooltip title="Retry">
                               <IconButton
@@ -421,39 +532,116 @@ function QueuePanel({
                       </Typography>
                       {getStatusIcon(item.status)}
                     </Box>
-                    <ListItemText
-                      primary={
-                        <Typography
-                          variant="body2"
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexGrow: 1 }}>
+                      {/* Thumbnail */}
+                      {item.thumbnail ? (
+                        <Box
+                          component="img"
+                          src={item.thumbnail}
+                          alt={item.title || 'Thumbnail'}
                           sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 280,
+                            width: 60,
+                            height: 34,
+                            objectFit: 'cover',
+                            borderRadius: 0.5,
+                            flexShrink: 0,
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: 60,
+                            height: 34,
+                            bgcolor: 'action.hover',
+                            borderRadius: 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
-                          {item.url}
-                        </Typography>
-                      }
-                      secondary={
-                        item.error ? (
-                          <Typography variant="caption" color="error">
-                            {item.error}
-                          </Typography>
-                        ) : item.fileName ? (
-                          <Typography variant="caption" color="success.main">
-                            ✓ {item.fileName}
-                          </Typography>
-                        ) : (
-                          <Chip
-                            label={item.status}
-                            size="small"
-                            color={getStatusColor(item.status)}
-                            sx={{ mt: 0.5 }}
-                          />
-                        )
-                      }
-                    />
+                          {item.isPlaylist ? (
+                            <PlaylistPlayIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                          ) : (
+                            <MusicNoteIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                          )}
+                        </Box>
+                      )}
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {item.isPlaylist && (
+                              <Chip
+                                icon={<PlaylistPlayIcon />}
+                                label={`${item.playlistInfo?.playlistVideoCount || '?'} videos`}
+                                size="small"
+                                color="primary"
+                                sx={{ height: 20, fontSize: '0.7rem' }}
+                              />
+                            )}
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                maxWidth: item.isPlaylist ? 180 : 220,
+                                fontWeight: item.title ? 500 : 400,
+                              }}
+                              title={item.title || item.url}
+                            >
+                              {item.title || item.url}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          item.error ? (
+                            <Typography variant="caption" color="error">
+                              {item.error}
+                            </Typography>
+                          ) : item.fileName ? (
+                            <Typography variant="caption" color="success.main">
+                              ✓ {item.fileName}
+                            </Typography>
+                          ) : item.isPlaylist && item.status === 'pending' ? (
+                            <Box sx={{ mt: 0.5 }}>
+                              <ToggleButtonGroup
+                                value={item.playlistMode}
+                                exclusive
+                                onChange={(e, newMode) =>
+                                  handleTogglePlaylistMode(item.id, newMode)
+                                }
+                                size="small"
+                                sx={{ height: 24 }}
+                              >
+                                <ToggleButton
+                                  value="single"
+                                  sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
+                                >
+                                  First Only
+                                </ToggleButton>
+                                <ToggleButton
+                                  value="full"
+                                  sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
+                                >
+                                  All Videos
+                                </ToggleButton>
+                              </ToggleButtonGroup>
+                            </Box>
+                          ) : (
+                            <Chip
+                              label={item.status}
+                              size="small"
+                              color={getStatusColor(item.status)}
+                              sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
+                            />
+                          )
+                        }
+                      />
+                    </Box>
                   </ListItem>
                   {item.status === 'processing' && (
                     <LinearProgress
@@ -478,6 +666,11 @@ function QueuePanel({
               {pendingCount > 0 && <span>{pendingCount} pending</span>}
               {pendingCount > 0 && errorCount > 0 && ' • '}
               {errorCount > 0 && <span style={{ color: '#ef4444' }}>✗ {errorCount} failed</span>}
+              {playlistCount > 0 && (
+                <span style={{ marginLeft: 8, color: '#3b82f6' }}>
+                  ({playlistCount} playlist{playlistCount > 1 ? 's' : ''})
+                </span>
+              )}
             </Typography>
           </Box>
         )}

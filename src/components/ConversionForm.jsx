@@ -24,7 +24,6 @@ import {
   ListItemButton,
   ListItemText,
   ListItemIcon,
-  Collapse,
 } from '@mui/material';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -32,12 +31,34 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import EditIcon from '@mui/icons-material/Edit';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import MetadataEditor from './MetadataEditor';
+
+// Thumbnail placeholder component
+const ThumbnailPlaceholder = ({ isPlaylist = false, width = 160, height = 90 }) => (
+  <Box
+    sx={{
+      width: { xs: '100%', sm: width },
+      height: { xs: 90, sm: height },
+      bgcolor: 'action.hover',
+      borderRadius: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    }}
+  >
+    {isPlaylist ? (
+      <PlaylistPlayIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
+    ) : (
+      <MusicNoteIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
+    )}
+  </Box>
+);
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },
@@ -188,7 +209,7 @@ function ConversionForm({
 
   // Playlist state
   const [playlistInfo, setPlaylistInfo] = useState(null);
-  const [playlistMode, setPlaylistMode] = useState('single'); // 'single', 'full', or 'selected'
+  const [playlistMode, setPlaylistMode] = useState('full'); // 'full' or 'selected'
   const [selectedVideos, setSelectedVideos] = useState([]); // Array of video indices (1-based)
 
   // Chapter state
@@ -225,7 +246,7 @@ function ConversionForm({
     setChapterInfo(null);
     setPreviewError(null);
     setLoadingPreview(false);
-    setPlaylistMode('single'); // Reset to single mode
+    setPlaylistMode('full'); // Reset to full playlist mode
     setSelectedChapters([]); // Reset selected chapters
     setSelectedVideos([]); // Reset selected videos
     setCustomMetadata(null); // Reset custom metadata
@@ -305,14 +326,13 @@ function ConversionForm({
     setSelectedChapters([]);
     setLoadingChapters(false);
 
-    // Only fetch chapters if we have valid video info
-    // Fetch chapters even if playlist is detected, as long as we're in single video mode
+    // Only fetch chapters if we have valid video info and NOT a playlist
     if (!videoInfo || !videoInfo.success) {
       return;
     }
 
-    // Don't fetch chapters if we're in full playlist mode
-    if (playlistInfo?.isPlaylist && playlistMode === 'full') {
+    // Don't fetch chapters for playlists - chapters are only for single videos
+    if (playlistInfo?.isPlaylist) {
       return;
     }
 
@@ -363,7 +383,7 @@ function ConversionForm({
         clearTimeout(chapterTimeoutRef.current);
       }
     };
-  }, [videoInfo, playlistInfo, playlistMode, url]);
+  }, [videoInfo, playlistInfo, url]);
 
   const validateUrl = useCallback((urlToValidate) => {
     const trimmed = urlToValidate.trim();
@@ -628,7 +648,8 @@ function ConversionForm({
         </Paper>
       )}
 
-      {videoInfo && !loadingPreview && (
+      {/* Single Video Preview - only show when NOT a playlist */}
+      {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
         <Paper
           elevation={1}
           sx={{
@@ -641,7 +662,7 @@ function ConversionForm({
           }}
         >
           <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-            {videoInfo.thumbnail && (
+            {videoInfo.thumbnail ? (
               <Box
                 component="img"
                 src={videoInfo.thumbnail}
@@ -657,6 +678,8 @@ function ConversionForm({
                   e.target.style.display = 'none';
                 }}
               />
+            ) : (
+              <ThumbnailPlaceholder />
             )}
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
@@ -675,16 +698,19 @@ function ConversionForm({
                 >
                   {videoInfo.title}
                 </Typography>
-                <Tooltip title="Edit Metadata">
-                  <IconButton
-                    size="small"
-                    onClick={() => setMetadataEditorOpen(true)}
-                    disabled={isConverting || disabled}
-                    sx={{ flexShrink: 0 }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
+                {/* Only show Edit Metadata button if chapters are NOT available (chapter panel has its own) */}
+                {!chapterInfo?.hasChapters && (
+                  <Tooltip title="Edit Metadata">
+                    <IconButton
+                      size="small"
+                      onClick={() => setMetadataEditorOpen(true)}
+                      disabled={isConverting || disabled}
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
 
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
@@ -702,6 +728,15 @@ function ConversionForm({
                     label={videoInfo.uploader}
                     size="small"
                     variant="outlined"
+                  />
+                )}
+                {chapterInfo?.hasChapters && (
+                  <Chip
+                    icon={<PlayArrowIcon />}
+                    label={`${chapterInfo.totalChapters} chapters`}
+                    size="small"
+                    variant="outlined"
+                    color="primary"
                   />
                 )}
                 {customMetadata && (
@@ -725,8 +760,8 @@ function ConversionForm({
         </Alert>
       )}
 
-      {/* Playlist Info and Mode Toggle */}
-      {playlistInfo && !loadingPreview && (
+      {/* Playlist Info and Mode Toggle - only show when IS a playlist */}
+      {playlistInfo?.isPlaylist && !loadingPreview && (
         <Paper
           elevation={1}
           sx={{
@@ -738,30 +773,55 @@ function ConversionForm({
             borderColor: 'primary.main',
           }}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              mb: 1,
-            }}
-          >
-            <Box sx={{ flexGrow: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+            {/* Playlist thumbnail from first video */}
+            {playlistInfo.videos?.[0]?.thumbnail ? (
+              <Box
+                component="img"
+                src={playlistInfo.videos[0].thumbnail}
+                alt={playlistInfo.playlistTitle}
+                sx={{
+                  width: { xs: '100%', sm: 160 },
+                  height: { xs: 'auto', sm: 90 },
+                  objectFit: 'cover',
+                  borderRadius: 1,
+                  flexShrink: 0,
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <ThumbnailPlaceholder isPlaylist />
+            )}
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                 <PlayArrowIcon sx={{ color: 'primary.main' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flexGrow: 1,
+                    minWidth: 0,
+                  }}
+                >
                   {playlistInfo.playlistTitle}
                 </Typography>
                 <Chip
                   label="Playlist"
                   size="small"
-                  sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+                  sx={{ bgcolor: 'primary.main', color: 'background.paper', flexShrink: 0 }}
                 />
                 <Tooltip title="Edit Metadata">
                   <IconButton
                     size="small"
                     onClick={() => setMetadataEditorOpen(true)}
                     disabled={isConverting || disabled}
+                    sx={{ flexShrink: 0 }}
                   >
                     <EditIcon />
                   </IconButton>
@@ -784,6 +844,15 @@ function ConversionForm({
                     sx={{ borderColor: 'primary.main', color: 'text.primary' }}
                   />
                 )}
+                {customMetadata && (
+                  <Chip
+                    icon={<EditIcon />}
+                    label="Custom Metadata"
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             </Box>
           </Box>
@@ -802,7 +871,7 @@ function ConversionForm({
                   if (newMode === 'selected' && playlistInfo && playlistInfo.videos) {
                     const allIndices = playlistInfo.videos.map((v) => v.index);
                     setSelectedVideos(allIndices);
-                  } else if (newMode !== 'selected') {
+                  } else if (newMode === 'full') {
                     setSelectedVideos([]);
                   }
                 }
@@ -812,14 +881,11 @@ function ConversionForm({
               fullWidth
               sx={{ height: '40px' }}
             >
-              <ToggleButton value="single" aria-label="Single video mode">
-                Single Video
+              <ToggleButton value="full" aria-label="Full playlist mode">
+                Full Playlist ({playlistInfo.playlistVideoCount} videos)
               </ToggleButton>
               <ToggleButton value="selected" aria-label="Selected videos mode">
                 Selected Videos
-              </ToggleButton>
-              <ToggleButton value="full" aria-label="Full playlist mode">
-                Full Playlist ({playlistInfo.playlistVideoCount} videos)
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
@@ -929,7 +995,7 @@ function ConversionForm({
                         />
                       </ListItemIcon>
                       <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center' }}>
-                        {video.thumbnail && (
+                        {video.thumbnail ? (
                           <Box
                             component="img"
                             src={video.thumbnail}
@@ -945,6 +1011,21 @@ function ConversionForm({
                               e.target.style.display = 'none';
                             }}
                           />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 80,
+                              height: 45,
+                              bgcolor: 'action.hover',
+                              borderRadius: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <MusicNoteIcon sx={{ fontSize: 20, color: 'text.disabled' }} />
+                          </Box>
                         )}
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                           <ListItemText
@@ -987,8 +1068,8 @@ function ConversionForm({
           </Paper>
         )}
 
-      {/* Chapter Selection */}
-      {loadingChapters && !(playlistInfo?.isPlaylist && playlistMode === 'full') && (
+      {/* Chapter Selection - only show for single videos (not playlists) */}
+      {loadingChapters && !playlistInfo?.isPlaylist && (
         <Paper
           elevation={1}
           sx={{
@@ -1010,7 +1091,7 @@ function ConversionForm({
 
       {chapterInfo &&
         !loadingChapters &&
-        !(playlistInfo?.isPlaylist && playlistMode === 'full') &&
+        !playlistInfo?.isPlaylist &&
         chapterInfo.hasChapters && (
           <Paper
             elevation={1}
@@ -1031,7 +1112,7 @@ function ConversionForm({
                 mb: 1.5,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
                 <PlayArrowIcon sx={{ color: 'primary.main' }} />
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
                   Chapters
@@ -1042,16 +1123,7 @@ function ConversionForm({
                   sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
                 />
               </Box>
-              <Tooltip title="Edit Metadata">
-                <IconButton
-                  size="small"
-                  onClick={() => setMetadataEditorOpen(true)}
-                  disabled={isConverting || disabled}
-                >
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Button
                   size="small"
                   onClick={handleSelectAllChapters}
@@ -1072,6 +1144,15 @@ function ConversionForm({
                 >
                   Deselect All
                 </Button>
+                <Tooltip title="Edit Metadata">
+                  <IconButton
+                    size="small"
+                    onClick={() => setMetadataEditorOpen(true)}
+                    disabled={isConverting || disabled}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
             <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
