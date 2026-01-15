@@ -158,6 +158,7 @@ function App() {
       case 'progress':
       case 'playlist-progress':
       case 'chapter-progress':
+      case 'segment-progress':
         if (data.percent !== undefined) {
           setProgress(data.percent);
 
@@ -188,6 +189,11 @@ function App() {
             }
             setStatusMessage(message);
             setPlaylistInfo(null); // Clear playlist info for chapters
+          } else if (data.type === 'segment-progress') {
+            // Manual segment splitting progress
+            let message = data.message || `Splitting segments... ${data.percent.toFixed(1)}%`;
+            setStatusMessage(message);
+            setPlaylistInfo(null); // Clear playlist info for segments
           } else {
             // Regular single video progress
             let message = `Converting... ${data.percent.toFixed(1)}%`;
@@ -267,14 +273,18 @@ function App() {
         chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
       const isFullVideoWithChapters =
         chapterDownloadMode === 'full' && options.chapterDownloadMode !== undefined;
+      const isManualSegments =
+        options.manualSegments && options.manualSegments.length > 0;
       setStatusMessage(
         isPlaylist
           ? 'Starting playlist download...'
-          : isChapters
-            ? 'Starting chapter download...'
-            : isFullVideoWithChapters
-              ? 'Downloading full video...'
-              : 'Starting conversion...'
+          : isManualSegments
+            ? 'Starting segmented download...'
+            : isChapters
+              ? 'Starting chapter download...'
+              : isFullVideoWithChapters
+                ? 'Downloading full video...'
+                : 'Starting conversion...'
       );
       setProgressSpeed(null);
       setProgressEta(null);
@@ -293,6 +303,8 @@ function App() {
           playlistMode: options.playlistMode || 'single',
           chapters: options.chapters || null,
           chapterDownloadMode: options.chapterDownloadMode || null,
+          manualSegments: options.manualSegments || null,
+          useSharedArtistForSegments: options.useSharedArtistForSegments !== false,
           customMetadata: options.customMetadata || null,
         });
 
@@ -300,6 +312,10 @@ function App() {
           setProgress(100);
           if (result.isPlaylist) {
             setStatusMessage(`Playlist download complete! ${result.fileCount} videos downloaded.`);
+          } else if (result.isSegments) {
+            setStatusMessage(
+              `Segment download complete! ${result.fileCount} segment${result.fileCount > 1 ? 's' : ''} created.`
+            );
           } else if (result.isChapters) {
             setStatusMessage(
               `Chapter download complete! ${result.fileCount} chapter${result.fileCount > 1 ? 's' : ''} downloaded.`
@@ -315,9 +331,11 @@ function App() {
               type: 'success',
               message: result.isPlaylist
                 ? `✓ Playlist download completed successfully (${result.fileCount} videos)`
-                : result.isChapters
-                  ? `✓ Chapter download completed successfully (${result.fileCount} chapter${result.fileCount > 1 ? 's' : ''})`
-                  : '✓ Conversion completed successfully',
+                : result.isSegments
+                  ? `✓ Segment download completed successfully (${result.fileCount} segment${result.fileCount > 1 ? 's' : ''})`
+                  : result.isChapters
+                    ? `✓ Chapter download completed successfully (${result.fileCount} chapter${result.fileCount > 1 ? 's' : ''})`
+                    : '✓ Conversion completed successfully',
               timestamp: Date.now(),
             },
           ]);
@@ -330,20 +348,26 @@ function App() {
         const chapterDownloadMode = options.chapterDownloadMode || 'split';
         const isChapters =
           chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
+        const isManualSegments =
+          options.manualSegments && options.manualSegments.length > 0;
         setStatusMessage(
           isPlaylist
             ? 'Playlist download failed'
-            : isChapters
-              ? 'Chapter download failed'
-              : 'Conversion failed'
+            : isManualSegments
+              ? 'Segment download failed'
+              : isChapters
+                ? 'Chapter download failed'
+                : 'Conversion failed'
         );
         setPlaylistInfo(null);
         setError({
           title: isPlaylist
             ? 'Playlist Download Failed'
-            : isChapters
-              ? 'Chapter Download Failed'
-              : 'Conversion Failed',
+            : isManualSegments
+              ? 'Segment Download Failed'
+              : isChapters
+                ? 'Chapter Download Failed'
+                : 'Conversion Failed',
           message: error.message || 'An error occurred during conversion',
         });
         setLogs((prev) => [

@@ -750,7 +750,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, selectedVideos, and customMetadata from options
+    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, selectedVideos, manualSegments, and customMetadata from options
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
     const quality = options.quality || 'best';
@@ -758,7 +758,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     const selectedChapters = options.chapters || null; // Array of chapter indices or null for full video
     const chapterDownloadMode = options.chapterDownloadMode || 'split'; // 'full' or 'split'
     const selectedVideos = options.selectedVideos || null; // Array of video indices (1-based) for playlist selection
+    const manualSegments = options.manualSegments || null; // Array of manual segment objects for splitting
+    const useSharedArtistForSegments = options.useSharedArtistForSegments !== false; // Whether to use shared artist for segments
     const customMetadata = options.customMetadata || null; // Custom metadata object
+    
+    // Check if manual segments are being used
+    const isManualSegmentDownload = manualSegments && Array.isArray(manualSegments) && manualSegments.length > 0;
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -787,7 +792,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Get file extension for the selected format
     const fileExtension = getFormatExtension(format, mode);
     
-    // Determine output template based on playlist mode and chapters
+    // Determine output template based on playlist mode, chapters, and manual segments
     let outputTemplate;
     let playlistSubfolder = null;
     let isChapterDownload = false;
@@ -806,6 +811,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(title)s.${fileExtension}`);
       } else {
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(title)s.%(ext)s');
+      }
+    } else if (isManualSegmentDownload) {
+      // For manual segment downloads: download full file first, then split with FFmpeg
+      // Use a temp filename to avoid conflicts
+      if (fileExtension) {
+        outputTemplate = path.join(outputFolder, `%(title)s.full-temp.${fileExtension}`);
+      } else {
+        outputTemplate = path.join(outputFolder, '%(title)s.full-temp.%(ext)s');
       }
     } else if (chapterDownloadMode === 'split' && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // For chapter downloads: --split-chapters creates files in output folder
@@ -1292,12 +1305,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     });
     
     // Handle process completion with timeout
-    // Longer timeout for playlists and chapter downloads
+    // Longer timeout for playlists, chapter downloads, and segment downloads
     const CONVERSION_TIMEOUT = playlistMode === 'full' 
       ? 120 * 60 * 1000  // 2 hours for playlists
       : isChapterDownload
         ? 60 * 60 * 1000  // 1 hour for chapter downloads
-        : 30 * 60 * 1000;   // 30 minutes for single videos
+        : isManualSegmentDownload
+          ? 60 * 60 * 1000  // 1 hour for segment downloads
+          : 30 * 60 * 1000;   // 30 minutes for single videos
     let timeoutId = null;
     
     return new Promise((resolve, reject) => {
@@ -1706,6 +1721,256 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   }
                 } catch (err) {
                   reject(err);
+                }
+              })();
+              return; // Return early, async handler will resolve/reject
+            }
+            
+            // Handle manual segment downloads (download full file then split with FFmpeg)
+            if (isManualSegmentDownload) {
+              (async () => {
+                try {
+                  // Find the full temp file we downloaded
+                  const files = fs.readdirSync(outputFolder);
+                  const fullTempFile = files.find(f => 
+                    f.includes('.full-temp.') && 
+                    (format === 'best' 
+                      ? ['.mp3', '.m4a', '.mp4', '.webm', '.opus'].some(ext => f.toLowerCase().endsWith(ext))
+                      : f.toLowerCase().endsWith(`.${expectedExtension}`))
+                  );
+                  
+                  if (!fullTempFile) {
+                    throw new Error('Could not find downloaded file for segmentation');
+                  }
+                  
+                  const fullFilePath = path.join(outputFolder, fullTempFile);
+                  
+                  // Get video title for folder name
+                  let videoTitle = 'Album';
+                  try {
+                    const cacheKey = sanitizedUrl;
+                    const videoInfoCached = videoInfoCache.get(cacheKey);
+                    if (videoInfoCached && videoInfoCached.data && videoInfoCached.data.title) {
+                      videoTitle = videoInfoCached.data.title;
+                    } else {
+                      // Extract from filename
+                      const match = fullTempFile.match(/^(.+?)\.full-temp\./);
+                      if (match) {
+                        videoTitle = match[1].trim();
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Failed to get video title:', err);
+                  }
+                  
+                  // Sanitize folder name
+                  const sanitizeFolderName = (name) => {
+                    return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+                  };
+                  const sanitizedVideoTitle = sanitizeFolderName(videoTitle);
+                  const segmentFolder = path.join(outputFolder, sanitizedVideoTitle);
+                  
+                  // Create segment folder
+                  if (!fs.existsSync(segmentFolder)) {
+                    fs.mkdirSync(segmentFolder, { recursive: true });
+                  }
+                  
+                  // Helper function to parse time string to seconds
+                  const parseTimeToSeconds = (timeStr) => {
+                    if (!timeStr || typeof timeStr !== 'string') return null;
+                    const trimmed = timeStr.trim();
+                    if (/^\d+(\.\d+)?$/.test(trimmed)) return parseFloat(trimmed);
+                    const parts = trimmed.split(':').map(p => parseFloat(p.trim()));
+                    if (parts.some(isNaN)) return null;
+                    if (parts.length === 2) return parts[0] * 60 + parts[1];
+                    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                    return null;
+                  };
+                  
+                  // Process each segment
+                  const segmentFiles = [];
+                  const totalSegments = manualSegments.length;
+                  
+                  for (let i = 0; i < manualSegments.length; i++) {
+                    const segment = manualSegments[i];
+                    const startSeconds = parseTimeToSeconds(segment.startTime);
+                    let endSeconds = parseTimeToSeconds(segment.endTime);
+                    
+                    if (startSeconds === null) {
+                      console.warn(`Segment ${i + 1}: Invalid start time, skipping`);
+                      continue;
+                    }
+                    
+                    // Sanitize segment title for filename
+                    const segmentTitle = sanitizeFolderName(segment.title || `Track ${i + 1}`);
+                    const segmentFileName = `${segmentTitle}.${expectedExtension}`;
+                    const segmentFilePath = path.join(segmentFolder, segmentFileName);
+                    
+                    // Build FFmpeg args for this segment
+                    const ffmpegArgs = [
+                      '-i', fullFilePath,
+                      '-ss', startSeconds.toString(),
+                    ];
+                    
+                    // Add end time if specified
+                    if (endSeconds !== null && endSeconds > startSeconds) {
+                      ffmpegArgs.push('-to', endSeconds.toString());
+                    }
+                    
+                    // For audio mode, extract audio only
+                    if (mode === 'audio') {
+                      ffmpegArgs.push('-vn'); // No video
+                      
+                      // Add format-specific options
+                      if (format === 'mp3' || expectedExtension === 'mp3') {
+                        ffmpegArgs.push('-acodec', 'libmp3lame', '-q:a', '2');
+                      } else if (format === 'm4a' || expectedExtension === 'm4a') {
+                        ffmpegArgs.push('-acodec', 'aac', '-b:a', '192k');
+                      } else if (format === 'flac' || expectedExtension === 'flac') {
+                        ffmpegArgs.push('-acodec', 'flac');
+                      } else if (format === 'wav' || expectedExtension === 'wav') {
+                        ffmpegArgs.push('-acodec', 'pcm_s16le');
+                      } else {
+                        ffmpegArgs.push('-acodec', 'copy');
+                      }
+                    } else {
+                      // For video mode, copy streams
+                      ffmpegArgs.push('-c', 'copy');
+                    }
+                    
+                    ffmpegArgs.push('-y', segmentFilePath);
+                    
+                    // Run FFmpeg for this segment
+                    await new Promise((resolveSegment, rejectSegment) => {
+                      const ffmpegProcess = spawn(ffmpegPath, ffmpegArgs, {
+                        stdio: ['ignore', 'pipe', 'pipe']
+                      });
+                      
+                      let ffmpegError = '';
+                      ffmpegProcess.stderr.on('data', (data) => {
+                        ffmpegError += data.toString();
+                      });
+                      
+                      ffmpegProcess.on('close', (ffmpegCode) => {
+                        if (ffmpegCode === 0) {
+                          resolveSegment();
+                        } else {
+                          rejectSegment(new Error(`FFmpeg failed for segment ${i + 1}: ${ffmpegError}`));
+                        }
+                      });
+                      
+                      ffmpegProcess.on('error', (err) => {
+                        rejectSegment(err);
+                      });
+                    });
+                    
+                    segmentFiles.push({
+                      fileName: segmentFileName,
+                      filePath: segmentFilePath,
+                      title: segment.title,
+                      artist: segment.artist,
+                      trackNumber: i + 1
+                    });
+                    
+                    // Send progress update
+                    const segmentProgress = ((i + 1) / totalSegments) * 100;
+                    mainWindow?.webContents.send('conversion-progress', {
+                      type: 'segment-progress',
+                      percent: segmentProgress,
+                      message: `Splitting segment ${i + 1} of ${totalSegments}: ${segment.title || `Track ${i + 1}`}`
+                    });
+                  }
+                  
+                  // Delete the original full temp file
+                  try {
+                    fs.unlinkSync(fullFilePath);
+                  } catch (err) {
+                    console.warn('Failed to delete full temp file:', err);
+                  }
+                  
+                  // Apply metadata to segment files
+                  if (customMetadata && customMetadata.type === 'segment' && customMetadata.segmentMetadata) {
+                    const albumMeta = customMetadata.segmentMetadata.albumMetadata || {};
+                    const perSegmentMeta = customMetadata.segmentMetadata.perSegmentMetadata || [];
+                    
+                    for (let i = 0; i < segmentFiles.length; i++) {
+                      const segmentFile = segmentFiles[i];
+                      const segMeta = perSegmentMeta[i] || {};
+                      
+                      // Merge album metadata with segment-specific metadata
+                      const metadata = {
+                        ...albumMeta,
+                        title: segMeta.title || segmentFile.title || `Track ${i + 1}`,
+                        artist: useSharedArtistForSegments ? albumMeta.artist : (segMeta.artist || segmentFile.artist || albumMeta.artist),
+                        trackNumber: (i + 1).toString(),
+                        totalTracks: segmentFiles.length.toString(),
+                      };
+                      
+                      try {
+                        await applyMetadataToFile(segmentFile.filePath, metadata, customMetadata.thumbnail);
+                      } catch (metaError) {
+                        console.warn(`Failed to apply metadata to segment ${i + 1}:`, metaError);
+                      }
+                    }
+                  } else {
+                    // Apply basic metadata from segment definitions
+                    for (let i = 0; i < segmentFiles.length; i++) {
+                      const segmentFile = segmentFiles[i];
+                      const segment = manualSegments[i];
+                      
+                      const metadata = {
+                        title: segment.title || `Track ${i + 1}`,
+                        artist: segment.artist || '',
+                        album: videoTitle,
+                        trackNumber: (i + 1).toString(),
+                        totalTracks: segmentFiles.length.toString(),
+                      };
+                      
+                      try {
+                        await applyMetadataToFile(segmentFile.filePath, metadata, null);
+                      } catch (metaError) {
+                        console.warn(`Failed to apply metadata to segment ${i + 1}:`, metaError);
+                      }
+                    }
+                  }
+                  
+                  // Add to history
+                  addToHistory({
+                    url: sanitizedUrl,
+                    fileName: `${sanitizedVideoTitle} (${segmentFiles.length} segments)`,
+                    filePath: segmentFolder,
+                    mode,
+                    format,
+                    quality,
+                    status: 'completed',
+                    isSegments: true,
+                    segmentFiles: segmentFiles.map(f => ({
+                      fileName: f.fileName,
+                      filePath: f.filePath
+                    })),
+                    segmentFolderName: sanitizedVideoTitle
+                  });
+                  
+                  // Show notification
+                  showNotification(
+                    'Segment Download Complete',
+                    `${segmentFiles.length} segments saved to ${sanitizedVideoTitle}`,
+                    () => {
+                      shell.showItemInFolder(segmentFolder);
+                    }
+                  );
+                  
+                  resolve({
+                    success: true,
+                    isSegments: true,
+                    segmentFolder,
+                    segmentFolderName: sanitizedVideoTitle,
+                    fileCount: segmentFiles.length,
+                    files: segmentFiles.map(f => f.filePath)
+                  });
+                } catch (err) {
+                  console.error('Manual segment processing error:', err);
+                  reject(new Error(`Failed to split video into segments: ${err.message}`));
                 }
               })();
               return; // Return early, async handler will resolve/reject

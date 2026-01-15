@@ -536,8 +536,10 @@ function MetadataEditor({
   playlistInfo,
   chapterInfo,
   selectedVideos, // For playlist selected mode
+  segments, // For manual segmentation mode
+  useSharedArtistForSegments, // Whether to use shared artist for segments
   customMetadata, // Previously saved metadata to restore
-  mode = 'single', // 'single', 'playlist', 'chapter'
+  mode = 'single', // 'single', 'playlist', 'chapter', 'segment'
 }) {
   const [playlistEditMode, setPlaylistEditMode] = useState('bulk'); // 'bulk' or 'individual'
   const [useSharedArtist, setUseSharedArtist] = useState(true); // Toggle for shared vs per-video artist
@@ -613,6 +615,25 @@ function MetadataEditor({
     chapterTitleTemplate: '{chapterTitle}',
   });
 
+  // Segment metadata (for manual segmentation mode)
+  const [segmentMetadata, setSegmentMetadata] = useState({
+    albumMetadata: {
+      artist: '',
+      album: '',
+      albumArtist: '',
+      genre: '',
+      year: '',
+      composer: '',
+      publisher: '',
+      comment: '',
+      description: '',
+      language: '',
+      copyright: '',
+      bpm: '',
+    },
+    perSegmentMetadata: [], // Array of { title, artist } for each segment
+  });
+
   // Reset state when dialog closes or mode changes
   useEffect(() => {
     if (!open && prevOpenRef.current) {
@@ -666,6 +687,23 @@ function MetadataEditor({
         },
         useChapterTitles: true,
         chapterTitleTemplate: '{chapterTitle}',
+      });
+      setSegmentMetadata({
+        albumMetadata: {
+          artist: '',
+          album: '',
+          albumArtist: '',
+          genre: '',
+          year: '',
+          composer: '',
+          publisher: '',
+          comment: '',
+          description: '',
+          language: '',
+          copyright: '',
+          bpm: '',
+        },
+        perSegmentMetadata: [],
       });
       setThumbnailUrl('');
       setCustomThumbnail(null);
@@ -727,6 +765,23 @@ function MetadataEditor({
         },
         useChapterTitles: true,
         chapterTitleTemplate: '{chapterTitle}',
+      });
+      setSegmentMetadata({
+        albumMetadata: {
+          artist: '',
+          album: '',
+          albumArtist: '',
+          genre: '',
+          year: '',
+          composer: '',
+          publisher: '',
+          comment: '',
+          description: '',
+          language: '',
+          copyright: '',
+          bpm: '',
+        },
+        perSegmentMetadata: [],
       });
       setValidationErrors({});
     }
@@ -797,6 +852,13 @@ function MetadataEditor({
       } else if (customMetadata.type === 'chapter' && customMetadata.chapterMetadata) {
         // Restore chapter metadata
         setChapterMetadata(customMetadata.chapterMetadata);
+        if (customMetadata.thumbnail) {
+          setThumbnailUrl(customMetadata.thumbnail);
+          setCustomThumbnail(customMetadata.thumbnail);
+        }
+      } else if (customMetadata.type === 'segment' && customMetadata.segmentMetadata) {
+        // Restore segment metadata
+        setSegmentMetadata(customMetadata.segmentMetadata);
         if (customMetadata.thumbnail) {
           setThumbnailUrl(customMetadata.thumbnail);
           setCustomThumbnail(customMetadata.thumbnail);
@@ -941,10 +1003,39 @@ function MetadataEditor({
         setCustomThumbnail(null);
       }
     }
+
+    // Initialize segment metadata
+    if (segments && segments.length > 0 && mode === 'segment') {
+      // Prefer artist field over uploader (artist is more accurate for music)
+      const artist = videoInfo?.artist || videoInfo?.uploader || '';
+      setSegmentMetadata((prev) => ({
+        ...prev,
+        albumMetadata: {
+          ...prev.albumMetadata,
+          artist: artist,
+          album: videoInfo?.title || '',
+          albumArtist: artist,
+          year: videoInfo?.uploadDate
+            ? videoInfo.uploadDate.substring(0, 4)
+            : currentYear.toString(),
+        },
+        perSegmentMetadata: segments.map((seg, index) => ({
+          title: seg.title || '',
+          artist: seg.artist || '',
+          trackNumber: index + 1,
+        })),
+      }));
+      // Set thumbnail for segments
+      if (videoInfo?.thumbnail) {
+        setThumbnailUrl(videoInfo.thumbnail);
+        setCustomThumbnail(null);
+      }
+    }
   }, [
     videoInfo,
     playlistInfo,
     chapterInfo,
+    segments,
     open,
     mode,
     playlistEditMode,
@@ -976,6 +1067,27 @@ function MetadataEditor({
         [field]: value,
       },
     }));
+  }, []);
+
+  const handleSegmentAlbumMetadataChange = useCallback((field, value) => {
+    setSegmentMetadata((prev) => ({
+      ...prev,
+      albumMetadata: {
+        ...prev.albumMetadata,
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const handleSegmentPerTrackChange = useCallback((index, field, value) => {
+    setSegmentMetadata((prev) => {
+      const updated = [...prev.perSegmentMetadata];
+      updated[index] = { ...updated[index], [field]: value };
+      return {
+        ...prev,
+        perSegmentMetadata: updated,
+      };
+    });
   }, []);
 
   // Validation function
@@ -1090,6 +1202,8 @@ function MetadataEditor({
       });
     } else if (mode === 'chapter') {
       errors = validateMetadata(chapterMetadata.albumMetadata, 'chapter');
+    } else if (mode === 'segment') {
+      errors = validateMetadata(segmentMetadata.albumMetadata, 'segment');
     }
 
     if (Object.keys(errors).length > 0) {
@@ -1144,6 +1258,24 @@ function MetadataEditor({
         chapterMetadata: { ...chapterMetadata },
         thumbnail: customThumbnail || thumbnailUrl,
       };
+    } else if (mode === 'segment') {
+      // Merge album metadata with per-segment metadata
+      const mergedPerSegment = segmentMetadata.perSegmentMetadata.map((seg, index) => ({
+        ...segmentMetadata.albumMetadata,
+        title: seg.title || '',
+        artist: useSharedArtistForSegments ? segmentMetadata.albumMetadata.artist : seg.artist || '',
+        trackNumber: (index + 1).toString(),
+        totalTracks: segmentMetadata.perSegmentMetadata.length.toString(),
+      }));
+
+      metadataToSave = {
+        type: 'segment',
+        segmentMetadata: {
+          albumMetadata: { ...segmentMetadata.albumMetadata },
+          perSegmentMetadata: mergedPerSegment,
+        },
+        thumbnail: customThumbnail || thumbnailUrl,
+      };
     }
 
     if (metadataToSave) {
@@ -1158,6 +1290,8 @@ function MetadataEditor({
     playlistSharedMetadata,
     useSharedArtist,
     chapterMetadata,
+    segmentMetadata,
+    useSharedArtistForSegments,
     customThumbnail,
     thumbnailUrl,
     totalTracks,
@@ -1589,6 +1723,123 @@ function MetadataEditor({
     </Box>
   );
 
+  const renderSegmentForm = () => (
+    <Box>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Album metadata will be applied to all segments. Each segment will be downloaded as a separate
+        track with its own title.
+      </Alert>
+      <Typography variant="h6" gutterBottom>
+        Album Metadata
+      </Typography>
+      <TextField
+        fullWidth
+        label="Artist"
+        value={segmentMetadata.albumMetadata.artist}
+        onChange={(e) => handleSegmentAlbumMetadataChange('artist', e.target.value)}
+        margin="normal"
+        helperText={useSharedArtistForSegments ? 'This artist will be applied to all segments' : 'Default artist (can be overridden per segment)'}
+      />
+      <TextField
+        fullWidth
+        label="Album"
+        value={segmentMetadata.albumMetadata.album}
+        onChange={(e) => handleSegmentAlbumMetadataChange('album', e.target.value)}
+        margin="normal"
+      />
+      <TextField
+        fullWidth
+        label="Album Artist"
+        value={segmentMetadata.albumMetadata.albumArtist}
+        onChange={(e) => handleSegmentAlbumMetadataChange('albumArtist', e.target.value)}
+        margin="normal"
+      />
+      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <FormControl fullWidth>
+          <InputLabel>Genre</InputLabel>
+          <Select
+            value={segmentMetadata.albumMetadata.genre}
+            label="Genre"
+            onChange={(e) => handleSegmentAlbumMetadataChange('genre', e.target.value)}
+          >
+            <MenuItem value="">None</MenuItem>
+            {GENRES.map((genre) => (
+              <MenuItem key={genre} value={genre}>
+                {genre}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          fullWidth
+          label="Year"
+          value={segmentMetadata.albumMetadata.year}
+          onChange={(e) => handleSegmentAlbumMetadataChange('year', e.target.value)}
+          type="number"
+        />
+      </Box>
+      <TextField
+        fullWidth
+        label="Composer"
+        value={segmentMetadata.albumMetadata.composer}
+        onChange={(e) => handleSegmentAlbumMetadataChange('composer', e.target.value)}
+        margin="normal"
+      />
+      <TextField
+        fullWidth
+        label="Comment"
+        value={segmentMetadata.albumMetadata.comment}
+        onChange={(e) => handleSegmentAlbumMetadataChange('comment', e.target.value)}
+        margin="normal"
+        multiline
+        rows={2}
+      />
+
+      <Divider sx={{ my: 2 }} />
+
+      <Typography variant="h6" gutterBottom>
+        Segment Titles ({segmentMetadata.perSegmentMetadata.length} segments)
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Review and edit the title{!useSharedArtistForSegments && ' and artist'} for each segment.
+      </Typography>
+
+      <List sx={{ bgcolor: 'background.default', borderRadius: 1 }}>
+        {segmentMetadata.perSegmentMetadata.map((seg, index) => (
+          <ListItem key={index} sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
+            <Box sx={{ width: '100%' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Track {index + 1}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={seg.title}
+                  onChange={(e) => handleSegmentPerTrackChange(index, 'title', e.target.value)}
+                  size="small"
+                />
+                {!useSharedArtistForSegments && (
+                  <TextField
+                    label="Artist"
+                    value={seg.artist}
+                    onChange={(e) => handleSegmentPerTrackChange(index, 'artist', e.target.value)}
+                    size="small"
+                    sx={{ minWidth: 200 }}
+                  />
+                )}
+              </Box>
+            </Box>
+          </ListItem>
+        ))}
+      </List>
+
+      {renderThumbnailSection()}
+    </Box>
+  );
+
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -1627,6 +1878,7 @@ function MetadataEditor({
             playlistEditMode === 'individual' &&
             renderPlaylistIndividualForm()}
           {mode === 'chapter' && renderChapterForm()}
+          {mode === 'segment' && renderSegmentForm()}
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>

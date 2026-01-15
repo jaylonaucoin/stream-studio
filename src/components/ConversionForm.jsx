@@ -36,6 +36,7 @@ import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import EditIcon from '@mui/icons-material/Edit';
 import MetadataEditor from './MetadataEditor';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
+import SegmentEditor from './SegmentEditor';
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },
@@ -196,6 +197,10 @@ function ConversionForm({
   const [chapterDownloadMode, setChapterDownloadMode] = useState('split'); // 'full' or 'split'
   const chapterTimeoutRef = useRef(null);
 
+  // Manual segment state (for videos without chapters)
+  const [segments, setSegments] = useState([]); // Array of segment objects
+  const [useSharedArtistForSegments, setUseSharedArtistForSegments] = useState(true);
+
   // Metadata editor state
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
   const [customMetadata, setCustomMetadata] = useState(null);
@@ -227,6 +232,7 @@ function ConversionForm({
     setSelectedChapters([]); // Reset selected chapters
     setSelectedVideos([]); // Reset selected videos
     setCustomMetadata(null); // Reset custom metadata
+    setSegments([]); // Reset manual segments
 
     // Validate URL first
     const trimmed = url.trim();
@@ -459,8 +465,19 @@ function ConversionForm({
             options.selectedVideos = selectedVideos;
           }
         }
-        // Pass chapter download mode and selected chapters if chapters exist
-        if (chapterInfo && chapterInfo.hasChapters) {
+        // Check if manual segments should be used
+        // Manual segments take priority over chapters when segments are defined
+        const useManualSegments = segments && segments.length > 0;
+        
+        if (useManualSegments) {
+          // Pass manual segments for splitting
+          options.manualSegments = segments;
+          options.useSharedArtistForSegments = useSharedArtistForSegments;
+          // Don't use chapter mode when using manual segments
+          options.chapterDownloadMode = null;
+          options.chapters = null;
+        } else if (chapterInfo && chapterInfo.hasChapters) {
+          // Pass chapter download mode and selected chapters if chapters exist
           options.chapterDownloadMode = chapterDownloadMode;
           // Only pass selectedChapters when mode is 'split'
           if (chapterDownloadMode === 'split' && selectedChapters && selectedChapters.length > 0) {
@@ -487,6 +504,8 @@ function ConversionForm({
       selectedChapters,
       chapterInfo,
       chapterDownloadMode,
+      segments,
+      useSharedArtistForSegments,
       customMetadata,
       onConvert,
     ]
@@ -992,8 +1011,22 @@ function ConversionForm({
           </Paper>
         )}
 
-      {/* Chapter Selection - only show for single videos (not playlists) */}
-      {loadingChapters && !playlistInfo?.isPlaylist && (
+      {/* Manual Segmentation - show for single videos without chapters or with override option */}
+      {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
+        <SegmentEditor
+          videoInfo={videoInfo}
+          chapterInfo={chapterInfo}
+          segments={segments}
+          setSegments={setSegments}
+          useSharedArtist={useSharedArtistForSegments}
+          setUseSharedArtist={setUseSharedArtistForSegments}
+          disabled={isConverting}
+          onOpenMetadataEditor={() => setMetadataEditorOpen(true)}
+        />
+      )}
+
+      {/* Chapter Selection - only show for single videos (not playlists) when not using manual segments */}
+      {loadingChapters && !playlistInfo?.isPlaylist && segments.length === 0 && (
         <Paper
           elevation={1}
           sx={{
@@ -1013,7 +1046,7 @@ function ConversionForm({
         </Paper>
       )}
 
-      {chapterInfo && !loadingChapters && !playlistInfo?.isPlaylist && chapterInfo.hasChapters && (
+      {chapterInfo && !loadingChapters && !playlistInfo?.isPlaylist && chapterInfo.hasChapters && segments.length === 0 && (
         <Paper
           elevation={1}
           sx={{
@@ -1292,13 +1325,17 @@ function ConversionForm({
         chapterInfo={chapterInfo}
         selectedChapters={selectedChapters}
         selectedVideos={selectedVideos}
+        segments={segments}
+        useSharedArtistForSegments={useSharedArtistForSegments}
         customMetadata={customMetadata}
         mode={
-          chapterInfo && chapterInfo.hasChapters
-            ? 'chapter'
-            : playlistInfo && playlistInfo.isPlaylist
-              ? 'playlist'
-              : 'single'
+          segments && segments.length > 0
+            ? 'segment'
+            : chapterInfo && chapterInfo.hasChapters
+              ? 'chapter'
+              : playlistInfo && playlistInfo.isPlaylist
+                ? 'playlist'
+                : 'single'
         }
       />
     </Box>
