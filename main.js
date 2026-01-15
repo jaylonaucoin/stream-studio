@@ -750,7 +750,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Sanitize URL
     const sanitizedUrl = sanitizeUrl(url);
     
-    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, selectedVideos, and customMetadata from options
+    // Get mode, format, quality, playlistMode, chapters, chapterDownloadMode, selectedVideos, manualSegments, and customMetadata from options
     const mode = options.mode || 'audio';
     const format = options.format || 'mp3';
     const quality = options.quality || 'best';
@@ -758,7 +758,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     const selectedChapters = options.chapters || null; // Array of chapter indices or null for full video
     const chapterDownloadMode = options.chapterDownloadMode || 'split'; // 'full' or 'split'
     const selectedVideos = options.selectedVideos || null; // Array of video indices (1-based) for playlist selection
+    const manualSegments = options.manualSegments || null; // Array of manual segment objects for splitting
+    const useSharedArtistForSegments = options.useSharedArtistForSegments !== false; // Whether to use shared artist for segments
     const customMetadata = options.customMetadata || null; // Custom metadata object
+    
+    // Check if manual segments are being used
+    const isManualSegmentDownload = manualSegments && Array.isArray(manualSegments) && manualSegments.length > 0;
     
     // Get output folder (default to Downloads)
     const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
@@ -787,7 +792,26 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Get file extension for the selected format
     const fileExtension = getFormatExtension(format, mode);
     
-    // Determine output template based on playlist mode and chapters
+    // Helper function to get album name from metadata for folder naming
+    const getAlbumNameForFolder = (defaultName) => {
+      if (customMetadata) {
+        if (customMetadata.type === 'chapter' && customMetadata.chapterMetadata?.albumMetadata?.album) {
+          return customMetadata.chapterMetadata.albumMetadata.album;
+        }
+        if (customMetadata.type === 'segment' && customMetadata.segmentMetadata?.albumMetadata?.album) {
+          return customMetadata.segmentMetadata.albumMetadata.album;
+        }
+        if (customMetadata.type === 'playlist' && customMetadata.playlistSharedMetadata?.album) {
+          return customMetadata.playlistSharedMetadata.album;
+        }
+        if (customMetadata.type === 'single' && customMetadata.metadata?.album) {
+          return customMetadata.metadata.album;
+        }
+      }
+      return defaultName;
+    };
+    
+    // Determine output template based on playlist mode, chapters, and manual segments
     let outputTemplate;
     let playlistSubfolder = null;
     let isChapterDownload = false;
@@ -800,12 +824,27 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         return name.replace(/[<>:"/\\|?*]/g, '_').trim();
       };
       
+      // Store album name for potential folder rename after download
+      // yt-dlp will create folder with playlist_title, we'll rename it if album name is provided
+      const playlistAlbumName = customMetadata?.type === 'playlist' && customMetadata.playlistSharedMetadata?.album
+        ? sanitizeFolderName(customMetadata.playlistSharedMetadata.album)
+        : null;
+      
       // Create output template with playlist subfolder (no numbered prefix, using metadata track numbers)
+      // Use playlist_title template variable - we'll rename folder after download if album name is provided
       if (fileExtension) {
-        // Template: PlaylistName/%(title)s.%(ext)s
+        // Template: PlaylistTitle/%(title)s.%(ext)s
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(title)s.${fileExtension}`);
       } else {
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(title)s.%(ext)s');
+      }
+    } else if (isManualSegmentDownload) {
+      // For manual segment downloads: download full file first, then split with FFmpeg
+      // Use a temp filename to avoid conflicts
+      if (fileExtension) {
+        outputTemplate = path.join(outputFolder, `%(title)s.full-temp.${fileExtension}`);
+      } else {
+        outputTemplate = path.join(outputFolder, '%(title)s.full-temp.%(ext)s');
       }
     } else if (chapterDownloadMode === 'split' && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // For chapter downloads: --split-chapters creates files in output folder
@@ -841,11 +880,28 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     if (isChapterDownload && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // Get chapter info to know which files to keep after download
       try {
-        const cacheKey = sanitizedUrl;
-        const cached = chapterInfoCache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL && cached.data.hasChapters) {
-          chapterInfoForDownload = cached.data;
+        // #region agent log
+        const logPath = path.join(__dirname, '.cursor', 'debug.log');
+        const logData = JSON.stringify({location:'main.js:880',message:'Checking for chapterInfo',data:{hasOptionsChapterInfo:!!options.chapterInfo,optionsChapterInfoTitles:options.chapterInfo?.chapters?.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+        fs.appendFileSync(logPath, logData);
+        // #endregion
+        // Use options.chapterInfo if provided (contains edited titles), otherwise use cache
+        if (options.chapterInfo && options.chapterInfo.hasChapters) {
+          chapterInfoForDownload = options.chapterInfo;
+          // #region agent log
+          const logData2 = JSON.stringify({location:'main.js:886',message:'Using options.chapterInfo',data:{chapterInfoTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+          fs.appendFileSync(logPath, logData2);
+          // #endregion
         } else {
+          const cacheKey = sanitizedUrl;
+          const cached = chapterInfoCache.get(cacheKey);
+          if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL && cached.data.hasChapters) {
+            chapterInfoForDownload = cached.data;
+            // #region agent log
+            const logData3 = JSON.stringify({location:'main.js:900',message:'Using cached chapterInfo',data:{chapterInfoTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+            fs.appendFileSync(logPath, logData3);
+            // #endregion
+          } else {
           // Fetch chapter info if not cached
           const infoArgs = [
             '--dump-json',
@@ -920,6 +976,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               data: infoResult,
               timestamp: Date.now()
             });
+          }
           }
         }
         
@@ -1292,12 +1349,14 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     });
     
     // Handle process completion with timeout
-    // Longer timeout for playlists and chapter downloads
+    // Longer timeout for playlists, chapter downloads, and segment downloads
     const CONVERSION_TIMEOUT = playlistMode === 'full' 
       ? 120 * 60 * 1000  // 2 hours for playlists
       : isChapterDownload
         ? 60 * 60 * 1000  // 1 hour for chapter downloads
-        : 30 * 60 * 1000;   // 30 minutes for single videos
+        : isManualSegmentDownload
+          ? 60 * 60 * 1000  // 1 hour for segment downloads
+          : 30 * 60 * 1000;   // 30 minutes for single videos
     let timeoutId = null;
     
     return new Promise((resolve, reject) => {
@@ -1367,7 +1426,9 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 return name.replace(/[<>:"/\\|?*]/g, '_').trim();
               };
               
-              const sanitizedVideoTitle = sanitizeFolderName(videoTitle);
+              // Use album name from metadata if available, otherwise use video title
+              const folderName = getAlbumNameForFolder(videoTitle);
+              const sanitizedVideoTitle = sanitizeFolderName(folderName);
               const chapterFolder = path.join(outputFolder, sanitizedVideoTitle);
               
               // Create chapter folder if it doesn't exist
@@ -1514,6 +1575,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 .map(idx => chapterInfoForDownload.chapters[idx]?.title)
                 .filter(Boolean);
               
+              // #region agent log
+              const logPath = path.join(__dirname, '.cursor', 'debug.log');
+              const logData8 = JSON.stringify({location:'main.js:1574',message:'Chapter matching setup',data:{selectedChapters,selectedChapterTitles,allChapters:chapterInfoForDownload.chapters.map((c,idx)=>({index:idx,title:c.title,startTime:c.startTime}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+              fs.appendFileSync(logPath, logData8);
+              // #endregion
+              
               const keptFiles = [];
               const filesToDelete = [];
               
@@ -1528,6 +1595,13 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               });
               
               for (const file of chapterFiles) {
+                // Extract chapter number and name from filename
+                // Pattern: "Video Title - 001 Chapter Name [videoID].ext"
+                // Extract chapter number (001 = 1, which is chapter index 0)
+                const chapterNumMatch = file.fileName.match(/\s+-\s+(\d{3})/);
+                const chapterNumber = chapterNumMatch ? parseInt(chapterNumMatch[1], 10) : null;
+                const chapterIndexFromFile = chapterNumber !== null ? chapterNumber - 1 : null;
+                
                 // Extract chapter name from filename
                 // Pattern: "Video Title - 001 Chapter Name [videoID].ext"
                 // Actual pattern: "Video Title - 001 A1： Chapter Name [videoID].ext" (note full-width colon)
@@ -1554,12 +1628,27 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   }
                 }
                 
-                if (chapterNameFromFile) {
-                  
-                  // Check if this chapter is in our selected list
+                // #region agent log
+                const logData9 = JSON.stringify({location:'main.js:1591',message:'Processing chapter file',data:{fileName:file.fileName,chapterNumber,chapterIndexFromFile,chapterNameFromFile,isInSelectedChapters:chapterIndexFromFile !== null && selectedChapters.includes(chapterIndexFromFile)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                fs.appendFileSync(logPath, logData9);
+                // #endregion
+                
+                // Check if this chapter is selected by index (more reliable than name matching)
+                let isSelected = false;
+                let matchingChapter = null;
+                
+                if (chapterIndexFromFile !== null && chapterIndexFromFile >= 0 && chapterIndexFromFile < chapterInfoForDownload.chapters.length) {
+                  if (selectedChapters.includes(chapterIndexFromFile)) {
+                    isSelected = true;
+                    matchingChapter = chapterInfoForDownload.chapters[chapterIndexFromFile];
+                  }
+                }
+                
+                // Fallback: try to match by name if index matching failed
+                if (!isSelected && chapterNameFromFile) {
                   // Note: Filenames may contain full-width colons (：) that need to be normalized
                   const normalizedChapterName = chapterNameFromFile.replace(/：/g, ':').replace(/\s+/g, ' ').trim();
-                  const isSelected = selectedChapterTitles.some(title => {
+                  const nameMatch = selectedChapterTitles.some(title => {
                     // Match by chapter name
                     const sanitizedChapterName = normalizedChapterName.replace(/[<>:"/\\|?*]/g, '_');
                     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '_');
@@ -1571,42 +1660,56 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                            normalizedTitle.includes(normalizedChapterName);
                   });
                   
-                  if (isSelected) {
+                  if (nameMatch) {
                     // Find the matching chapter to get the exact title
-                    const matchingChapter = chapterInfoForDownload.chapters.find((ch, idx) => 
+                    matchingChapter = chapterInfoForDownload.chapters.find((ch, idx) => 
                       selectedChapters.includes(idx) && (
                         ch.title === chapterNameFromFile ||
                         ch.title.includes(chapterNameFromFile) ||
                         chapterNameFromFile.includes(ch.title)
                       )
                     );
-                    
-                    const finalChapterName = matchingChapter ? matchingChapter.title : chapterNameFromFile;
-                    const sanitizedChapterName = sanitizeFolderName(finalChapterName);
-                    const newFileName = `${sanitizedChapterName}.${expectedExtension}`;
-                    const newFilePath = path.join(chapterFolder, newFileName);
-                    const uniqueFilePath = getUniqueFilename(newFilePath);
-                    
-                    try {
-                      // Move and rename file to folder with just chapter name
-                      fs.renameSync(file.filePath, uniqueFilePath);
-                      keptFiles.push({
-                        fileName: path.basename(uniqueFilePath),
-                        filePath: uniqueFilePath
-                      });
-                    } catch (renameError) {
-                      console.warn(`Failed to move/rename chapter file ${file.fileName}:`, renameError);
-                      // Keep original if rename fails
-                      keptFiles.push({
-                        fileName: file.fileName,
-                        filePath: file.filePath
-                      });
-                    }
-                  } else {
-                    filesToDelete.push(file);
+                    isSelected = !!matchingChapter;
+                  }
+                }
+                
+                if (isSelected && matchingChapter) {
+                  // Use the chapter title from chapterInfo (which may have been edited)
+                  const finalChapterName = matchingChapter.title || chapterNameFromFile || `Chapter ${chapterNumber || 'Unknown'}`;
+                  const sanitizedChapterName = sanitizeFolderName(finalChapterName);
+                  const newFileName = `${sanitizedChapterName}.${expectedExtension}`;
+                  const newFilePath = path.join(chapterFolder, newFileName);
+                  const uniqueFilePath = getUniqueFilename(newFilePath);
+                  
+                  // #region agent log
+                  const logData10 = JSON.stringify({location:'main.js:1650',message:'Keeping chapter file',data:{fileName:file.fileName,newFileName,chapterIndex:chapterIndexFromFile,chapterTitle:matchingChapter.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                  fs.appendFileSync(logPath, logData10);
+                  // #endregion
+                  
+                  try {
+                    // Move and rename file to folder with just chapter name
+                    fs.renameSync(file.filePath, uniqueFilePath);
+                    keptFiles.push({
+                      fileName: path.basename(uniqueFilePath),
+                      filePath: uniqueFilePath,
+                      chapterIndex: chapterIndexFromFile, // Store chapter index for metadata application
+                      originalFileName: file.fileName
+                    });
+                  } catch (renameError) {
+                    console.warn(`Failed to move/rename chapter file ${file.fileName}:`, renameError);
+                    // Keep original if rename fails
+                    keptFiles.push({
+                      fileName: file.fileName,
+                      filePath: file.filePath,
+                      chapterIndex: chapterIndexFromFile,
+                      originalFileName: file.fileName
+                    });
                   }
                 } else {
-                  // Can't parse, delete it (shouldn't happen but safety check)
+                  // #region agent log
+                  const logData11 = JSON.stringify({location:'main.js:1670',message:'Deleting chapter file',data:{fileName:file.fileName,chapterIndex:chapterIndexFromFile,reason:!isSelected?'not selected':'no match'},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                  fs.appendFileSync(logPath, logData11);
+                  // #endregion
                   filesToDelete.push(file);
                 }
               }
@@ -1624,9 +1727,13 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     // Apply custom metadata if provided (async - already in async IIFE, but keeping structure consistent)
                     if (customMetadata && customMetadata.type === 'chapter' && customMetadata.chapterMetadata) {
                       try {
+                        // #region agent log
+                        const logPath = path.join(__dirname, '.cursor', 'debug.log');
+                        const logData5 = JSON.stringify({location:'main.js:1686',message:'Starting metadata application',data:{keptFilesCount:keptFiles.length,selectedChapters,chapterInfoForDownloadChaptersCount:chapterInfoForDownload?.chapters?.length,chapterInfoForDownloadChapters:chapterInfoForDownload?.chapters?.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                        fs.appendFileSync(logPath, logData5);
+                        // #endregion
                         const albumMeta = customMetadata.chapterMetadata.albumMetadata || {};
                         const template = customMetadata.chapterMetadata.chapterTitleTemplate || '{chapterTitle}';
-                        const useChapterTitles = customMetadata.chapterMetadata.useChapterTitles !== false;
                         
                         // Sort keptFiles to match chapter order
                         const sortedFiles = [...keptFiles].sort((a, b) => {
@@ -1638,15 +1745,54 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                           return 0;
                         });
                         
+                        // #region agent log
+                        const logData6 = JSON.stringify({location:'main.js:1700',message:'Sorted files',data:{sortedFilesCount:sortedFiles.length,sortedFileNames:sortedFiles.map(f=>f.fileName)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                        fs.appendFileSync(logPath, logData6);
+                        // #endregion
+                        
                         // Apply metadata to each chapter file
+                        // IMPORTANT: sortedFiles are sorted by chapter number (001, 002, etc.)
+                        // We stored chapterIndex in keptFiles when we processed them, so use that
                         for (let i = 0; i < sortedFiles.length; i++) {
                           const file = sortedFiles[i];
-                          const chapterIndex = selectedChapters[i];
-                          const chapter = chapterInfoForDownload.chapters[chapterIndex];
+                          
+                          // Use the chapterIndex we stored when processing the file
+                          // If not available, try to extract from filename
+                          let chapterIndex = file.chapterIndex;
+                          let chapter = null;
+                          
+                          if (chapterIndex !== null && chapterIndex !== undefined && chapterIndex >= 0 && chapterIndex < chapterInfoForDownload.chapters.length) {
+                            chapter = chapterInfoForDownload.chapters[chapterIndex];
+                          } else {
+                            // Fallback: extract chapter number from filename
+                            const chapterNumMatch = file.fileName.match(/\s+-\s+(\d{3})/) || file.originalFileName?.match(/\s+-\s+(\d{3})/);
+                            const chapterNumber = chapterNumMatch ? parseInt(chapterNumMatch[1], 10) : null;
+                            
+                            if (chapterNumber !== null) {
+                              // Chapter number is 1-based (001 = first chapter = index 0)
+                              const fileChapterIndex = chapterNumber - 1;
+                              if (selectedChapters.includes(fileChapterIndex) && fileChapterIndex < chapterInfoForDownload.chapters.length) {
+                                chapterIndex = fileChapterIndex;
+                                chapter = chapterInfoForDownload.chapters[chapterIndex];
+                              }
+                            }
+                            
+                            // Last resort: use position in selectedChapters array
+                            if (!chapter && i < selectedChapters.length) {
+                              chapterIndex = selectedChapters[i];
+                              chapter = chapterInfoForDownload.chapters[chapterIndex];
+                            }
+                          }
+                          
+                          // #region agent log
+                          const logData4 = JSON.stringify({location:'main.js:1713',message:'Applying metadata to chapter',data:{i,chapterIndex,chapterTitle:chapter?.title,selectedChapters,fileName:file.fileName,storedChapterIndex:file.chapterIndex,allChapterTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                          fs.appendFileSync(logPath, logData4);
+                          // #endregion
                           
                           // Build title from template
+                          // Apply template if it exists and is not the default pass-through
                           let title = chapter?.title || `Chapter ${i + 1}`;
-                          if (!useChapterTitles && template) {
+                          if (template && template !== '{chapterTitle}') {
                             title = template
                               .replace('{chapterTitle}', chapter?.title || `Chapter ${i + 1}`)
                               .replace('{album}', albumMeta.album || '')
@@ -1659,6 +1805,11 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                             trackNumber: (i + 1).toString(),
                             totalTracks: sortedFiles.length.toString(),
                           };
+                          
+                          // #region agent log
+                          const logData7 = JSON.stringify({location:'main.js:1745',message:'Metadata to apply',data:{metadata,fileName:file.fileName},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                          fs.appendFileSync(logPath, logData7);
+                          // #endregion
                           
                           await applyMetadataToFile(file.filePath, metadata, customMetadata.thumbnail);
                         }
@@ -1711,6 +1862,259 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               return; // Return early, async handler will resolve/reject
             }
             
+            // Handle manual segment downloads (download full file then split with FFmpeg)
+            if (isManualSegmentDownload) {
+              (async () => {
+                try {
+                  // Find the full temp file we downloaded
+                  const files = fs.readdirSync(outputFolder);
+                  const fullTempFile = files.find(f => 
+                    f.includes('.full-temp.') && 
+                    (format === 'best' 
+                      ? ['.mp3', '.m4a', '.mp4', '.webm', '.opus'].some(ext => f.toLowerCase().endsWith(ext))
+                      : f.toLowerCase().endsWith(`.${expectedExtension}`))
+                  );
+                  
+                  if (!fullTempFile) {
+                    throw new Error('Could not find downloaded file for segmentation');
+                  }
+                  
+                  const fullFilePath = path.join(outputFolder, fullTempFile);
+                  
+                  // Get video title for folder name
+                  let videoTitle = 'Album';
+                  try {
+                    const cacheKey = sanitizedUrl;
+                    const videoInfoCached = videoInfoCache.get(cacheKey);
+                    if (videoInfoCached && videoInfoCached.data && videoInfoCached.data.title) {
+                      videoTitle = videoInfoCached.data.title;
+                    } else {
+                      // Extract from filename
+                      const match = fullTempFile.match(/^(.+?)\.full-temp\./);
+                      if (match) {
+                        videoTitle = match[1].trim();
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Failed to get video title:', err);
+                  }
+                  
+                  // Sanitize folder name
+                  const sanitizeFolderName = (name) => {
+                    return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+                  };
+                  
+                  // Use album name from metadata if available, otherwise use video title
+                  const folderName = getAlbumNameForFolder(videoTitle);
+                  const sanitizedVideoTitle = sanitizeFolderName(folderName);
+                  const segmentFolder = path.join(outputFolder, sanitizedVideoTitle);
+                  
+                  // Create segment folder
+                  if (!fs.existsSync(segmentFolder)) {
+                    fs.mkdirSync(segmentFolder, { recursive: true });
+                  }
+                  
+                  // Helper function to parse time string to seconds
+                  const parseTimeToSeconds = (timeStr) => {
+                    if (!timeStr || typeof timeStr !== 'string') return null;
+                    const trimmed = timeStr.trim();
+                    if (/^\d+(\.\d+)?$/.test(trimmed)) return parseFloat(trimmed);
+                    const parts = trimmed.split(':').map(p => parseFloat(p.trim()));
+                    if (parts.some(isNaN)) return null;
+                    if (parts.length === 2) return parts[0] * 60 + parts[1];
+                    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                    return null;
+                  };
+                  
+                  // Process each segment
+                  const segmentFiles = [];
+                  const totalSegments = manualSegments.length;
+                  
+                  for (let i = 0; i < manualSegments.length; i++) {
+                    const segment = manualSegments[i];
+                    const startSeconds = parseTimeToSeconds(segment.startTime);
+                    let endSeconds = parseTimeToSeconds(segment.endTime);
+                    
+                    if (startSeconds === null) {
+                      console.warn(`Segment ${i + 1}: Invalid start time, skipping`);
+                      continue;
+                    }
+                    
+                    // Sanitize segment title for filename
+                    const segmentTitle = sanitizeFolderName(segment.title || `Track ${i + 1}`);
+                    const segmentFileName = `${segmentTitle}.${expectedExtension}`;
+                    const segmentFilePath = path.join(segmentFolder, segmentFileName);
+                    
+                    // Build FFmpeg args for this segment
+                    const ffmpegArgs = [
+                      '-i', fullFilePath,
+                      '-ss', startSeconds.toString(),
+                    ];
+                    
+                    // Add end time if specified
+                    if (endSeconds !== null && endSeconds > startSeconds) {
+                      ffmpegArgs.push('-to', endSeconds.toString());
+                    }
+                    
+                    // For audio mode, extract audio only
+                    if (mode === 'audio') {
+                      ffmpegArgs.push('-vn'); // No video
+                      
+                      // Add format-specific options
+                      if (format === 'mp3' || expectedExtension === 'mp3') {
+                        ffmpegArgs.push('-acodec', 'libmp3lame', '-q:a', '2');
+                      } else if (format === 'm4a' || expectedExtension === 'm4a') {
+                        ffmpegArgs.push('-acodec', 'aac', '-b:a', '192k');
+                      } else if (format === 'flac' || expectedExtension === 'flac') {
+                        ffmpegArgs.push('-acodec', 'flac');
+                      } else if (format === 'wav' || expectedExtension === 'wav') {
+                        ffmpegArgs.push('-acodec', 'pcm_s16le');
+                      } else {
+                        ffmpegArgs.push('-acodec', 'copy');
+                      }
+                    } else {
+                      // For video mode, copy streams
+                      ffmpegArgs.push('-c', 'copy');
+                    }
+                    
+                    ffmpegArgs.push('-y', segmentFilePath);
+                    
+                    // Run FFmpeg for this segment
+                    await new Promise((resolveSegment, rejectSegment) => {
+                      const ffmpegProcess = spawn(ffmpegPath, ffmpegArgs, {
+                        stdio: ['ignore', 'pipe', 'pipe']
+                      });
+                      
+                      let ffmpegError = '';
+                      ffmpegProcess.stderr.on('data', (data) => {
+                        ffmpegError += data.toString();
+                      });
+                      
+                      ffmpegProcess.on('close', (ffmpegCode) => {
+                        if (ffmpegCode === 0) {
+                          resolveSegment();
+                        } else {
+                          rejectSegment(new Error(`FFmpeg failed for segment ${i + 1}: ${ffmpegError}`));
+                        }
+                      });
+                      
+                      ffmpegProcess.on('error', (err) => {
+                        rejectSegment(err);
+                      });
+                    });
+                    
+                    segmentFiles.push({
+                      fileName: segmentFileName,
+                      filePath: segmentFilePath,
+                      title: segment.title,
+                      artist: segment.artist,
+                      trackNumber: i + 1
+                    });
+                    
+                    // Send progress update
+                    const segmentProgress = ((i + 1) / totalSegments) * 100;
+                    mainWindow?.webContents.send('conversion-progress', {
+                      type: 'segment-progress',
+                      percent: segmentProgress,
+                      message: `Splitting segment ${i + 1} of ${totalSegments}: ${segment.title || `Track ${i + 1}`}`
+                    });
+                  }
+                  
+                  // Delete the original full temp file
+                  try {
+                    fs.unlinkSync(fullFilePath);
+                  } catch (err) {
+                    console.warn('Failed to delete full temp file:', err);
+                  }
+                  
+                  // Apply metadata to segment files
+                  if (customMetadata && customMetadata.type === 'segment' && customMetadata.segmentMetadata) {
+                    const albumMeta = customMetadata.segmentMetadata.albumMetadata || {};
+                    const perSegmentMeta = customMetadata.segmentMetadata.perSegmentMetadata || [];
+                    
+                    for (let i = 0; i < segmentFiles.length; i++) {
+                      const segmentFile = segmentFiles[i];
+                      const segMeta = perSegmentMeta[i] || {};
+                      
+                      // Merge album metadata with segment-specific metadata
+                      const metadata = {
+                        ...albumMeta,
+                        title: segMeta.title || segmentFile.title || `Track ${i + 1}`,
+                        artist: useSharedArtistForSegments ? albumMeta.artist : (segMeta.artist || segmentFile.artist || albumMeta.artist),
+                        trackNumber: (i + 1).toString(),
+                        totalTracks: segmentFiles.length.toString(),
+                      };
+                      
+                      try {
+                        await applyMetadataToFile(segmentFile.filePath, metadata, customMetadata.thumbnail);
+                      } catch (metaError) {
+                        console.warn(`Failed to apply metadata to segment ${i + 1}:`, metaError);
+                      }
+                    }
+                  } else {
+                    // Apply basic metadata from segment definitions
+                    for (let i = 0; i < segmentFiles.length; i++) {
+                      const segmentFile = segmentFiles[i];
+                      const segment = manualSegments[i];
+                      
+                      const metadata = {
+                        title: segment.title || `Track ${i + 1}`,
+                        artist: segment.artist || '',
+                        album: videoTitle,
+                        trackNumber: (i + 1).toString(),
+                        totalTracks: segmentFiles.length.toString(),
+                      };
+                      
+                      try {
+                        await applyMetadataToFile(segmentFile.filePath, metadata, null);
+                      } catch (metaError) {
+                        console.warn(`Failed to apply metadata to segment ${i + 1}:`, metaError);
+                      }
+                    }
+                  }
+                  
+                  // Add to history
+                  addToHistory({
+                    url: sanitizedUrl,
+                    fileName: `${sanitizedVideoTitle} (${segmentFiles.length} segments)`,
+                    filePath: segmentFolder,
+                    mode,
+                    format,
+                    quality,
+                    status: 'completed',
+                    isSegments: true,
+                    segmentFiles: segmentFiles.map(f => ({
+                      fileName: f.fileName,
+                      filePath: f.filePath
+                    })),
+                    segmentFolderName: sanitizedVideoTitle
+                  });
+                  
+                  // Show notification
+                  showNotification(
+                    'Segment Download Complete',
+                    `${segmentFiles.length} segments saved to ${sanitizedVideoTitle}`,
+                    () => {
+                      shell.showItemInFolder(segmentFolder);
+                    }
+                  );
+                  
+                  resolve({
+                    success: true,
+                    isSegments: true,
+                    segmentFolder,
+                    segmentFolderName: sanitizedVideoTitle,
+                    fileCount: segmentFiles.length,
+                    files: segmentFiles.map(f => f.filePath)
+                  });
+                } catch (err) {
+                  console.error('Manual segment processing error:', err);
+                  reject(new Error(`Failed to split video into segments: ${err.message}`));
+                }
+              })();
+              return; // Return early, async handler will resolve/reject
+            }
+            
             // Handle playlist mode differently
             if (playlistMode === 'full' || playlistMode === 'selected') {
               // For playlists, find the playlist subfolder and collect all files
@@ -1727,8 +2131,35 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               
               if (directories.length > 0) {
                 // Use the most recently modified directory (should be our playlist folder)
-                const playlistFolder = directories[0].path;
-                const playlistFolderName = directories[0].name;
+                let playlistFolder = directories[0].path;
+                let playlistFolderName = directories[0].name;
+                
+                // Rename folder to album name if provided in metadata
+                const sanitizeFolderName = (name) => {
+                  return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+                };
+                const albumName = customMetadata?.type === 'playlist' && customMetadata.playlistSharedMetadata?.album
+                  ? sanitizeFolderName(customMetadata.playlistSharedMetadata.album)
+                  : null;
+                
+                if (albumName && albumName !== playlistFolderName) {
+                  try {
+                    const newPlaylistFolder = path.join(outputFolder, albumName);
+                    // Check if target folder already exists
+                    if (!fs.existsSync(newPlaylistFolder)) {
+                      fs.renameSync(playlistFolder, newPlaylistFolder);
+                      playlistFolder = newPlaylistFolder;
+                      playlistFolderName = albumName;
+                    } else {
+                      // If target exists, use it (might be from previous download)
+                      playlistFolder = newPlaylistFolder;
+                      playlistFolderName = albumName;
+                    }
+                  } catch (renameError) {
+                    console.warn('Failed to rename playlist folder to album name:', renameError);
+                    // Continue with original folder name
+                  }
+                }
                 
                 // Get all files in the playlist folder
                 const playlistFiles = fs.readdirSync(playlistFolder)
