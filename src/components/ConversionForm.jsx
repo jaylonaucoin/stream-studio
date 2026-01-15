@@ -1269,17 +1269,22 @@ function ConversionForm({
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {editingChapterIndex === index ? (
-                            <TextField
-                              value={editingChapterValue}
-                              onChange={(e) => setEditingChapterValue(e.target.value)}
-                              onBlur={() => handleChapterTitleSave(index)}
-                              onKeyDown={(e) => handleChapterTitleKeyDown(e, index)}
-                              size="small"
-                              autoFocus
-                              fullWidth
+                            <Box
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               sx={{ flexGrow: 1 }}
-                              inputProps={{ style: { fontSize: '0.875rem' } }}
-                            />
+                            >
+                              <TextField
+                                value={editingChapterValue}
+                                onChange={(e) => setEditingChapterValue(e.target.value)}
+                                onBlur={() => handleChapterTitleSave(index)}
+                                onKeyDown={(e) => handleChapterTitleKeyDown(e, index)}
+                                size="small"
+                                autoFocus
+                                fullWidth
+                                inputProps={{ style: { fontSize: '0.875rem' } }}
+                              />
+                            </Box>
                           ) : (
                             <>
                               <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>

@@ -16,6 +16,7 @@ import {
   ListItem,
   Chip,
 } from '@mui/material';
+import TimeInput from './TimeInput';
 import {
   DndContext,
   closestCenter,
@@ -43,15 +44,16 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import EditIcon from '@mui/icons-material/Edit';
 
-// Parse timestamp string (HH:MM:SS, MM:SS, or seconds) to seconds
+// Parse timestamp string (MM:SS or H:MM:SS) to seconds
 export const parseTimeToSeconds = (timeStr) => {
   if (!timeStr || typeof timeStr !== 'string') return null;
   
   const trimmed = timeStr.trim();
+  if (!trimmed) return null;
   
-  // Try parsing as pure seconds (e.g., "125")
-  if (/^\d+(\.\d+)?$/.test(trimmed)) {
-    return parseFloat(trimmed);
+  // Try parsing as pure seconds (1-2 digit numbers, e.g., "45" or "9")
+  if (/^\d{1,2}$/.test(trimmed)) {
+    return parseInt(trimmed, 10);
   }
   
   // Try parsing MM:SS or HH:MM:SS
@@ -60,12 +62,12 @@ export const parseTimeToSeconds = (timeStr) => {
   if (parts.some(isNaN)) return null;
   
   if (parts.length === 2) {
-    // MM:SS
+    // MM:SS format
     const [minutes, seconds] = parts;
     if (minutes < 0 || seconds < 0 || seconds >= 60) return null;
     return minutes * 60 + seconds;
   } else if (parts.length === 3) {
-    // HH:MM:SS
+    // H:MM:SS format
     const [hours, minutes, seconds] = parts;
     if (hours < 0 || minutes < 0 || minutes >= 60 || seconds < 0 || seconds >= 60) return null;
     return hours * 3600 + minutes * 60 + seconds;
@@ -229,11 +231,11 @@ const SegmentRow = ({
     
     const seconds = parseTimeToSeconds(timeStr);
     if (seconds === null) {
-      return 'Invalid format (use MM:SS or HH:MM:SS)';
+      return 'Invalid time format';
     }
     
     if (videoDuration && seconds > videoDuration) {
-      return `Exceeds video duration (${formatSecondsToTime(videoDuration)})`;
+      return `Exceeds duration (${formatSecondsToTime(videoDuration)})`;
     }
     
     return '';
@@ -324,29 +326,23 @@ const SegmentRow = ({
       
       {/* Time inputs row */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-        <TextField
+        <TimeInput
           label="Start Time"
           value={segment.startTime}
-          onChange={(e) => handleStartTimeChange(e.target.value)}
+          onChange={handleStartTimeChange}
           placeholder="0:00"
-          size="small"
           disabled={disabled}
           error={!!startError}
-          helperText={startError || 'MM:SS or HH:MM:SS'}
-          sx={{ width: 140 }}
-          inputProps={{ style: { fontFamily: 'monospace' } }}
+          helperText={startError || 'Type 348 for 3:48'}
         />
-        <TextField
+        <TimeInput
           label="End Time"
           value={segment.endTime}
-          onChange={(e) => handleEndTimeChange(e.target.value)}
+          onChange={handleEndTimeChange}
           placeholder={isLast && videoDuration ? formatSecondsToTime(videoDuration) : '0:00'}
-          size="small"
           disabled={disabled}
           error={!!endError}
           helperText={endError || (isLast ? 'Leave empty for end' : '')}
-          sx={{ width: 140 }}
-          inputProps={{ style: { fontFamily: 'monospace' } }}
         />
       </Box>
       
