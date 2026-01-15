@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -35,7 +35,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import EditIcon from '@mui/icons-material/Edit';
 import MetadataEditor from './MetadataEditor';
-import ThumbnailWithFallback, { ThumbnailPlaceholder } from './ThumbnailWithFallback';
+import ThumbnailWithFallback from './ThumbnailWithFallback';
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },

@@ -9,8 +9,6 @@ import {
   TextField,
   Typography,
   IconButton,
-  Tabs,
-  Tab,
   Divider,
   FormControl,
   InputLabel,
@@ -24,7 +22,6 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  Paper,
   Switch,
   FormControlLabel,
   CircularProgress,
@@ -538,12 +535,10 @@ function MetadataEditor({
   videoInfo,
   playlistInfo,
   chapterInfo,
-  selectedChapters,
   selectedVideos, // For playlist selected mode
   customMetadata, // Previously saved metadata to restore
   mode = 'single', // 'single', 'playlist', 'chapter'
 }) {
-  const [activeTab, setActiveTab] = useState(0);
   const [playlistEditMode, setPlaylistEditMode] = useState('bulk'); // 'bulk' or 'individual'
   const [useSharedArtist, setUseSharedArtist] = useState(true); // Toggle for shared vs per-video artist
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -984,7 +979,7 @@ function MetadataEditor({
   }, []);
 
   // Validation function
-  const validateMetadata = useCallback((meta, type = 'single') => {
+  const validateMetadata = useCallback((meta) => {
     const errors = {};
     const currentYear = new Date().getFullYear();
 

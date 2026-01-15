@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -48,8 +47,6 @@ function KeyboardShortcutsDialog({ open, onClose }) {
     };
     return labels[key] || key;
   };
-
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   return (
     <Dialog

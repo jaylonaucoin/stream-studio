@@ -470,8 +470,8 @@ function QueuePanel({
                 Queue is empty
               </Typography>
               <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
-                Paste multiple URLs above and click "Add to Queue" to batch convert multiple files.
-                Playlists are automatically detected!
+                Paste multiple URLs above and click &quot;Add to Queue&quot; to batch convert
+                multiple files. Playlists are automatically detected!
               </Typography>
             </Box>
           ) : (

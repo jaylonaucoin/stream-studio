@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ListItem, ListItemButton, ListItemText } from '@mui/material';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import {
@@ -33,7 +32,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       return;
     }
 
-    const { naturalWidth, naturalHeight } = image;
     const displayWidth = image.width;
     const displayHeight = image.height;
 
