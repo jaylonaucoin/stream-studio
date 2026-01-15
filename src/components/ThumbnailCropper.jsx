@@ -151,9 +151,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
 
   const handleCrop = useCallback(async () => {
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:151',message:'handleCrop entry',data:{hasImgRef:!!imgRef.current,hasCanvasRef:!!canvasRef.current,hasCompletedCrop:!!completedCrop,hasCrop:!!crop,imageLoaded},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.log('handleCrop called', {
         hasImgRef: !!imgRef.current,
         hasCanvasRef: !!canvasRef.current,
@@ -163,9 +160,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       });
 
       if (!imgRef.current || !canvasRef.current) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:161',message:'handleCrop early return - missing refs',data:{hasImgRef:!!imgRef.current,hasCanvasRef:!!canvasRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error('Image or canvas ref not available', {
           imgRef: imgRef.current,
           canvasRef: canvasRef.current,
@@ -175,9 +169,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
 
       const image = imgRef.current;
       if (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:170',message:'handleCrop early return - image not loaded',data:{complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error('Image not fully loaded', {
           complete: image.complete,
           naturalWidth: image.naturalWidth,
@@ -190,40 +181,22 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       const finalCrop = completedCrop || crop;
 
       if (!finalCrop || !finalCrop.width || !finalCrop.height) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:182',message:'handleCrop early return - invalid crop',data:{finalCrop:finalCrop},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.error('Invalid crop values:', finalCrop);
         return;
       }
 
       console.log('Calling getCroppedImg with crop:', finalCrop);
       const croppedImageUrl = await getCroppedImg(finalCrop);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:188',message:'getCroppedImg result',data:{hasResult:!!croppedImageUrl,resultLength:croppedImageUrl?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       console.log('getCroppedImg result:', croppedImageUrl ? 'Success (length: ' + croppedImageUrl.length + ')' : 'Failed');
 
       if (croppedImageUrl) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:192',message:'Calling onCropComplete',data:{hasCallback:!!onCropComplete},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
         console.log('Calling onCropComplete');
         onCropComplete(croppedImageUrl);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:194',message:'onCropComplete called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
         console.log('onCropComplete called successfully');
       } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:196',message:'getCroppedImg returned null',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         console.error('Failed to generate cropped image');
       }
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:199',message:'handleCrop error',data:{error:error?.message,stack:error?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.error('Error cropping image:', error);
     }
   }, [getCroppedImg, onCropComplete, completedCrop, crop, imageLoaded]);
@@ -245,27 +218,48 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       return;
     }
 
+    // Ensure imageUrl is a string - handle cases where it might be an object or other type
+    let urlString = imageUrl;
+    if (typeof imageUrl !== 'string') {
+      // If it's an object with a url property, use that
+      if (imageUrl && typeof imageUrl === 'object' && 'url' in imageUrl) {
+        urlString = imageUrl.url;
+      } else if (imageUrl && typeof imageUrl === 'object' && 'thumbnail' in imageUrl) {
+        urlString = imageUrl.thumbnail;
+      } else {
+        // Try to convert to string, or use empty string as fallback
+        urlString = String(imageUrl) || '';
+      }
+      
+      // If we couldn't get a valid string, exit early
+      if (!urlString || typeof urlString !== 'string') {
+        console.error('Invalid imageUrl type:', typeof imageUrl, imageUrl);
+        setLocalImageUrl(null);
+        return;
+      }
+    }
+
     // If it's already a data URL, use it directly
-    if (imageUrl.startsWith('data:')) {
-      setLocalImageUrl(imageUrl);
+    if (urlString.startsWith('data:')) {
+      setLocalImageUrl(urlString);
       return;
     }
 
     // Fetch image via main process (no CORS restrictions)
-    window.api.fetchImageAsDataUrl(imageUrl)
+    window.api.fetchImageAsDataUrl(urlString)
       .then(result => {
         if (result.success && result.dataUrl) {
           setLocalImageUrl(result.dataUrl);
         } else {
           console.error('Error fetching image:', result.error);
           // Fallback to original URL if fetch fails (will cause tainted canvas but better than nothing)
-          setLocalImageUrl(imageUrl);
+          setLocalImageUrl(urlString);
         }
       })
       .catch(error => {
         console.error('Error fetching image:', error);
         // Fallback to original URL if fetch fails
-        setLocalImageUrl(imageUrl);
+        setLocalImageUrl(urlString);
       });
   }, [open, imageUrl]);
 
@@ -327,9 +321,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:281',message:'Apply button clicked',data:{imageLoaded,hasCompletedCrop:!!completedCrop,hasCrop:!!crop,cropWidth:crop?.width,cropHeight:crop?.height,hasImgRef:!!imgRef.current,hasCanvasRef:!!canvasRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             console.log('Apply Crop button clicked', {
               imageLoaded,
               completedCrop: !!completedCrop,
@@ -340,9 +331,6 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
               hasCanvasRef: !!canvasRef.current,
             });
             await handleCrop();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ThumbnailCropper.jsx:294',message:'Apply button handleCrop returned',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
           }}
           variant="contained"
           startIcon={<CheckIcon />}

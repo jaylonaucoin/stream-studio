@@ -3008,6 +3008,23 @@ ipcMain.handle('selectImageFile', async () => {
 // Fetch image as data URL (for thumbnail cropping - avoids CORS tainted canvas)
 ipcMain.handle('fetchImageAsDataUrl', async (event, imageUrl) => {
   try {
+    // Ensure imageUrl is a string
+    if (typeof imageUrl !== 'string') {
+      // If it's an object with a url property, use that
+      if (imageUrl && typeof imageUrl === 'object' && 'url' in imageUrl) {
+        imageUrl = imageUrl.url;
+      } else if (imageUrl && typeof imageUrl === 'object' && 'thumbnail' in imageUrl) {
+        imageUrl = imageUrl.thumbnail;
+      } else {
+        // Try to convert to string, or return error
+        imageUrl = String(imageUrl) || '';
+      }
+      
+      if (typeof imageUrl !== 'string' || !imageUrl) {
+        return { success: false, error: 'Invalid imageUrl type: expected string' };
+      }
+    }
+    
     // If it's already a data URL, return it directly
     if (imageUrl.startsWith('data:')) {
       return { success: true, dataUrl: imageUrl };
