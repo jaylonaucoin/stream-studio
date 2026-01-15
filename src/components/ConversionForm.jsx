@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -34,31 +34,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import EditIcon from '@mui/icons-material/Edit';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import MetadataEditor from './MetadataEditor';
-
-// Thumbnail placeholder component
-const ThumbnailPlaceholder = ({ isPlaylist = false, width = 160, height = 90 }) => (
-  <Box
-    sx={{
-      width: { xs: '100%', sm: width },
-      height: { xs: 90, sm: height },
-      bgcolor: 'action.hover',
-      borderRadius: 1,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    }}
-  >
-    {isPlaylist ? (
-      <PlaylistPlayIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-    ) : (
-      <MusicNoteIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-    )}
-  </Box>
-);
+import ThumbnailWithFallback, { ThumbnailPlaceholder } from './ThumbnailWithFallback';
 
 const AUDIO_FORMATS = [
   { value: 'best', label: 'Best Quality' },
@@ -662,25 +639,11 @@ function ConversionForm({
           }}
         >
           <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-            {videoInfo.thumbnail ? (
-              <Box
-                component="img"
-                src={videoInfo.thumbnail}
-                alt={videoInfo.title}
-                sx={{
-                  width: { xs: '100%', sm: 160 },
-                  height: { xs: 'auto', sm: 90 },
-                  objectFit: 'cover',
-                  borderRadius: 1,
-                  flexShrink: 0,
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            ) : (
-              <ThumbnailPlaceholder />
-            )}
+            <ThumbnailWithFallback
+              thumbnail={videoInfo.thumbnail}
+              alt={videoInfo.title}
+              isPlaylist={false}
+            />
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
                 <PlayArrowIcon sx={{ color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
@@ -775,25 +738,11 @@ function ConversionForm({
         >
           <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
             {/* Playlist thumbnail from first video */}
-            {playlistInfo.videos?.[0]?.thumbnail ? (
-              <Box
-                component="img"
-                src={playlistInfo.videos[0].thumbnail}
-                alt={playlistInfo.playlistTitle}
-                sx={{
-                  width: { xs: '100%', sm: 160 },
-                  height: { xs: 'auto', sm: 90 },
-                  objectFit: 'cover',
-                  borderRadius: 1,
-                  flexShrink: 0,
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            ) : (
-              <ThumbnailPlaceholder isPlaylist />
-            )}
+            <ThumbnailWithFallback
+              thumbnail={playlistInfo.videos?.[0]?.thumbnail}
+              alt={playlistInfo.playlistTitle}
+              isPlaylist={true}
+            />
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                 <PlayArrowIcon sx={{ color: 'primary.main' }} />
@@ -995,38 +944,13 @@ function ConversionForm({
                         />
                       </ListItemIcon>
                       <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center' }}>
-                        {video.thumbnail ? (
-                          <Box
-                            component="img"
-                            src={video.thumbnail}
-                            alt={video.title}
-                            sx={{
-                              width: 80,
-                              height: 45,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              flexShrink: 0,
-                            }}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 80,
-                              height: 45,
-                              bgcolor: 'action.hover',
-                              borderRadius: 1,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <MusicNoteIcon sx={{ fontSize: 20, color: 'text.disabled' }} />
-                          </Box>
-                        )}
+                        <ThumbnailWithFallback
+                          thumbnail={video.thumbnail}
+                          alt={video.title}
+                          isPlaylist={false}
+                          width={80}
+                          height={45}
+                        />
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                           <ListItemText
                             primary={

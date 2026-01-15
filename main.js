@@ -2400,21 +2400,21 @@ const playlistInfoCache = new Map();
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Helper function to get high-quality thumbnail for a video
+// Returns an array of thumbnail URLs in quality order (highest to lowest)
+// Frontend will try them in sequence until one loads successfully
 async function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
-  // For YouTube, construct high-quality thumbnail URL
+  // For YouTube, construct high-quality thumbnail URL array
   if (platform === 'youtube' || videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be')) {
-    // YouTube thumbnail URL patterns (in order of quality)
+    // YouTube thumbnail URL patterns (in order of quality - highest to lowest)
     const thumbnailUrls = [
       `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,  // Highest quality (1280x720 or 1920x1080)
       `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,      // High quality (480x360)
       `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,      // Medium quality (320x180)
     ];
-    
-    // Try maxresdefault first, fallback to hqdefault
-    // We'll return maxresdefault as it's the best quality
-    return thumbnailUrls[0]; // Return maxresdefault, browser will handle 404 fallback
+    // Return array of URLs for frontend to try in sequence
+    return thumbnailUrls;
   }
-  
+
   // For other platforms, return null to use the thumbnail from flat-playlist
   return null;
 }
@@ -2527,7 +2527,9 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
                 const videoDuration = entry.duration || 0;
                 const videoUrl = entry.url || entry.webpage_url || null;
                 const videoThumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
-                const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index + 1 : lineIndex + 1; // 1-based index
+                // playlist_index from yt-dlp is already 1-based, use it directly
+                // If not present, use lineIndex (which is 0-based) + 1
+                const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index : lineIndex + 1; // 1-based index
                 // Extract artist if available (for music playlists)
                 const videoArtist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
                 
@@ -2569,12 +2571,20 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
             if (videos.length > 0 && videos[0].id) {
               try {
                 const firstVideo = videos[0];
+                const originalThumbnail = firstVideo.thumbnail; // Preserve original thumbnail as fallback
                 const platform = sanitizedUrl.includes('youtube.com') || sanitizedUrl.includes('youtu.be') ? 'youtube' : 'other';
-                const highQualityThumbnail = await getHighQualityThumbnail(firstVideo.id, firstVideo.url, platform);
+                const highQualityThumbnails = await getHighQualityThumbnail(firstVideo.id, firstVideo.url, platform);
                 
-                if (highQualityThumbnail) {
-                  // Update first video's thumbnail to high-quality version
-                  firstVideo.thumbnail = highQualityThumbnail;
+                if (highQualityThumbnails && Array.isArray(highQualityThumbnails)) {
+                  // Put yt-dlp provided URL FIRST (guaranteed to exist by YouTube), 
+                  // then try higher quality alternatives as fallbacks
+                  // This fixes the issue where maxresdefault.jpg returns a gray placeholder
+                  // for videos that don't have high-res thumbnails
+                  const thumbnailUrls = originalThumbnail 
+                    ? [originalThumbnail, ...highQualityThumbnails] 
+                    : [...highQualityThumbnails];
+                  // Store as array - frontend will try URLs in sequence
+                  firstVideo.thumbnail = thumbnailUrls;
                   videos[0] = firstVideo;
                 } else if (firstVideo.url) {
                   // For non-YouTube platforms, try fetching full video info for better thumbnail
@@ -2629,6 +2639,7 @@ ipcMain.handle('getPlaylistInfo', async (event, url) => {
               } catch (err) {
                 // Continue with original thumbnail if high-quality fetch fails
                 console.warn('Failed to get high-quality thumbnail:', err);
+                // Original thumbnail is already preserved in firstVideo.thumbnail
               }
             }
             
