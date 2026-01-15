@@ -1328,11 +1328,9 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             
             // Handle chapter downloads
             if (isChapterDownload && chapterInfoForDownload && chapterInfoForDownload.hasChapters) {
-              console.log('Starting chapter file processing...');
               // Make this async to allow for retries
               (async () => {
                 try {
-                  console.log('Inside async chapter handler');
                   // --split-chapters creates files in the output folder with format:
               // "Video Title - 001 Chapter Name [videoID].ext"
               // We need to find them, move them to a folder, and rename to just "Chapter Name.ext"
@@ -1383,12 +1381,8 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   // Wait a bit first - yt-dlp might still be writing files
                   const attempt = (attemptNumber = 0) => {
                     try {
-                      console.log(`Attempt ${attemptNumber + 1}: Reading output folder: ${outputFolder}`);
                       const entries = fs.readdirSync(outputFolder, { withFileTypes: true });
                       const files = entries.filter(e => e.isFile()).map(e => e.name);
-                      
-                      console.log(`Attempting to find chapter files. Total files in folder: ${files.length}`);
-                      console.log('All files in folder:', files);
                       
                       // Find and delete the full-length video file (the one without chapter number)
                       // Pattern: "Video Title.ext" (no " - 001" pattern, no [ID])
@@ -1404,7 +1398,6 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                       if (fullVideoFile) {
                         try {
                           fs.unlinkSync(path.join(outputFolder, fullVideoFile));
-                          console.log(`Deleted full-length video file: ${fullVideoFile}`);
                         } catch (err) {
                           console.warn(`Failed to delete full video file:`, err);
                         }
@@ -1439,10 +1432,8 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                             const hasChapterPattern = hasDashSpace && hasDigitPattern && hasIdPattern;
                             
                             if (!hasChapterPattern) {
-                              console.log(`File "${f}" doesn't match chapter pattern. hasDashSpace: ${hasDashSpace}, hasDigitPattern: ${!!hasDigitPattern}, hasIdPattern: ${!!hasIdPattern}`);
                               return false;
                             }
-                            console.log(`File "${f}" matches chapter pattern!`);
                             // Check if file exists and is readable
                             const filePath = path.join(outputFolder, f);
                             if (!fs.existsSync(filePath)) return false;
@@ -1472,10 +1463,8 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                             const hasChapterPattern = hasDashSpace && hasDigitPattern && hasIdPattern;
                             
                             if (!hasChapterPattern) {
-                              console.log(`File "${f}" doesn't match chapter pattern. hasDashSpace: ${hasDashSpace}, hasDigitPattern: ${!!hasDigitPattern}, hasIdPattern: ${!!hasIdPattern}`);
                               return false;
                             }
-                            console.log(`File "${f}" matches chapter pattern!`);
                             // Check if file exists and is readable
                             const filePath = path.join(outputFolder, f);
                             if (!fs.existsSync(filePath)) return false;
@@ -1493,23 +1482,17 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                           }));
                       }
                       
-                      console.log(`Found ${chapterFiles.length} chapter files in output folder`);
                       if (chapterFiles.length > 0) {
-                        console.log('Chapter files found:', chapterFiles.map(f => f.fileName));
                         resolve(chapterFiles);
                       } else if (attemptNumber < retries) {
-                        console.log(`No chapter files found, retrying in ${delay}ms... (${retries - attemptNumber} retries left)`);
                         setTimeout(() => attempt(attemptNumber + 1), delay);
                       } else {
                         // Log all files for debugging
-                        console.log('All files in output folder:', files);
-                        console.log('Looking for pattern: " - " followed by digits and "[ID]"');
                         reject(new Error('No chapter files found after retries. Files in folder: ' + files.slice(0, 10).join(', ')));
                       }
                     } catch (err) {
                       console.error('Error in findChapterFiles attempt:', err);
                       if (attemptNumber < retries) {
-                        console.log(`Error finding files, retrying in ${delay}ms... (${retries - attemptNumber} retries left)`);
                         setTimeout(() => attempt(attemptNumber + 1), delay);
                       } else {
                         reject(err);
@@ -1572,7 +1555,6 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 }
                 
                 if (chapterNameFromFile) {
-                  console.log(`Extracted chapter name: "${chapterNameFromFile}" from file: ${file.fileName}`);
                   
                   // Check if this chapter is in our selected list
                   // Note: Filenames may contain full-width colons (：) that need to be normalized
@@ -1633,7 +1615,6 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               for (const fileToDelete of filesToDelete) {
                 try {
                   fs.unlinkSync(fileToDelete.filePath);
-                  console.log(`Deleted unselected chapter file: ${fileToDelete.fileName}`);
                 } catch (err) {
                   console.warn(`Failed to delete unselected chapter file ${fileToDelete.fileName}:`, err);
                 }

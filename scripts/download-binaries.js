@@ -104,7 +104,6 @@ async function downloadYtDlp() {
   
   // Skip if already exists
   if (fs.existsSync(destPath)) {
-    console.log(`✓ ${filename} already exists, skipping download`);
     // Ensure executable permission on Unix
     if (platform !== 'win32') {
       fs.chmodSync(destPath, 0o755);
@@ -112,7 +111,6 @@ async function downloadYtDlp() {
     return true;
   }
   
-  console.log(`Downloading ${filename}...`);
   
   try {
     await downloadFile(url, destPath);
@@ -122,7 +120,6 @@ async function downloadYtDlp() {
       fs.chmodSync(destPath, 0o755);
     }
     
-    console.log(`✓ Downloaded ${filename}`);
     return true;
   } catch (error) {
     console.error(`✗ Failed to download ${filename}:`, error.message);
@@ -133,7 +130,6 @@ async function downloadYtDlp() {
 async function downloadFfmpeg() {
   // Only download FFmpeg for Windows
   if (platform !== 'win32') {
-    console.log('Skipping FFmpeg download (not Windows). Please install FFmpeg system-wide.');
     return true;
   }
   
@@ -141,11 +137,9 @@ async function downloadFfmpeg() {
   
   // Skip if already exists
   if (fs.existsSync(ffmpegPath)) {
-    console.log('✓ ffmpeg.exe already exists, skipping download');
     return true;
   }
   
-  console.log('Downloading FFmpeg...');
   
   try {
     // Get latest release from GitHub API
@@ -166,7 +160,6 @@ async function downloadFfmpeg() {
     
     const zipPath = path.join(binDir, asset.name);
     await downloadFile(asset.browser_download_url, zipPath);
-    console.log('✓ Downloaded FFmpeg ZIP');
     
     // Extract ZIP
     const extractDir = path.join(binDir, 'ffmpeg-temp');
@@ -195,7 +188,6 @@ async function downloadFfmpeg() {
       
       if (ffmpegPath) {
         fs.copyFileSync(ffmpegPath, path.join(binDir, 'ffmpeg.exe'));
-        console.log('✓ Extracted and installed ffmpeg.exe');
         // Clean up
         fs.rmSync(extractDir, { recursive: true, force: true });
         fs.unlinkSync(zipPath);
@@ -217,8 +209,6 @@ async function downloadFfmpeg() {
 }
 
 async function main() {
-  console.log('Setting up binary dependencies...');
-  console.log(`Platform: ${platform} (${arch})\n`);
   
   const results = await Promise.all([
     downloadYtDlp(),
@@ -228,9 +218,7 @@ async function main() {
   const success = results.every(r => r);
   
   if (success) {
-    console.log('\n✓ All binaries downloaded successfully!');
   } else {
-    console.log('\n⚠ Some binaries failed to download. Please check the errors above.');
     process.exit(1);
   }
 }
