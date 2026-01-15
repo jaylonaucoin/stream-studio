@@ -62,7 +62,7 @@ const PlaylistVideoItem = ({
         </ListItemButton>
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           <Box sx={{ p: 2, bgcolor: 'background.default' }}>
-              <TextField
+            <TextField
               fullWidth
               label="Title"
               value={fileMeta.title || ''}
@@ -100,71 +100,435 @@ const PlaylistVideoItem = ({
 
 // Sort GENRES once at module level to avoid sorting on every render
 const GENRES = [
-  'African', 'African Dancehall', 'African Reggae', 'Afrikaans', 'Afro House', 'Afro Soul', 
-  'Afro-Beat', 'Afro-folk', 'Afro-fusion', 'Afro-Pop', 'Afrobeats', 'Alte', 'Amapiano', 
-  'Benga', 'Bongo-Flava', 'Chimurenga', 'Coupé-Décalé', 'Fuji', 'Genge', 'Gqom', 'Highlife', 
-  'Kizomba', 'Kuduro', 'Kwaito', 'Kwassa', 'Mapouka', 'Maskandi', 'Mbalax', 'Ndombolo', 
-  'Shangaan Electro', 'Soukous', 'Taarab', 'Zouglou', 'Alternative', 'Chinese Alt', 
-  'College Rock', 'EMO', 'Goth Rock', 'Grunge', 'Indie Egyptian', 'Indie Levant', 
-  'Indie Maghreb', 'Indie Pop', 'Indie Rock', 'Korean Indie', 'New Wave', 'Pop Punk', 
-  'Punk', 'Turkish Alternative', 'Anime', 'Arabic', 'Arabic Pop', 'Islamic', 'Khaleeji', 
-  'Khaleeji Jalsat', 'Khaleeji Shailat', 'Levant', 'Dabke', 'Maghreb Rai', 'North African',
-  'Blues', 'Acoustic Blues', 'Chicago Blues', 'Classic Blues', 'Contemporary Blues', 
-  'Country Blues', 'Delta Blues', 'Electric Blues', 'Brazilian', 'Axé', 'Baile Funk', 
-  'Bossa Nova', 'Choro', 'Forró', 'Frevo', 'MPB', 'Pagode', 'Samba', 'Sertanejo', 
-  "Children's Music", 'Lullabies', 'Sing-Along', 'Stories', 'Chinese', 'Chinese Classical', 
-  'Chinese Flute', 'Chinese Opera', 'Chinese Orchestral', 'Chinese Regional Folk', 
-  'Chinese Strings', 'Taiwanese Folk', 'Tibetan Native Music', 'Christian & Gospel', 'CCM', 
-  'Christian Metal', 'Christian Pop', 'Christian Rap', 'Christian Rock', 'Classic Christian', 
-  'Contemporary Gospel', 'Gospel', 'Praise & Worship', 'Southern Gospel', 'Traditional Gospel',
-  'Classical', 'Art Song', 'Avant-Garde', 'Baroque Era', 'Brass & Woodwinds', 'Cantata', 
-  'Cello', 'Chamber Music', 'Chant', 'Choral', 'Classical Crossover', 'Classical Era', 
-  'Contemporary Era', 'Electronic', 'Guitar', 'Impressionist', 'Medieval Era', 'Minimalism', 
-  'Modern Era', 'Opera', 'Oratorio', 'Orchestral', 'Percussion', 'Piano', 'Renaissance', 
-  'Romantic Era', 'Sacred', 'Solo Instrumental', 'Violin', 'Comedy', 'Novelty', 'Standup Comedy', 
-  'Country', 'Alternative Country', 'Americana', 'Bluegrass', 'Contemporary Bluegrass', 
-  'Contemporary Country', 'Country Gospel', 'Country Hip-Hop/Rap', 'Honky Tonk', 'Outlaw Country', 
-  'Thai Country', 'Traditional Bluegrass', 'Traditional Country', 'Urban Cowboy', 'Cuban', 
-  'Bolero', 'Chachacha', 'Guajira', 'Guaracha', 'Mambo', 'Son', 'Timba', 'Dance', 'Breakbeat', 
-  'Garage', 'Hardcore', 'House', "Jungle/Drum'n'bass", 'Maghreb Dance', 'Techno', 'Trance', 
-  'Disney', 'Easy Listening', 'Lounge', 'Swing', 'Ambient', 'Bass', 'Downtempo', 'Dubstep', 
-  "Electro-Cha'abi", 'Electronica', 'IDM/Experimental', 'Industrial', 'Levant Electronic', 
-  'Maghreb Electronic', 'Enka', 'Fitness & Workout', 'Folk', 'Iraqi Folk', 'Khaleeji Folk', 
-  'French Pop', 'German Folk', 'German Pop', 'Hip Hop/Rap', 'Alternative Rap', 'Chinese Hip-Hop', 
-  'Dirty South', 'East Coast Rap', 'Egyptian Hip-Hop', 'Gangsta Rap', 'Ghanaian Drill', 
-  'Hardcore Rap', 'Hip-Hop', 'Khaleeji Hip-Hop', 'Korean Hip-Hop', 'Latin Rap', 'Levant Hip-Hop', 
-  'Maghreb Hip-Hop', 'Old School Rap', 'Rap', 'Russian Hip-Hop', 'South African Hip-Hop', 
-  'Turkish Hip-Hop/Rap', 'UK Hip Hop', 'Underground Rap', 'West Coast Rap', 'Holiday', 'Christmas', 
-  "Christmas: Children's", 'Christmas: Classic', 'Christmas: Classical', 'Christmas: Country', 
-  'Christmas: Jazz', 'Christmas: Modern', 'Christmas: Pop', 'Christmas: R&B', 'Christmas: Religious', 
-  'Christmas: Rock', 'Easter', 'Halloween', 'Thanksgiving', 'Hörspiele', 'Indian', 'Bollywood', 
-  'Devotional & Spiritual', 'Ghazals', 'Indian Classical', 'Carnatic Classical', 'Hindustani Classical', 
-  'Indian Folk', 'Indian Pop', 'Regional Indian', 'Assamese', 'Bengali', 'Rabindra Sangeet', 'Bhojpuri', 
-  'Gujarati', 'Haryanvi', 'Kannada', 'Malayalam', 'Marathi', 'Odia', 'Punjabi', 'Punjabi Pop', 
-  'Rajasthani', 'Tamil', 'Telugu', 'Urdu', 'Sufi', 'Inspirational', 'Instrumental', 'J-Pop', 'Jazz', 
-  'Avant-Garde Jazz', 'Bebop', 'Big Band', 'Contemporary Jazz', 'Cool Jazz', 'Crossover Jazz', 'Dixieland', 
-  'Ethio Jazz', 'Fusion', 'Hard Bop', 'Latin Jazz', 'Mainstream Jazz', 'Ragtime', 'Smooth Jazz', 
-  'Trad Jazz', 'Vocal Jazz', 'Jewish', 'Jewish Holidays', 'Klezmer', 'Karaoke', 'Kayokyoku', 'Korean', 
-  'Korean Traditional', 'Latin', 'Alternative & Rock in Spanish', 'Baladas y Boleros', 'Contemporary Latin', 
-  'Latin Urban', 'Pop in Spanish', 'Raices', 'Regional Mexicano', 'Salsa y Tropical', 'Marching Bands', 
-  'New Age', 'Healing', 'Meditation', 'Nature', 'Relaxation', 'Travel', 'Yoga', 'Pop', 'Adult Contemporary', 
-  'Britpop', 'Cantopop', 'Egyptian Pop', 'Indo Pop', 'Iraqi Pop', 'K-Pop', 'Khaleeji Pop', 'Korean Folk-Pop', 
-  'Levant Pop', 'Maghreb Pop', 'Malaysian Pop', 'Mandopop', 'Manilla Sound', 'Oldies', 'Original Pilipino Music', 
-  'Pinoy Pop', 'Pop/Rock', 'Russian Pop', 'Shows', 'Soft Rock', 'T-Pop', 'Tai-Pop', 'Teen Pop', 'Thai Pop', 
-  'Turkish Pop', 'R&B/Soul', 'Contemporary R&B', 'Disco', 'Doo Wop', 'Funk', 'Motown', 'Neo-Soul', 'Soul', 
-  'Reggae', 'Dub', 'Lovers Rock', 'Modern Dancehall', 'Roots Reggae', 'Ska', 'Rock', 'Adult Alternative', 
-  'American Trad Rock', 'Arena Rock', 'Blues-Rock', 'British Invasion', 'Chinese Rock', 'Death Metal/Black Metal', 
-  'Glam Rock', 'Hair Metal', 'Hard Rock', 'Heavy Metal', 'Jam Bands', 'Korean Rock', 'Prog-Rock/Art Rock', 
-  'Psychedelic', 'Rock & Roll', 'Rockabilly', 'Roots Rock', 'Russian Rock', 'Singer/Songwriter', 'Southern Rock', 
-  'Surf', 'Tex-Mex', 'Turkish Rock', 'Russian', 'Russian Bard', 'Russian Chanson', 'Russian Romance', 
-  'Alternative Folk', 'Contemporary Folk', 'Contemporary Singer/Songwriter', 'Folk-Rock', 'New Acoustic', 
-  'Traditional Folk', 'Soundtrack', 'Foreign Cinema', 'Musicals', 'Original Score', 'Sound Effects', 'TV Soundtrack', 
-  'Video Game', 'Spoken Word', 'Tarab', 'Egyptian Tarab', 'Iraqi Tarab', 'Khaleeji Tarab', 'Turkish', 'Arabesk', 
-  'Fantezi', 'Halk', 'Religious', 'Sanat', 'Özgün', 'Vocal', 'Standards', 'Traditional Pop', 'Trot', 'Vocal Pop', 
-  'Worldwide', 'Asia', 'Australia', 'Cajun', 'Calypso', 'Caribbean', 'Celtic', 'Celtic Folk', 'Contemporary Celtic', 
-  'Dangdut', 'Dini', 'Europe', 'Fado', 'Farsi', 'Flamenco', 'France', 'Hawaii', 'Iberia', 'Indonesian Religious', 
-  'Israeli', 'Japan', 'North America', 'Polka', 'Soca', 'South Africa', 'South America', 'Tango', 'Traditional Celtic', 
-  'Worldbeat', 'Zydeco',
+  'African',
+  'African Dancehall',
+  'African Reggae',
+  'Afrikaans',
+  'Afro House',
+  'Afro Soul',
+  'Afro-Beat',
+  'Afro-folk',
+  'Afro-fusion',
+  'Afro-Pop',
+  'Afrobeats',
+  'Alte',
+  'Amapiano',
+  'Benga',
+  'Bongo-Flava',
+  'Chimurenga',
+  'Coupé-Décalé',
+  'Fuji',
+  'Genge',
+  'Gqom',
+  'Highlife',
+  'Kizomba',
+  'Kuduro',
+  'Kwaito',
+  'Kwassa',
+  'Mapouka',
+  'Maskandi',
+  'Mbalax',
+  'Ndombolo',
+  'Shangaan Electro',
+  'Soukous',
+  'Taarab',
+  'Zouglou',
+  'Alternative',
+  'Chinese Alt',
+  'College Rock',
+  'EMO',
+  'Goth Rock',
+  'Grunge',
+  'Indie Egyptian',
+  'Indie Levant',
+  'Indie Maghreb',
+  'Indie Pop',
+  'Indie Rock',
+  'Korean Indie',
+  'New Wave',
+  'Pop Punk',
+  'Punk',
+  'Turkish Alternative',
+  'Anime',
+  'Arabic',
+  'Arabic Pop',
+  'Islamic',
+  'Khaleeji',
+  'Khaleeji Jalsat',
+  'Khaleeji Shailat',
+  'Levant',
+  'Dabke',
+  'Maghreb Rai',
+  'North African',
+  'Blues',
+  'Acoustic Blues',
+  'Chicago Blues',
+  'Classic Blues',
+  'Contemporary Blues',
+  'Country Blues',
+  'Delta Blues',
+  'Electric Blues',
+  'Brazilian',
+  'Axé',
+  'Baile Funk',
+  'Bossa Nova',
+  'Choro',
+  'Forró',
+  'Frevo',
+  'MPB',
+  'Pagode',
+  'Samba',
+  'Sertanejo',
+  "Children's Music",
+  'Lullabies',
+  'Sing-Along',
+  'Stories',
+  'Chinese',
+  'Chinese Classical',
+  'Chinese Flute',
+  'Chinese Opera',
+  'Chinese Orchestral',
+  'Chinese Regional Folk',
+  'Chinese Strings',
+  'Taiwanese Folk',
+  'Tibetan Native Music',
+  'Christian & Gospel',
+  'CCM',
+  'Christian Metal',
+  'Christian Pop',
+  'Christian Rap',
+  'Christian Rock',
+  'Classic Christian',
+  'Contemporary Gospel',
+  'Gospel',
+  'Praise & Worship',
+  'Southern Gospel',
+  'Traditional Gospel',
+  'Classical',
+  'Art Song',
+  'Avant-Garde',
+  'Baroque Era',
+  'Brass & Woodwinds',
+  'Cantata',
+  'Cello',
+  'Chamber Music',
+  'Chant',
+  'Choral',
+  'Classical Crossover',
+  'Classical Era',
+  'Contemporary Era',
+  'Electronic',
+  'Guitar',
+  'Impressionist',
+  'Medieval Era',
+  'Minimalism',
+  'Modern Era',
+  'Opera',
+  'Oratorio',
+  'Orchestral',
+  'Percussion',
+  'Piano',
+  'Renaissance',
+  'Romantic Era',
+  'Sacred',
+  'Solo Instrumental',
+  'Violin',
+  'Comedy',
+  'Novelty',
+  'Standup Comedy',
+  'Country',
+  'Alternative Country',
+  'Americana',
+  'Bluegrass',
+  'Contemporary Bluegrass',
+  'Contemporary Country',
+  'Country Gospel',
+  'Country Hip-Hop/Rap',
+  'Honky Tonk',
+  'Outlaw Country',
+  'Thai Country',
+  'Traditional Bluegrass',
+  'Traditional Country',
+  'Urban Cowboy',
+  'Cuban',
+  'Bolero',
+  'Chachacha',
+  'Guajira',
+  'Guaracha',
+  'Mambo',
+  'Son',
+  'Timba',
+  'Dance',
+  'Breakbeat',
+  'Garage',
+  'Hardcore',
+  'House',
+  "Jungle/Drum'n'bass",
+  'Maghreb Dance',
+  'Techno',
+  'Trance',
+  'Disney',
+  'Easy Listening',
+  'Lounge',
+  'Swing',
+  'Ambient',
+  'Bass',
+  'Downtempo',
+  'Dubstep',
+  "Electro-Cha'abi",
+  'Electronica',
+  'IDM/Experimental',
+  'Industrial',
+  'Levant Electronic',
+  'Maghreb Electronic',
+  'Enka',
+  'Fitness & Workout',
+  'Folk',
+  'Iraqi Folk',
+  'Khaleeji Folk',
+  'French Pop',
+  'German Folk',
+  'German Pop',
+  'Hip Hop/Rap',
+  'Alternative Rap',
+  'Chinese Hip-Hop',
+  'Dirty South',
+  'East Coast Rap',
+  'Egyptian Hip-Hop',
+  'Gangsta Rap',
+  'Ghanaian Drill',
+  'Hardcore Rap',
+  'Hip-Hop',
+  'Khaleeji Hip-Hop',
+  'Korean Hip-Hop',
+  'Latin Rap',
+  'Levant Hip-Hop',
+  'Maghreb Hip-Hop',
+  'Old School Rap',
+  'Rap',
+  'Russian Hip-Hop',
+  'South African Hip-Hop',
+  'Turkish Hip-Hop/Rap',
+  'UK Hip Hop',
+  'Underground Rap',
+  'West Coast Rap',
+  'Holiday',
+  'Christmas',
+  "Christmas: Children's",
+  'Christmas: Classic',
+  'Christmas: Classical',
+  'Christmas: Country',
+  'Christmas: Jazz',
+  'Christmas: Modern',
+  'Christmas: Pop',
+  'Christmas: R&B',
+  'Christmas: Religious',
+  'Christmas: Rock',
+  'Easter',
+  'Halloween',
+  'Thanksgiving',
+  'Hörspiele',
+  'Indian',
+  'Bollywood',
+  'Devotional & Spiritual',
+  'Ghazals',
+  'Indian Classical',
+  'Carnatic Classical',
+  'Hindustani Classical',
+  'Indian Folk',
+  'Indian Pop',
+  'Regional Indian',
+  'Assamese',
+  'Bengali',
+  'Rabindra Sangeet',
+  'Bhojpuri',
+  'Gujarati',
+  'Haryanvi',
+  'Kannada',
+  'Malayalam',
+  'Marathi',
+  'Odia',
+  'Punjabi',
+  'Punjabi Pop',
+  'Rajasthani',
+  'Tamil',
+  'Telugu',
+  'Urdu',
+  'Sufi',
+  'Inspirational',
+  'Instrumental',
+  'J-Pop',
+  'Jazz',
+  'Avant-Garde Jazz',
+  'Bebop',
+  'Big Band',
+  'Contemporary Jazz',
+  'Cool Jazz',
+  'Crossover Jazz',
+  'Dixieland',
+  'Ethio Jazz',
+  'Fusion',
+  'Hard Bop',
+  'Latin Jazz',
+  'Mainstream Jazz',
+  'Ragtime',
+  'Smooth Jazz',
+  'Trad Jazz',
+  'Vocal Jazz',
+  'Jewish',
+  'Jewish Holidays',
+  'Klezmer',
+  'Karaoke',
+  'Kayokyoku',
+  'Korean',
+  'Korean Traditional',
+  'Latin',
+  'Alternative & Rock in Spanish',
+  'Baladas y Boleros',
+  'Contemporary Latin',
+  'Latin Urban',
+  'Pop in Spanish',
+  'Raices',
+  'Regional Mexicano',
+  'Salsa y Tropical',
+  'Marching Bands',
+  'New Age',
+  'Healing',
+  'Meditation',
+  'Nature',
+  'Relaxation',
+  'Travel',
+  'Yoga',
+  'Pop',
+  'Adult Contemporary',
+  'Britpop',
+  'Cantopop',
+  'Egyptian Pop',
+  'Indo Pop',
+  'Iraqi Pop',
+  'K-Pop',
+  'Khaleeji Pop',
+  'Korean Folk-Pop',
+  'Levant Pop',
+  'Maghreb Pop',
+  'Malaysian Pop',
+  'Mandopop',
+  'Manilla Sound',
+  'Oldies',
+  'Original Pilipino Music',
+  'Pinoy Pop',
+  'Pop/Rock',
+  'Russian Pop',
+  'Shows',
+  'Soft Rock',
+  'T-Pop',
+  'Tai-Pop',
+  'Teen Pop',
+  'Thai Pop',
+  'Turkish Pop',
+  'R&B/Soul',
+  'Contemporary R&B',
+  'Disco',
+  'Doo Wop',
+  'Funk',
+  'Motown',
+  'Neo-Soul',
+  'Soul',
+  'Reggae',
+  'Dub',
+  'Lovers Rock',
+  'Modern Dancehall',
+  'Roots Reggae',
+  'Ska',
+  'Rock',
+  'Adult Alternative',
+  'American Trad Rock',
+  'Arena Rock',
+  'Blues-Rock',
+  'British Invasion',
+  'Chinese Rock',
+  'Death Metal/Black Metal',
+  'Glam Rock',
+  'Hair Metal',
+  'Hard Rock',
+  'Heavy Metal',
+  'Jam Bands',
+  'Korean Rock',
+  'Prog-Rock/Art Rock',
+  'Psychedelic',
+  'Rock & Roll',
+  'Rockabilly',
+  'Roots Rock',
+  'Russian Rock',
+  'Singer/Songwriter',
+  'Southern Rock',
+  'Surf',
+  'Tex-Mex',
+  'Turkish Rock',
+  'Russian',
+  'Russian Bard',
+  'Russian Chanson',
+  'Russian Romance',
+  'Alternative Folk',
+  'Contemporary Folk',
+  'Contemporary Singer/Songwriter',
+  'Folk-Rock',
+  'New Acoustic',
+  'Traditional Folk',
+  'Soundtrack',
+  'Foreign Cinema',
+  'Musicals',
+  'Original Score',
+  'Sound Effects',
+  'TV Soundtrack',
+  'Video Game',
+  'Spoken Word',
+  'Tarab',
+  'Egyptian Tarab',
+  'Iraqi Tarab',
+  'Khaleeji Tarab',
+  'Turkish',
+  'Arabesk',
+  'Fantezi',
+  'Halk',
+  'Religious',
+  'Sanat',
+  'Özgün',
+  'Vocal',
+  'Standards',
+  'Traditional Pop',
+  'Trot',
+  'Vocal Pop',
+  'Worldwide',
+  'Asia',
+  'Australia',
+  'Cajun',
+  'Calypso',
+  'Caribbean',
+  'Celtic',
+  'Celtic Folk',
+  'Contemporary Celtic',
+  'Dangdut',
+  'Dini',
+  'Europe',
+  'Fado',
+  'Farsi',
+  'Flamenco',
+  'France',
+  'Hawaii',
+  'Iberia',
+  'Indonesian Religious',
+  'Israeli',
+  'Japan',
+  'North America',
+  'Polka',
+  'Soca',
+  'South Africa',
+  'South America',
+  'Tango',
+  'Traditional Celtic',
+  'Worldbeat',
+  'Zydeco',
 ].sort();
 
 function MetadataEditor({
@@ -190,7 +554,7 @@ function MetadataEditor({
   const [validationErrors, setValidationErrors] = useState({});
   const [playlistPage, setPlaylistPage] = useState(0);
   const PLAYLIST_ITEMS_PER_PAGE = 20;
-  
+
   // Track previous mode and open state to detect changes
   const prevModeRef = useRef(mode);
   const prevOpenRef = useRef(open);
@@ -316,7 +680,7 @@ function MetadataEditor({
       setValidationErrors({});
       setErrorMessage(null);
     }
-    
+
     // Reset state when mode changes
     if (prevModeRef.current !== mode && open) {
       setMetadata({
@@ -371,7 +735,7 @@ function MetadataEditor({
       });
       setValidationErrors({});
     }
-    
+
     prevModeRef.current = mode;
     prevOpenRef.current = open;
   }, [open, mode]);
@@ -380,9 +744,9 @@ function MetadataEditor({
   // This runs when dialog opens or when videoInfo/playlistInfo changes
   useEffect(() => {
     if (!open) return;
-    
+
     const currentYear = new Date().getFullYear();
-    
+
     // If customMetadata exists, restore from it (user's previously saved changes)
     if (customMetadata) {
       if (customMetadata.type === 'single' && customMetadata.metadata) {
@@ -406,9 +770,11 @@ function MetadataEditor({
           const firstFile = customMetadata.perFileMetadata[0];
           if (firstFile) {
             // Determine if artist is shared (all files have same artist)
-            const artists = customMetadata.perFileMetadata.map(f => f.artist || '').filter(Boolean);
+            const artists = customMetadata.perFileMetadata
+              .map((f) => f.artist || '')
+              .filter(Boolean);
             const isSharedArtist = artists.length > 0 && new Set(artists).size === 1;
-            
+
             const sharedMeta = { ...firstFile };
             // Remove per-file specific fields
             delete sharedMeta.title;
@@ -419,7 +785,7 @@ function MetadataEditor({
             }
             setPlaylistSharedMetadata(sharedMeta);
             setUseSharedArtist(isSharedArtist);
-            
+
             // Extract per-file metadata
             const perFile = customMetadata.perFileMetadata.map((fileMeta) => ({
               title: fileMeta.title || '',
@@ -443,7 +809,7 @@ function MetadataEditor({
       }
       return; // Don't initialize from videoInfo if we restored from customMetadata
     }
-    
+
     // No customMetadata exists, initialize from videoInfo/playlistInfo/chapterInfo
     // Initialize single video metadata
     if (videoInfo && mode === 'single') {
@@ -479,10 +845,10 @@ function MetadataEditor({
       const videoArtist = videoInfo?.artist || null;
       const playlistArtist = playlistInfo?.playlistUploader || null;
       const videoUploader = videoInfo?.uploader || null;
-      
+
       // Priority: first video artist > video artist > playlist uploader > video uploader
       const artist = firstVideoArtist || videoArtist || playlistArtist || videoUploader || '';
-      
+
       // Set metadata prioritizing playlist info (album metadata)
       // Title is left empty for bulk mode since each track will have its own title
       setMetadata({
@@ -497,7 +863,9 @@ function MetadataEditor({
         composer: '',
         publisher: '',
         comment: '',
-        description: playlistInfo?.playlistTitle ? `Playlist: ${playlistInfo.playlistTitle}` : (videoInfo?.description || ''),
+        description: playlistInfo?.playlistTitle
+          ? `Playlist: ${playlistInfo.playlistTitle}`
+          : videoInfo?.description || '',
         language: '',
         copyright: '',
         bpm: '',
@@ -509,15 +877,22 @@ function MetadataEditor({
     }
 
     // Initialize playlist individual mode
-    if (playlistInfo && playlistInfo.videos && playlistEditMode === 'individual' && mode === 'playlist') {
+    if (
+      playlistInfo &&
+      playlistInfo.videos &&
+      playlistEditMode === 'individual' &&
+      mode === 'playlist'
+    ) {
       // Get videos to display (filter by selectedVideos if provided)
-      const videosToUse = selectedVideos && selectedVideos.length > 0
-        ? playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1))
-        : playlistInfo.videos;
-      
+      const videosToUse =
+        selectedVideos && selectedVideos.length > 0
+          ? playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1))
+          : playlistInfo.videos;
+
       // Prefer artist field over uploader (artist is more accurate for music)
-      const sharedArtist = videoInfo?.artist || videoInfo?.uploader || playlistInfo?.playlistUploader || '';
-      
+      const sharedArtist =
+        videoInfo?.artist || videoInfo?.uploader || playlistInfo?.playlistUploader || '';
+
       setPlaylistSharedMetadata({
         artist: sharedArtist,
         album: playlistInfo.playlistTitle || '',
@@ -532,7 +907,7 @@ function MetadataEditor({
         copyright: '',
         bpm: '',
       });
-      
+
       // Initialize per-file metadata for displayed videos
       // Use video's artist if available, otherwise use shared artist
       const perFile = videosToUse.map((video, index) => ({
@@ -542,7 +917,7 @@ function MetadataEditor({
       }));
       setPerFileMetadata(perFile);
       setUseSharedArtist(true);
-      
+
       // Set thumbnail to first video's thumbnail for individual mode
       const thumbnailToUse = playlistInfo.videos[0]?.thumbnail || videoInfo?.thumbnail || '';
       setThumbnailUrl(thumbnailToUse);
@@ -571,7 +946,16 @@ function MetadataEditor({
         setCustomThumbnail(null);
       }
     }
-  }, [videoInfo, playlistInfo, chapterInfo, open, mode, playlistEditMode, selectedVideos, customMetadata]);
+  }, [
+    videoInfo,
+    playlistInfo,
+    chapterInfo,
+    open,
+    mode,
+    playlistEditMode,
+    selectedVideos,
+    customMetadata,
+  ]);
 
   const handleMetadataChange = useCallback((field, value) => {
     setMetadata((prev) => ({ ...prev, [field]: value }));
@@ -603,14 +987,14 @@ function MetadataEditor({
   const validateMetadata = useCallback((meta, type = 'single') => {
     const errors = {};
     const currentYear = new Date().getFullYear();
-    
+
     if (meta.year) {
       const yearNum = parseInt(meta.year, 10);
       if (isNaN(yearNum) || yearNum < 1900 || yearNum > currentYear + 1) {
         errors.year = `Year must be between 1900 and ${currentYear + 1}`;
       }
     }
-    
+
     if (meta.trackNumber && meta.totalTracks) {
       const trackNum = parseInt(meta.trackNumber, 10);
       const totalNum = parseInt(meta.totalTracks, 10);
@@ -618,14 +1002,14 @@ function MetadataEditor({
         errors.trackNumber = `Track number cannot exceed total tracks (${totalNum})`;
       }
     }
-    
+
     if (meta.bpm) {
       const bpmNum = parseInt(meta.bpm, 10);
       if (isNaN(bpmNum) || bpmNum < 1 || bpmNum > 300) {
         errors.bpm = 'BPM must be between 1 and 300';
       }
     }
-    
+
     return errors;
   }, []);
 
@@ -656,7 +1040,7 @@ function MetadataEditor({
       setErrorMessage('Failed to crop image. Please try again.');
       return;
     }
-    
+
     try {
       setThumbnailUrl(croppedImageUrl);
       setCustomThumbnail(croppedImageUrl);
@@ -676,9 +1060,10 @@ function MetadataEditor({
       }
       if (playlistEditMode === 'individual') {
         // Get videos to display (filter by selectedVideos if provided)
-        const videosToUse = selectedVideos && selectedVideos.length > 0
-          ? playlistInfo?.videos?.filter((_, idx) => selectedVideos.includes(idx + 1)) || []
-          : playlistInfo?.videos || [];
+        const videosToUse =
+          selectedVideos && selectedVideos.length > 0
+            ? playlistInfo?.videos?.filter((_, idx) => selectedVideos.includes(idx + 1)) || []
+            : playlistInfo?.videos || [];
         return videosToUse.length || playlistInfo?.playlistVideoCount || perFileMetadata.length;
       }
       return playlistInfo?.playlistVideoCount || perFileMetadata.length;
@@ -696,11 +1081,14 @@ function MetadataEditor({
       errors = validateMetadata(playlistSharedMetadata, 'playlist');
       // Validate per-file metadata
       perFileMetadata.forEach((fileMeta, index) => {
-        const fileErrors = validateMetadata({
-          ...playlistSharedMetadata,
-          ...fileMeta,
-          totalTracks: totalTracks.toString(),
-        }, 'playlist');
+        const fileErrors = validateMetadata(
+          {
+            ...playlistSharedMetadata,
+            ...fileMeta,
+            totalTracks: totalTracks.toString(),
+          },
+          'playlist'
+        );
         if (Object.keys(fileErrors).length > 0) {
           errors[`file_${index}`] = fileErrors;
         }
@@ -708,16 +1096,16 @@ function MetadataEditor({
     } else if (mode === 'chapter') {
       errors = validateMetadata(chapterMetadata.albumMetadata, 'chapter');
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setErrorMessage('Please fix validation errors before saving.');
       return;
     }
-    
+
     setValidationErrors({});
     setErrorMessage(null);
-    
+
     let metadataToSave = null;
 
     if (mode === 'single') {
@@ -743,9 +1131,7 @@ function MetadataEditor({
         const mergedPerFile = perFileMetadata.map((fileMeta, index) => ({
           ...playlistSharedMetadata,
           title: fileMeta.title || '',
-          artist: useSharedArtist 
-            ? playlistSharedMetadata.artist 
-            : (fileMeta.artist || ''),
+          artist: useSharedArtist ? playlistSharedMetadata.artist : fileMeta.artist || '',
           trackNumber: fileMeta.trackNumber || (index + 1).toString(),
           totalTracks: totalTracks.toString(),
         }));
@@ -788,7 +1174,7 @@ function MetadataEditor({
   // Keyboard shortcuts
   useEffect(() => {
     if (!open) return;
-    
+
     const handleKeyDown = (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -798,7 +1184,7 @@ function MetadataEditor({
         onClose();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, handleSave, onClose]);
@@ -855,9 +1241,13 @@ function MetadataEditor({
         onChange={handleMetadataChange}
         errors={validationErrors}
         showTrackNumbers={mode !== 'playlist'}
-        totalTracksDisplay={mode === 'playlist' ? (selectedVideos && selectedVideos.length > 0
-          ? selectedVideos.length
-          : playlistInfo?.playlistVideoCount || 0) : null}
+        totalTracksDisplay={
+          mode === 'playlist'
+            ? selectedVideos && selectedVideos.length > 0
+              ? selectedVideos.length
+              : playlistInfo?.playlistVideoCount || 0
+            : null
+        }
         hideTitle={mode === 'playlist' && playlistEditMode === 'bulk'}
       />
       {renderThumbnailSection()}
@@ -902,19 +1292,17 @@ function MetadataEditor({
           number can be customized per video.
         </Alert>
         {videosToDisplay.length > 20 && (
-          <Alert 
-            severity="warning" 
+          <Alert
+            severity="warning"
             sx={{ mb: 2 }}
             action={
-              <Button 
-                size="small" 
-                onClick={() => setPlaylistEditMode('bulk')}
-              >
+              <Button size="small" onClick={() => setPlaylistEditMode('bulk')}>
                 Switch to Bulk
               </Button>
             }
           >
-            Large playlist detected ({videosToDisplay.length} videos). Consider using bulk mode for better performance.
+            Large playlist detected ({videosToDisplay.length} videos). Consider using bulk mode for
+            better performance.
           </Alert>
         )}
 
@@ -1055,12 +1443,17 @@ function MetadataEditor({
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="h6" gutterBottom>
-          Individual Video Titles {selectedVideos && selectedVideos.length > 0 && `(${videosToDisplay.length} selected)`}
+          Individual Video Titles{' '}
+          {selectedVideos && selectedVideos.length > 0 && `(${videosToDisplay.length} selected)`}
         </Typography>
         {videosToDisplay.length > PLAYLIST_ITEMS_PER_PAGE && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+          >
             <Typography variant="body2" color="text.secondary">
-              Showing {playlistPage * PLAYLIST_ITEMS_PER_PAGE + 1}-{Math.min((playlistPage + 1) * PLAYLIST_ITEMS_PER_PAGE, videosToDisplay.length)} of {videosToDisplay.length}
+              Showing {playlistPage * PLAYLIST_ITEMS_PER_PAGE + 1}-
+              {Math.min((playlistPage + 1) * PLAYLIST_ITEMS_PER_PAGE, videosToDisplay.length)} of{' '}
+              {videosToDisplay.length}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button

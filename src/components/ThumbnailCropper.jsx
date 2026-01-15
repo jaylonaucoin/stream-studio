@@ -32,13 +32,13 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
       console.warn('Image not fully loaded yet');
       return;
     }
-    
+
     const { naturalWidth, naturalHeight } = image;
     const displayWidth = image.width;
     const displayHeight = image.height;
-    
+
     setImageLoaded(true);
-    
+
     // Set initial crop to center square using displayed dimensions (ReactCrop works with displayed size)
     const cropSize = Math.min(displayWidth, displayHeight) * 0.8;
     const initialCrop = {
@@ -188,7 +188,7 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
         // Try to convert to string, or use empty string as fallback
         urlString = String(imageUrl) || '';
       }
-      
+
       // If we couldn't get a valid string, exit early
       if (!urlString || typeof urlString !== 'string') {
         console.error('Invalid imageUrl type:', typeof imageUrl, imageUrl);
@@ -204,8 +204,9 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     }
 
     // Fetch image via main process (no CORS restrictions)
-    window.api.fetchImageAsDataUrl(urlString)
-      .then(result => {
+    window.api
+      .fetchImageAsDataUrl(urlString)
+      .then((result) => {
         if (result.success && result.dataUrl) {
           setLocalImageUrl(result.dataUrl);
         } else {
@@ -214,7 +215,7 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           setLocalImageUrl(urlString);
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error('Error fetching image:', error);
         // Fallback to original URL if fetch fails
         setLocalImageUrl(urlString);
@@ -283,10 +284,7 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
           }}
           variant="contained"
           startIcon={<CheckIcon />}
-          disabled={
-            !imageLoaded ||
-            (!completedCrop && (!crop || !crop.width || !crop.height))
-          }
+          disabled={!imageLoaded || (!completedCrop && (!crop || !crop.width || !crop.height))}
         >
           Apply Crop
         </Button>

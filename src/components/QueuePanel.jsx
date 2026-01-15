@@ -282,9 +282,7 @@ function QueuePanel({
                 ? {
                     ...q,
                     status: 'completed',
-                    fileName: result.isPlaylist
-                      ? `${result.fileCount} files`
-                      : result.fileName,
+                    fileName: result.isPlaylist ? `${result.fileCount} files` : result.fileName,
                     fileCount: result.fileCount,
                   }
                 : q
@@ -309,7 +307,15 @@ function QueuePanel({
     if (onQueueComplete) {
       onQueueComplete();
     }
-  }, [queue, isProcessing, outputFolder, defaultMode, defaultFormat, defaultQuality, onQueueComplete]);
+  }, [
+    queue,
+    isProcessing,
+    outputFolder,
+    defaultMode,
+    defaultFormat,
+    defaultQuality,
+    onQueueComplete,
+  ]);
 
   const getStatusIcon = (status) => {
     switch (status) {

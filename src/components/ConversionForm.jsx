@@ -1013,183 +1013,178 @@ function ConversionForm({
         </Paper>
       )}
 
-      {chapterInfo &&
-        !loadingChapters &&
-        !playlistInfo?.isPlaylist &&
-        chapterInfo.hasChapters && (
-          <Paper
-            elevation={1}
+      {chapterInfo && !loadingChapters && !playlistInfo?.isPlaylist && chapterInfo.hasChapters && (
+        <Paper
+          elevation={1}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 2,
+            borderColor: 'primary.main',
+          }}
+        >
+          <Box
             sx={{
-              p: 2,
-              mb: 2,
-              borderRadius: 2,
-              bgcolor: 'background.paper',
-              border: 2,
-              borderColor: 'primary.main',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 1.5,
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mb: 1.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-                <PlayArrowIcon sx={{ color: 'primary.main' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                  Chapters
-                </Typography>
-                <Chip
-                  label={`${selectedChapters.length} of ${chapterInfo.totalChapters} selected`}
-                  size="small"
-                  sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
-                />
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Button
-                  size="small"
-                  onClick={handleSelectAllChapters}
-                  disabled={
-                    isConverting ||
-                    disabled ||
-                    selectedChapters.length === chapterInfo.totalChapters
-                  }
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  Select All
-                </Button>
-                <Button
-                  size="small"
-                  onClick={handleDeselectAllChapters}
-                  disabled={isConverting || disabled || selectedChapters.length === 0}
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  Deselect All
-                </Button>
-                <Tooltip title="Edit Metadata">
-                  <IconButton
-                    size="small"
-                    onClick={() => setMetadataEditorOpen(true)}
-                    disabled={isConverting || disabled}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
-            <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-            <Box sx={{ mb: 1.5 }}>
-              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Download mode:
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+              <PlayArrowIcon sx={{ color: 'primary.main' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                Chapters
               </Typography>
-              <ToggleButtonGroup
-                value={chapterDownloadMode}
-                exclusive
-                onChange={(e, newMode) => {
-                  if (newMode !== null) {
-                    setChapterDownloadMode(newMode);
-                  }
-                }}
-                aria-label="Chapter download mode"
-                disabled={isConverting || disabled || selectedChapters.length === 0}
-                fullWidth
-                sx={{ height: '40px' }}
+              <Chip
+                label={`${selectedChapters.length} of ${chapterInfo.totalChapters} selected`}
+                size="small"
+                sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                size="small"
+                onClick={handleSelectAllChapters}
+                disabled={
+                  isConverting || disabled || selectedChapters.length === chapterInfo.totalChapters
+                }
+                sx={{ minWidth: 'auto', px: 1 }}
               >
-                <ToggleButton value="full" aria-label="Full video mode">
-                  Full Video
-                </ToggleButton>
-                <ToggleButton value="split" aria-label="Selected chapters mode">
-                  Selected Chapters
-                </ToggleButton>
-              </ToggleButtonGroup>
-              {selectedChapters.length > 0 && chapterDownloadMode === 'full' && (
-                <Typography
-                  variant="caption"
-                  sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={handleDeselectAllChapters}
+                disabled={isConverting || disabled || selectedChapters.length === 0}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Deselect All
+              </Button>
+              <Tooltip title="Edit Metadata">
+                <IconButton
+                  size="small"
+                  onClick={() => setMetadataEditorOpen(true)}
+                  disabled={isConverting || disabled}
                 >
-                  The entire video will be downloaded as one file, ignoring chapter selection.
-                </Typography>
-              )}
-              {selectedChapters.length > 0 && chapterDownloadMode === 'split' && (
-                <Typography
-                  variant="caption"
-                  sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}
-                >
-                  Selected chapters will be downloaded as separate files.
-                </Typography>
-              )}
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
             </Box>
-            <Box
-              sx={{
-                maxHeight: 300,
-                overflowY: 'auto',
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 1,
+          </Box>
+          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Download mode:
+            </Typography>
+            <ToggleButtonGroup
+              value={chapterDownloadMode}
+              exclusive
+              onChange={(e, newMode) => {
+                if (newMode !== null) {
+                  setChapterDownloadMode(newMode);
+                }
               }}
+              aria-label="Chapter download mode"
+              disabled={isConverting || disabled || selectedChapters.length === 0}
+              fullWidth
+              sx={{ height: '40px' }}
             >
-              <List dense sx={{ py: 0 }}>
-                {chapterInfo.chapters.map((chapter, index) => (
-                  <ListItem
-                    key={index}
-                    disablePadding
-                    sx={{
-                      borderBottom: index < chapterInfo.chapters.length - 1 ? 1 : 0,
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <ListItemButton
-                      onClick={() => handleChapterToggle(index)}
-                      disabled={isConverting || disabled}
-                      sx={{ py: 1 }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 40 }}>
-                        <Checkbox
-                          edge="start"
-                          checked={selectedChapters.includes(index)}
-                          tabIndex={-1}
-                          disableRipple
-                          icon={<CheckBoxOutlineBlankIcon />}
-                          checkedIcon={<CheckBoxIcon />}
-                        />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {chapter.title}
-                          </Typography>
-                        }
-                        secondary={
-                          <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
-                            <Chip
-                              label={chapter.timeRange}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
-                            <Chip
-                              label={chapter.durationFormatted}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
-                          </Box>
-                        }
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-            {selectedChapters.length === 0 && (
-              <Alert severity="info" sx={{ mt: 1.5 }}>
-                No chapters selected. The full video will be downloaded.
-              </Alert>
+              <ToggleButton value="full" aria-label="Full video mode">
+                Full Video
+              </ToggleButton>
+              <ToggleButton value="split" aria-label="Selected chapters mode">
+                Selected Chapters
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {selectedChapters.length > 0 && chapterDownloadMode === 'full' && (
+              <Typography
+                variant="caption"
+                sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}
+              >
+                The entire video will be downloaded as one file, ignoring chapter selection.
+              </Typography>
             )}
-          </Paper>
-        )}
+            {selectedChapters.length > 0 && chapterDownloadMode === 'split' && (
+              <Typography
+                variant="caption"
+                sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}
+              >
+                Selected chapters will be downloaded as separate files.
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              maxHeight: 300,
+              overflowY: 'auto',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
+            <List dense sx={{ py: 0 }}>
+              {chapterInfo.chapters.map((chapter, index) => (
+                <ListItem
+                  key={index}
+                  disablePadding
+                  sx={{
+                    borderBottom: index < chapterInfo.chapters.length - 1 ? 1 : 0,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemButton
+                    onClick={() => handleChapterToggle(index)}
+                    disabled={isConverting || disabled}
+                    sx={{ py: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Checkbox
+                        edge="start"
+                        checked={selectedChapters.includes(index)}
+                        tabIndex={-1}
+                        disableRipple
+                        icon={<CheckBoxOutlineBlankIcon />}
+                        checkedIcon={<CheckBoxIcon />}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {chapter.title}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
+                          <Chip
+                            label={chapter.timeRange}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                          <Chip
+                            label={chapter.durationFormatted}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+          {selectedChapters.length === 0 && (
+            <Alert severity="info" sx={{ mt: 1.5 }}>
+              No chapters selected. The full video will be downloaded.
+            </Alert>
+          )}
+        </Paper>
+      )}
 
       <Box
         sx={{

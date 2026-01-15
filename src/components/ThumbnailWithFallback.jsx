@@ -30,7 +30,14 @@ export const ThumbnailPlaceholder = ({ isPlaylist = false, width = 160, height =
 );
 
 // Thumbnail with fallback component - tries multiple URLs in sequence
-const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160, height = 90, sx = {} }) => {
+const ThumbnailWithFallback = ({
+  thumbnail,
+  alt,
+  isPlaylist = false,
+  width = 160,
+  height = 90,
+  sx = {},
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   // Use ref to track loaded state - persists across re-renders without causing them
@@ -45,17 +52,17 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
   }, [thumbnail]);
 
   const currentUrl = thumbnailUrls[currentIndex];
-  
+
   // Use a ref to track the last loaded URL to prevent unnecessary resets
   const lastLoadedUrlRef = useRef(null);
-  
+
   // Compute if image is cached synchronously using useMemo
   // This runs during render, before effects, so we can use it immediately
   const isCached = useMemo(() => {
     if (!currentUrl) return false;
     return globalImageCache.has(currentUrl);
   }, [currentUrl]);
-  
+
   // Initialize loaded state from cache synchronously if cached
   // This MUST happen before any effects that might reset it
   if (isCached) {
@@ -66,7 +73,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
       imageLoadedRef.current = true;
     }
   }
-  
+
   // Check if image is cached immediately
   useEffect(() => {
     if (currentUrl && !imageLoadedRef.current) {
@@ -74,10 +81,10 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
         lastLoadedUrlRef.current = currentUrl;
         imageLoadedRef.current = true;
         setShowPlaceholder(false);
-        forceUpdate(n => n + 1);
+        forceUpdate((n) => n + 1);
         return;
       }
-      
+
       // Create a test image to check if it's cached in browser
       const testImg = new Image();
       testImg.onload = () => {
@@ -85,7 +92,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
         lastLoadedUrlRef.current = currentUrl;
         imageLoadedRef.current = true;
         setShowPlaceholder(false);
-        forceUpdate(n => n + 1);
+        forceUpdate((n) => n + 1);
       };
       testImg.onerror = () => {
         // Image not cached, will load normally
@@ -93,7 +100,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
       testImg.src = currentUrl;
     }
   }, [currentUrl]);
-  
+
   // Reset image loaded state when URL actually changes
   useEffect(() => {
     if (currentUrl && currentUrl !== lastLoadedUrlRef.current) {
@@ -104,7 +111,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
         imageLoadedRef.current = true;
         lastLoadedUrlRef.current = currentUrl;
       }
-      forceUpdate(n => n + 1);
+      forceUpdate((n) => n + 1);
     }
   }, [currentUrl]);
 
@@ -122,7 +129,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
     if (Array.isArray(thumbnail)) return JSON.stringify(thumbnail);
     return String(thumbnail);
   }, [thumbnail]);
-  
+
   const prevThumbnailKeyRef = useRef('');
 
   // Reset when thumbnail prop actually changes
@@ -139,11 +146,11 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
           imageLoadedRef.current = true;
           lastLoadedUrlRef.current = firstUrl;
         }
-        forceUpdate(n => n + 1);
+        forceUpdate((n) => n + 1);
       } else if (firstUrl === lastLoadedUrlRef.current) {
         setCurrentIndex(0);
         setShowPlaceholder(false);
-        forceUpdate(n => n + 1);
+        forceUpdate((n) => n + 1);
       }
       prevThumbnailKeyRef.current = thumbnailKey;
     }
@@ -152,7 +159,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
   if (showPlaceholder || !currentUrl) {
     return <ThumbnailPlaceholder isPlaylist={isPlaylist} width={width} height={height} />;
   }
-  
+
   const imgRef = useRef(null);
 
   // Show placeholder while image is loading
@@ -171,7 +178,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
             lastLoadedUrlRef.current = currentUrl;
             imageLoadedRef.current = true;
             setShowPlaceholder(false);
-            forceUpdate(n => n + 1);
+            forceUpdate((n) => n + 1);
           }}
           sx={{
             display: 'none',
@@ -195,7 +202,7 @@ const ThumbnailWithFallback = ({ thumbnail, alt, isPlaylist = false, width = 160
         lastLoadedUrlRef.current = currentUrl;
         imageLoadedRef.current = true;
         setShowPlaceholder(false);
-        forceUpdate(n => n + 1);
+        forceUpdate((n) => n + 1);
       }}
       sx={{
         width: { xs: '100%', sm: width },
