@@ -1,6 +1,6 @@
 {
   "name": "media-converter",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A desktop app to download and convert online videos/audio from 1000+ sites (YouTube, Vimeo, TikTok, Twitter, etc.) to various formats using yt-dlp and ffmpeg",
   "main": "main.js",
   "author": "",
