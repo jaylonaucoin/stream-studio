@@ -792,6 +792,25 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     // Get file extension for the selected format
     const fileExtension = getFormatExtension(format, mode);
     
+    // Helper function to get album name from metadata for folder naming
+    const getAlbumNameForFolder = (defaultName) => {
+      if (customMetadata) {
+        if (customMetadata.type === 'chapter' && customMetadata.chapterMetadata?.albumMetadata?.album) {
+          return customMetadata.chapterMetadata.albumMetadata.album;
+        }
+        if (customMetadata.type === 'segment' && customMetadata.segmentMetadata?.albumMetadata?.album) {
+          return customMetadata.segmentMetadata.albumMetadata.album;
+        }
+        if (customMetadata.type === 'playlist' && customMetadata.playlistSharedMetadata?.album) {
+          return customMetadata.playlistSharedMetadata.album;
+        }
+        if (customMetadata.type === 'single' && customMetadata.metadata?.album) {
+          return customMetadata.metadata.album;
+        }
+      }
+      return defaultName;
+    };
+    
     // Determine output template based on playlist mode, chapters, and manual segments
     let outputTemplate;
     let playlistSubfolder = null;
@@ -805,9 +824,16 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
         return name.replace(/[<>:"/\\|?*]/g, '_').trim();
       };
       
+      // Store album name for potential folder rename after download
+      // yt-dlp will create folder with playlist_title, we'll rename it if album name is provided
+      const playlistAlbumName = customMetadata?.type === 'playlist' && customMetadata.playlistSharedMetadata?.album
+        ? sanitizeFolderName(customMetadata.playlistSharedMetadata.album)
+        : null;
+      
       // Create output template with playlist subfolder (no numbered prefix, using metadata track numbers)
+      // Use playlist_title template variable - we'll rename folder after download if album name is provided
       if (fileExtension) {
-        // Template: PlaylistName/%(title)s.%(ext)s
+        // Template: PlaylistTitle/%(title)s.%(ext)s
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', `%(title)s.${fileExtension}`);
       } else {
         outputTemplate = path.join(outputFolder, '%(playlist_title)s', '%(title)s.%(ext)s');
@@ -854,11 +880,28 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     if (isChapterDownload && selectedChapters && Array.isArray(selectedChapters) && selectedChapters.length > 0) {
       // Get chapter info to know which files to keep after download
       try {
-        const cacheKey = sanitizedUrl;
-        const cached = chapterInfoCache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL && cached.data.hasChapters) {
-          chapterInfoForDownload = cached.data;
+        // #region agent log
+        const logPath = path.join(__dirname, '.cursor', 'debug.log');
+        const logData = JSON.stringify({location:'main.js:880',message:'Checking for chapterInfo',data:{hasOptionsChapterInfo:!!options.chapterInfo,optionsChapterInfoTitles:options.chapterInfo?.chapters?.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+        fs.appendFileSync(logPath, logData);
+        // #endregion
+        // Use options.chapterInfo if provided (contains edited titles), otherwise use cache
+        if (options.chapterInfo && options.chapterInfo.hasChapters) {
+          chapterInfoForDownload = options.chapterInfo;
+          // #region agent log
+          const logData2 = JSON.stringify({location:'main.js:886',message:'Using options.chapterInfo',data:{chapterInfoTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+          fs.appendFileSync(logPath, logData2);
+          // #endregion
         } else {
+          const cacheKey = sanitizedUrl;
+          const cached = chapterInfoCache.get(cacheKey);
+          if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL && cached.data.hasChapters) {
+            chapterInfoForDownload = cached.data;
+            // #region agent log
+            const logData3 = JSON.stringify({location:'main.js:900',message:'Using cached chapterInfo',data:{chapterInfoTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n';
+            fs.appendFileSync(logPath, logData3);
+            // #endregion
+          } else {
           // Fetch chapter info if not cached
           const infoArgs = [
             '--dump-json',
@@ -933,6 +976,7 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               data: infoResult,
               timestamp: Date.now()
             });
+          }
           }
         }
         
@@ -1382,7 +1426,9 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 return name.replace(/[<>:"/\\|?*]/g, '_').trim();
               };
               
-              const sanitizedVideoTitle = sanitizeFolderName(videoTitle);
+              // Use album name from metadata if available, otherwise use video title
+              const folderName = getAlbumNameForFolder(videoTitle);
+              const sanitizedVideoTitle = sanitizeFolderName(folderName);
               const chapterFolder = path.join(outputFolder, sanitizedVideoTitle);
               
               // Create chapter folder if it doesn't exist
@@ -1529,6 +1575,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                 .map(idx => chapterInfoForDownload.chapters[idx]?.title)
                 .filter(Boolean);
               
+              // #region agent log
+              const logPath = path.join(__dirname, '.cursor', 'debug.log');
+              const logData8 = JSON.stringify({location:'main.js:1574',message:'Chapter matching setup',data:{selectedChapters,selectedChapterTitles,allChapters:chapterInfoForDownload.chapters.map((c,idx)=>({index:idx,title:c.title,startTime:c.startTime}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+              fs.appendFileSync(logPath, logData8);
+              // #endregion
+              
               const keptFiles = [];
               const filesToDelete = [];
               
@@ -1543,6 +1595,13 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               });
               
               for (const file of chapterFiles) {
+                // Extract chapter number and name from filename
+                // Pattern: "Video Title - 001 Chapter Name [videoID].ext"
+                // Extract chapter number (001 = 1, which is chapter index 0)
+                const chapterNumMatch = file.fileName.match(/\s+-\s+(\d{3})/);
+                const chapterNumber = chapterNumMatch ? parseInt(chapterNumMatch[1], 10) : null;
+                const chapterIndexFromFile = chapterNumber !== null ? chapterNumber - 1 : null;
+                
                 // Extract chapter name from filename
                 // Pattern: "Video Title - 001 Chapter Name [videoID].ext"
                 // Actual pattern: "Video Title - 001 A1： Chapter Name [videoID].ext" (note full-width colon)
@@ -1569,12 +1628,27 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   }
                 }
                 
-                if (chapterNameFromFile) {
-                  
-                  // Check if this chapter is in our selected list
+                // #region agent log
+                const logData9 = JSON.stringify({location:'main.js:1591',message:'Processing chapter file',data:{fileName:file.fileName,chapterNumber,chapterIndexFromFile,chapterNameFromFile,isInSelectedChapters:chapterIndexFromFile !== null && selectedChapters.includes(chapterIndexFromFile)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                fs.appendFileSync(logPath, logData9);
+                // #endregion
+                
+                // Check if this chapter is selected by index (more reliable than name matching)
+                let isSelected = false;
+                let matchingChapter = null;
+                
+                if (chapterIndexFromFile !== null && chapterIndexFromFile >= 0 && chapterIndexFromFile < chapterInfoForDownload.chapters.length) {
+                  if (selectedChapters.includes(chapterIndexFromFile)) {
+                    isSelected = true;
+                    matchingChapter = chapterInfoForDownload.chapters[chapterIndexFromFile];
+                  }
+                }
+                
+                // Fallback: try to match by name if index matching failed
+                if (!isSelected && chapterNameFromFile) {
                   // Note: Filenames may contain full-width colons (：) that need to be normalized
                   const normalizedChapterName = chapterNameFromFile.replace(/：/g, ':').replace(/\s+/g, ' ').trim();
-                  const isSelected = selectedChapterTitles.some(title => {
+                  const nameMatch = selectedChapterTitles.some(title => {
                     // Match by chapter name
                     const sanitizedChapterName = normalizedChapterName.replace(/[<>:"/\\|?*]/g, '_');
                     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '_');
@@ -1586,42 +1660,56 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                            normalizedTitle.includes(normalizedChapterName);
                   });
                   
-                  if (isSelected) {
+                  if (nameMatch) {
                     // Find the matching chapter to get the exact title
-                    const matchingChapter = chapterInfoForDownload.chapters.find((ch, idx) => 
+                    matchingChapter = chapterInfoForDownload.chapters.find((ch, idx) => 
                       selectedChapters.includes(idx) && (
                         ch.title === chapterNameFromFile ||
                         ch.title.includes(chapterNameFromFile) ||
                         chapterNameFromFile.includes(ch.title)
                       )
                     );
-                    
-                    const finalChapterName = matchingChapter ? matchingChapter.title : chapterNameFromFile;
-                    const sanitizedChapterName = sanitizeFolderName(finalChapterName);
-                    const newFileName = `${sanitizedChapterName}.${expectedExtension}`;
-                    const newFilePath = path.join(chapterFolder, newFileName);
-                    const uniqueFilePath = getUniqueFilename(newFilePath);
-                    
-                    try {
-                      // Move and rename file to folder with just chapter name
-                      fs.renameSync(file.filePath, uniqueFilePath);
-                      keptFiles.push({
-                        fileName: path.basename(uniqueFilePath),
-                        filePath: uniqueFilePath
-                      });
-                    } catch (renameError) {
-                      console.warn(`Failed to move/rename chapter file ${file.fileName}:`, renameError);
-                      // Keep original if rename fails
-                      keptFiles.push({
-                        fileName: file.fileName,
-                        filePath: file.filePath
-                      });
-                    }
-                  } else {
-                    filesToDelete.push(file);
+                    isSelected = !!matchingChapter;
+                  }
+                }
+                
+                if (isSelected && matchingChapter) {
+                  // Use the chapter title from chapterInfo (which may have been edited)
+                  const finalChapterName = matchingChapter.title || chapterNameFromFile || `Chapter ${chapterNumber || 'Unknown'}`;
+                  const sanitizedChapterName = sanitizeFolderName(finalChapterName);
+                  const newFileName = `${sanitizedChapterName}.${expectedExtension}`;
+                  const newFilePath = path.join(chapterFolder, newFileName);
+                  const uniqueFilePath = getUniqueFilename(newFilePath);
+                  
+                  // #region agent log
+                  const logData10 = JSON.stringify({location:'main.js:1650',message:'Keeping chapter file',data:{fileName:file.fileName,newFileName,chapterIndex:chapterIndexFromFile,chapterTitle:matchingChapter.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                  fs.appendFileSync(logPath, logData10);
+                  // #endregion
+                  
+                  try {
+                    // Move and rename file to folder with just chapter name
+                    fs.renameSync(file.filePath, uniqueFilePath);
+                    keptFiles.push({
+                      fileName: path.basename(uniqueFilePath),
+                      filePath: uniqueFilePath,
+                      chapterIndex: chapterIndexFromFile, // Store chapter index for metadata application
+                      originalFileName: file.fileName
+                    });
+                  } catch (renameError) {
+                    console.warn(`Failed to move/rename chapter file ${file.fileName}:`, renameError);
+                    // Keep original if rename fails
+                    keptFiles.push({
+                      fileName: file.fileName,
+                      filePath: file.filePath,
+                      chapterIndex: chapterIndexFromFile,
+                      originalFileName: file.fileName
+                    });
                   }
                 } else {
-                  // Can't parse, delete it (shouldn't happen but safety check)
+                  // #region agent log
+                  const logData11 = JSON.stringify({location:'main.js:1670',message:'Deleting chapter file',data:{fileName:file.fileName,chapterIndex:chapterIndexFromFile,reason:!isSelected?'not selected':'no match'},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                  fs.appendFileSync(logPath, logData11);
+                  // #endregion
                   filesToDelete.push(file);
                 }
               }
@@ -1639,9 +1727,13 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     // Apply custom metadata if provided (async - already in async IIFE, but keeping structure consistent)
                     if (customMetadata && customMetadata.type === 'chapter' && customMetadata.chapterMetadata) {
                       try {
+                        // #region agent log
+                        const logPath = path.join(__dirname, '.cursor', 'debug.log');
+                        const logData5 = JSON.stringify({location:'main.js:1686',message:'Starting metadata application',data:{keptFilesCount:keptFiles.length,selectedChapters,chapterInfoForDownloadChaptersCount:chapterInfoForDownload?.chapters?.length,chapterInfoForDownloadChapters:chapterInfoForDownload?.chapters?.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                        fs.appendFileSync(logPath, logData5);
+                        // #endregion
                         const albumMeta = customMetadata.chapterMetadata.albumMetadata || {};
                         const template = customMetadata.chapterMetadata.chapterTitleTemplate || '{chapterTitle}';
-                        const useChapterTitles = customMetadata.chapterMetadata.useChapterTitles !== false;
                         
                         // Sort keptFiles to match chapter order
                         const sortedFiles = [...keptFiles].sort((a, b) => {
@@ -1653,15 +1745,54 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                           return 0;
                         });
                         
+                        // #region agent log
+                        const logData6 = JSON.stringify({location:'main.js:1700',message:'Sorted files',data:{sortedFilesCount:sortedFiles.length,sortedFileNames:sortedFiles.map(f=>f.fileName)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                        fs.appendFileSync(logPath, logData6);
+                        // #endregion
+                        
                         // Apply metadata to each chapter file
+                        // IMPORTANT: sortedFiles are sorted by chapter number (001, 002, etc.)
+                        // We stored chapterIndex in keptFiles when we processed them, so use that
                         for (let i = 0; i < sortedFiles.length; i++) {
                           const file = sortedFiles[i];
-                          const chapterIndex = selectedChapters[i];
-                          const chapter = chapterInfoForDownload.chapters[chapterIndex];
+                          
+                          // Use the chapterIndex we stored when processing the file
+                          // If not available, try to extract from filename
+                          let chapterIndex = file.chapterIndex;
+                          let chapter = null;
+                          
+                          if (chapterIndex !== null && chapterIndex !== undefined && chapterIndex >= 0 && chapterIndex < chapterInfoForDownload.chapters.length) {
+                            chapter = chapterInfoForDownload.chapters[chapterIndex];
+                          } else {
+                            // Fallback: extract chapter number from filename
+                            const chapterNumMatch = file.fileName.match(/\s+-\s+(\d{3})/) || file.originalFileName?.match(/\s+-\s+(\d{3})/);
+                            const chapterNumber = chapterNumMatch ? parseInt(chapterNumMatch[1], 10) : null;
+                            
+                            if (chapterNumber !== null) {
+                              // Chapter number is 1-based (001 = first chapter = index 0)
+                              const fileChapterIndex = chapterNumber - 1;
+                              if (selectedChapters.includes(fileChapterIndex) && fileChapterIndex < chapterInfoForDownload.chapters.length) {
+                                chapterIndex = fileChapterIndex;
+                                chapter = chapterInfoForDownload.chapters[chapterIndex];
+                              }
+                            }
+                            
+                            // Last resort: use position in selectedChapters array
+                            if (!chapter && i < selectedChapters.length) {
+                              chapterIndex = selectedChapters[i];
+                              chapter = chapterInfoForDownload.chapters[chapterIndex];
+                            }
+                          }
+                          
+                          // #region agent log
+                          const logData4 = JSON.stringify({location:'main.js:1713',message:'Applying metadata to chapter',data:{i,chapterIndex,chapterTitle:chapter?.title,selectedChapters,fileName:file.fileName,storedChapterIndex:file.chapterIndex,allChapterTitles:chapterInfoForDownload.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'F'})+'\n';
+                          fs.appendFileSync(logPath, logData4);
+                          // #endregion
                           
                           // Build title from template
+                          // Apply template if it exists and is not the default pass-through
                           let title = chapter?.title || `Chapter ${i + 1}`;
-                          if (!useChapterTitles && template) {
+                          if (template && template !== '{chapterTitle}') {
                             title = template
                               .replace('{chapterTitle}', chapter?.title || `Chapter ${i + 1}`)
                               .replace('{album}', albumMeta.album || '')
@@ -1674,6 +1805,11 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                             trackNumber: (i + 1).toString(),
                             totalTracks: sortedFiles.length.toString(),
                           };
+                          
+                          // #region agent log
+                          const logData7 = JSON.stringify({location:'main.js:1745',message:'Metadata to apply',data:{metadata,fileName:file.fileName},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'E'})+'\n';
+                          fs.appendFileSync(logPath, logData7);
+                          // #endregion
                           
                           await applyMetadataToFile(file.filePath, metadata, customMetadata.thumbnail);
                         }
@@ -1767,7 +1903,10 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   const sanitizeFolderName = (name) => {
                     return name.replace(/[<>:"/\\|?*]/g, '_').trim();
                   };
-                  const sanitizedVideoTitle = sanitizeFolderName(videoTitle);
+                  
+                  // Use album name from metadata if available, otherwise use video title
+                  const folderName = getAlbumNameForFolder(videoTitle);
+                  const sanitizedVideoTitle = sanitizeFolderName(folderName);
                   const segmentFolder = path.join(outputFolder, sanitizedVideoTitle);
                   
                   // Create segment folder
@@ -1992,8 +2131,35 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               
               if (directories.length > 0) {
                 // Use the most recently modified directory (should be our playlist folder)
-                const playlistFolder = directories[0].path;
-                const playlistFolderName = directories[0].name;
+                let playlistFolder = directories[0].path;
+                let playlistFolderName = directories[0].name;
+                
+                // Rename folder to album name if provided in metadata
+                const sanitizeFolderName = (name) => {
+                  return name.replace(/[<>:"/\\|?*]/g, '_').trim();
+                };
+                const albumName = customMetadata?.type === 'playlist' && customMetadata.playlistSharedMetadata?.album
+                  ? sanitizeFolderName(customMetadata.playlistSharedMetadata.album)
+                  : null;
+                
+                if (albumName && albumName !== playlistFolderName) {
+                  try {
+                    const newPlaylistFolder = path.join(outputFolder, albumName);
+                    // Check if target folder already exists
+                    if (!fs.existsSync(newPlaylistFolder)) {
+                      fs.renameSync(playlistFolder, newPlaylistFolder);
+                      playlistFolder = newPlaylistFolder;
+                      playlistFolderName = albumName;
+                    } else {
+                      // If target exists, use it (might be from previous download)
+                      playlistFolder = newPlaylistFolder;
+                      playlistFolderName = albumName;
+                    }
+                  } catch (renameError) {
+                    console.warn('Failed to rename playlist folder to album name:', renameError);
+                    // Continue with original folder name
+                  }
+                }
                 
                 // Get all files in the playlist folder
                 const playlistFiles = fs.readdirSync(playlistFolder)

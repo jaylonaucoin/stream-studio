@@ -303,6 +303,7 @@ function App() {
           playlistMode: options.playlistMode || 'single',
           chapters: options.chapters || null,
           chapterDownloadMode: options.chapterDownloadMode || null,
+          chapterInfo: options.chapterInfo || null, // Pass edited chapter titles
           manualSegments: options.manualSegments || null,
           useSharedArtistForSegments: options.useSharedArtistForSegments !== false,
           customMetadata: options.customMetadata || null,

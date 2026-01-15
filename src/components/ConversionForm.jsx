@@ -195,6 +195,9 @@ function ConversionForm({
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [selectedChapters, setSelectedChapters] = useState([]); // Array of chapter indices
   const [chapterDownloadMode, setChapterDownloadMode] = useState('split'); // 'full' or 'split'
+  const [editedChapterTitles, setEditedChapterTitles] = useState({}); // Map of chapterIndex -> editedTitle
+  const [editingChapterIndex, setEditingChapterIndex] = useState(null); // Currently editing chapter index
+  const [editingChapterValue, setEditingChapterValue] = useState(''); // Temporary value while editing
   const chapterTimeoutRef = useRef(null);
 
   // Manual segment state (for videos without chapters)
@@ -233,6 +236,8 @@ function ConversionForm({
     setSelectedVideos([]); // Reset selected videos
     setCustomMetadata(null); // Reset custom metadata
     setSegments([]); // Reset manual segments
+    setEditedChapterTitles({}); // Reset edited chapter titles
+    setEditingChapterIndex(null); // Reset editing state
 
     // Validate URL first
     const trimmed = url.trim();
@@ -450,6 +455,58 @@ function ConversionForm({
     setSelectedChapters([]);
   }, []);
 
+  // Chapter title editing handlers
+  const handleChapterTitleEdit = useCallback((chapterIndex) => {
+    const chapter = chapterInfo?.chapters?.[chapterIndex];
+    if (!chapter) return;
+    
+    const currentTitle = editedChapterTitles[chapterIndex] ?? chapter.title;
+    setEditingChapterIndex(chapterIndex);
+    setEditingChapterValue(currentTitle);
+  }, [chapterInfo, editedChapterTitles]);
+
+  const handleChapterTitleSave = useCallback((chapterIndex) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:468',message:'handleChapterTitleSave called',data:{chapterIndex,editingChapterValue:editingChapterValue.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    if (editingChapterValue.trim()) {
+      setEditedChapterTitles((prev) => {
+        const newTitles = { ...prev, [chapterIndex]: editingChapterValue.trim() };
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:472',message:'editedChapterTitles updated',data:{chapterIndex,newTitle:editingChapterValue.trim(),allEditedTitles:newTitles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return newTitles;
+      });
+    } else {
+      // Remove from edited titles if empty
+      setEditedChapterTitles((prev) => {
+        const newTitles = { ...prev };
+        delete newTitles[chapterIndex];
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:478',message:'editedChapterTitles removed',data:{chapterIndex,allEditedTitles:newTitles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return newTitles;
+      });
+    }
+    setEditingChapterIndex(null);
+    setEditingChapterValue('');
+  }, [editingChapterValue]);
+
+  const handleChapterTitleCancel = useCallback(() => {
+    setEditingChapterIndex(null);
+    setEditingChapterValue('');
+  }, []);
+
+  const handleChapterTitleKeyDown = useCallback((e, chapterIndex) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleChapterTitleSave(chapterIndex);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleChapterTitleCancel();
+    }
+  }, [handleChapterTitleSave, handleChapterTitleCancel]);
+
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
@@ -477,11 +534,35 @@ function ConversionForm({
           options.chapterDownloadMode = null;
           options.chapters = null;
         } else if (chapterInfo && chapterInfo.hasChapters) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:527',message:'Building chapterInfo with edits',data:{editedChapterTitles,originalChapters:chapterInfo.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          // Merge edited chapter titles into chapterInfo
+          const chaptersWithEdits = chapterInfo.chapters.map((chapter, index) => ({
+            ...chapter,
+            title: editedChapterTitles[index] ?? chapter.title,
+          }));
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:532',message:'chaptersWithEdits created',data:{editedTitles:chaptersWithEdits.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          
+          // Create updated chapterInfo with edited titles
+          const updatedChapterInfo = {
+            ...chapterInfo,
+            chapters: chaptersWithEdits,
+          };
+          
           // Pass chapter download mode and selected chapters if chapters exist
           options.chapterDownloadMode = chapterDownloadMode;
           // Only pass selectedChapters when mode is 'split'
           if (chapterDownloadMode === 'split' && selectedChapters && selectedChapters.length > 0) {
             options.chapters = selectedChapters;
+            // Pass updated chapterInfo with edited titles
+            options.chapterInfo = updatedChapterInfo;
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:546',message:'options.chapterInfo set',data:{chapterInfoTitles:updatedChapterInfo.chapters.map(c=>c.title),selectedChapters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
           }
         }
         // Pass custom metadata if set
@@ -507,6 +588,7 @@ function ConversionForm({
       segments,
       useSharedArtistForSegments,
       customMetadata,
+      editedChapterTitles,
       onConvert,
     ]
   );
@@ -1185,9 +1267,40 @@ function ConversionForm({
                     </ListItemIcon>
                     <ListItemText
                       primary={
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {chapter.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {editingChapterIndex === index ? (
+                            <TextField
+                              value={editingChapterValue}
+                              onChange={(e) => setEditingChapterValue(e.target.value)}
+                              onBlur={() => handleChapterTitleSave(index)}
+                              onKeyDown={(e) => handleChapterTitleKeyDown(e, index)}
+                              size="small"
+                              autoFocus
+                              fullWidth
+                              sx={{ flexGrow: 1 }}
+                              inputProps={{ style: { fontSize: '0.875rem' } }}
+                            />
+                          ) : (
+                            <>
+                              <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>
+                                {editedChapterTitles[index] ?? chapter.title}
+                              </Typography>
+                              <Tooltip title="Edit chapter title">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleChapterTitleEdit(index);
+                                  }}
+                                  disabled={isConverting || disabled}
+                                  sx={{ ml: 0.5 }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
                       }
                       secondary={
                         <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>

@@ -16,6 +16,22 @@ import {
   ListItem,
   Chip,
 } from '@mui/material';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -188,6 +204,24 @@ const SegmentRow = ({
   const [startError, setStartError] = useState('');
   const [endError, setEndError] = useState('');
   
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: segment.id,
+    disabled: disabled,
+  });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  
   const validateTime = useCallback((timeStr, fieldName) => {
     if (!timeStr) {
       return fieldName === 'start' ? 'Required' : '';
@@ -229,6 +263,8 @@ const SegmentRow = ({
   
   return (
     <ListItem
+      ref={setNodeRef}
+      style={style}
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -246,7 +282,19 @@ const SegmentRow = ({
       {/* Header row with track number and delete */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <DragIndicatorIcon sx={{ color: 'text.disabled', cursor: 'grab' }} />
+          <Box
+            {...(disabled ? {} : { ...attributes, ...listeners })}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              cursor: disabled ? 'default' : 'grab',
+              '&:active': {
+                cursor: disabled ? 'default' : 'grabbing',
+              },
+            }}
+          >
+            <DragIndicatorIcon sx={{ color: disabled ? 'text.disabled' : 'text.secondary' }} />
+          </Box>
           <Chip
             label={`Track ${segment.trackNumber || index + 1}`}
             size="small"
@@ -398,6 +446,34 @@ function SegmentEditor({
     };
     setSegments(newSegments);
   }, [segments, setSegments]);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end - reorder segments
+  const handleDragEnd = useCallback((event) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setSegments((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        
+        // Update track numbers after reordering
+        return reordered.map((seg, index) => ({
+          ...seg,
+          trackNumber: index + 1,
+        }));
+      });
+    }
+  }, [setSegments]);
   
   // Parse timestamps from description
   const handleParseFromDescription = useCallback(() => {
@@ -676,21 +752,32 @@ function SegmentEditor({
               
               {/* Segment list */}
               {segments.length > 0 ? (
-                <List sx={{ p: 0 }}>
-                  {segments.map((segment, index) => (
-                    <SegmentRow
-                      key={segment.id}
-                      segment={segment}
-                      index={index}
-                      onUpdate={handleUpdateSegment}
-                      onRemove={handleRemoveSegment}
-                      useSharedArtist={useSharedArtist}
-                      disabled={disabled}
-                      videoDuration={videoDuration}
-                      isLast={index === segments.length - 1}
-                    />
-                  ))}
-                </List>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={segments.map((seg) => seg.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <List sx={{ p: 0 }}>
+                      {segments.map((segment, index) => (
+                        <SegmentRow
+                          key={segment.id}
+                          segment={segment}
+                          index={index}
+                          onUpdate={handleUpdateSegment}
+                          onRemove={handleRemoveSegment}
+                          useSharedArtist={useSharedArtist}
+                          disabled={disabled}
+                          videoDuration={videoDuration}
+                          isLast={index === segments.length - 1}
+                        />
+                      ))}
+                    </List>
+                  </SortableContext>
+                </DndContext>
               ) : (
                 <Box
                   sx={{

@@ -611,7 +611,6 @@ function MetadataEditor({
       copyright: '',
       bpm: '',
     },
-    useChapterTitles: true,
     chapterTitleTemplate: '{chapterTitle}',
   });
 
@@ -685,7 +684,6 @@ function MetadataEditor({
           copyright: '',
           bpm: '',
         },
-        useChapterTitles: true,
         chapterTitleTemplate: '{chapterTitle}',
       });
       setSegmentMetadata({
@@ -763,7 +761,6 @@ function MetadataEditor({
           copyright: '',
           bpm: '',
         },
-        useChapterTitles: true,
         chapterTitleTemplate: '{chapterTitle}',
       });
       setSegmentMetadata({
