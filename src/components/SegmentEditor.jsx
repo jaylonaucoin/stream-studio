@@ -15,6 +15,8 @@ import {
   List,
   ListItem,
   Chip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import TimeInput from './TimeInput';
 import {
@@ -43,6 +45,8 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import EditIcon from '@mui/icons-material/Edit';
+import TimerIcon from '@mui/icons-material/Timer';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 
 // Parse timestamp string (MM:SS or H:MM:SS) to seconds
 export const parseTimeToSeconds = (timeStr) => {
@@ -179,12 +183,22 @@ export const parseTimestampsFromDescription = (description, videoDuration) => {
     const nextSegment = uniqueSegments[index + 1];
     const endTime = nextSegment ? nextSegment.startTime : (videoDuration || null);
     
+    // Calculate duration if we have both start and end
+    let duration = '';
+    if (endTime !== null && segment.startTime !== null) {
+      const durationSeconds = endTime - segment.startTime;
+      if (durationSeconds > 0) {
+        duration = formatSecondsToTime(durationSeconds);
+      }
+    }
+    
     return {
       id: `segment-${Date.now()}-${index}`,
       title: segment.title,
       artist: '',
       startTime: segment.startTimeFormatted,
       endTime: endTime !== null ? formatSecondsToTime(endTime) : '',
+      duration: duration,
       trackNumber: index + 1,
     };
   });
@@ -198,13 +212,16 @@ const SegmentRow = ({
   index,
   onUpdate,
   onRemove,
+  onEndTimeChange,
   useSharedArtist,
   disabled,
   videoDuration,
   isLast,
+  timeInputMode, // 'endTime' or 'duration'
 }) => {
   const [startError, setStartError] = useState('');
   const [endError, setEndError] = useState('');
+  const [durationError, setDurationError] = useState('');
   
   const {
     attributes,
@@ -240,21 +257,83 @@ const SegmentRow = ({
     
     return '';
   }, [videoDuration]);
+
+  const validateDuration = useCallback((durationStr) => {
+    if (!durationStr) {
+      return '';
+    }
+    
+    const seconds = parseTimeToSeconds(durationStr);
+    if (seconds === null) {
+      return 'Invalid duration format';
+    }
+    
+    if (seconds <= 0) {
+      return 'Duration must be positive';
+    }
+    
+    // Check if start + duration exceeds video duration
+    const startSeconds = parseTimeToSeconds(segment.startTime);
+    if (startSeconds !== null && videoDuration && (startSeconds + seconds) > videoDuration) {
+      return `Exceeds video length`;
+    }
+    
+    return '';
+  }, [segment.startTime, videoDuration]);
   
   const handleStartTimeChange = useCallback((value) => {
     const error = validateTime(value, 'start');
     setStartError(error);
     onUpdate(index, 'startTime', value);
-  }, [index, onUpdate, validateTime]);
+    
+    // If in duration mode and we have a duration, recalculate end time
+    if (timeInputMode === 'duration' && segment.duration) {
+      const startSeconds = parseTimeToSeconds(value);
+      const durationSeconds = parseTimeToSeconds(segment.duration);
+      if (startSeconds !== null && durationSeconds !== null) {
+        const newEndTime = formatSecondsToTime(startSeconds + durationSeconds);
+        onUpdate(index, 'endTime', newEndTime);
+        // Trigger auto-propagation for next segment
+        onEndTimeChange(index, newEndTime);
+      }
+    }
+  }, [index, onUpdate, validateTime, timeInputMode, segment.duration, onEndTimeChange]);
   
   const handleEndTimeChange = useCallback((value) => {
     const error = validateTime(value, 'end');
     setEndError(error);
     onUpdate(index, 'endTime', value);
-  }, [index, onUpdate, validateTime]);
+    
+    // Calculate and store duration when end time changes
+    const startSeconds = parseTimeToSeconds(segment.startTime);
+    const endSeconds = parseTimeToSeconds(value);
+    if (startSeconds !== null && endSeconds !== null && endSeconds > startSeconds) {
+      const durationValue = formatSecondsToTime(endSeconds - startSeconds);
+      onUpdate(index, 'duration', durationValue);
+    }
+    
+    // Trigger auto-propagation for next segment
+    onEndTimeChange(index, value);
+  }, [index, onUpdate, validateTime, segment.startTime, onEndTimeChange]);
+
+  const handleDurationChange = useCallback((value) => {
+    const error = validateDuration(value);
+    setDurationError(error);
+    onUpdate(index, 'duration', value);
+    
+    // Calculate end time from start time + duration
+    const startSeconds = parseTimeToSeconds(segment.startTime);
+    const durationSeconds = parseTimeToSeconds(value);
+    if (startSeconds !== null && durationSeconds !== null && durationSeconds > 0) {
+      const newEndTime = formatSecondsToTime(startSeconds + durationSeconds);
+      onUpdate(index, 'endTime', newEndTime);
+      // Trigger auto-propagation for next segment
+      onEndTimeChange(index, newEndTime);
+    }
+  }, [index, onUpdate, validateDuration, segment.startTime, onEndTimeChange]);
   
-  // Calculate duration
-  const duration = useMemo(() => {
+  // Calculate duration for display (when in endTime mode)
+  const calculatedDuration = useMemo(() => {
     const start = parseTimeToSeconds(segment.startTime);
     const end = parseTimeToSeconds(segment.endTime);
     if (start !== null && end !== null && end > start) {
@@ -262,6 +341,9 @@ const SegmentRow = ({
     }
     return null;
   }, [segment.startTime, segment.endTime]);
+
+  // Use stored duration or calculated duration
+  const displayDuration = segment.duration || calculatedDuration;
   
   return (
     <ListItem
@@ -303,12 +385,21 @@ const SegmentRow = ({
             color="primary"
             variant="outlined"
           />
-          {duration && (
+          {displayDuration && timeInputMode === 'endTime' && (
             <Chip
               icon={<AccessTimeIcon />}
-              label={duration}
+              label={displayDuration}
               size="small"
               variant="outlined"
+            />
+          )}
+          {segment.endTime && timeInputMode === 'duration' && (
+            <Chip
+              icon={<ScheduleIcon />}
+              label={`Ends: ${segment.endTime}`}
+              size="small"
+              variant="outlined"
+              color="info"
             />
           )}
         </Box>
@@ -335,15 +426,27 @@ const SegmentRow = ({
           error={!!startError}
           helperText={startError || 'Type 348 for 3:48'}
         />
-        <TimeInput
-          label="End Time"
-          value={segment.endTime}
-          onChange={handleEndTimeChange}
-          placeholder={isLast && videoDuration ? formatSecondsToTime(videoDuration) : '0:00'}
-          disabled={disabled}
-          error={!!endError}
-          helperText={endError || (isLast ? 'Leave empty for end' : '')}
-        />
+        {timeInputMode === 'endTime' ? (
+          <TimeInput
+            label="End Time"
+            value={segment.endTime}
+            onChange={handleEndTimeChange}
+            placeholder={isLast && videoDuration ? formatSecondsToTime(videoDuration) : '0:00'}
+            disabled={disabled}
+            error={!!endError}
+            helperText={endError || (isLast ? 'Leave empty for end' : '')}
+          />
+        ) : (
+          <TimeInput
+            label="Duration"
+            value={segment.duration || ''}
+            onChange={handleDurationChange}
+            placeholder="3:00"
+            disabled={disabled}
+            error={!!durationError}
+            helperText={durationError || 'Segment length'}
+          />
+        )}
       </Box>
       
       {/* Title and artist row */}
@@ -387,6 +490,7 @@ function SegmentEditor({
   const [expanded, setExpanded] = useState(false);
   const [useManualSegments, setUseManualSegments] = useState(false);
   const [parseError, setParseError] = useState(null);
+  const [timeInputMode, setTimeInputMode] = useState('endTime'); // 'endTime' or 'duration'
   
   // Determine if we should show the segment editor
   const hasChapters = chapterInfo?.hasChapters && chapterInfo?.chapters?.length > 0;
@@ -416,7 +520,9 @@ function SegmentEditor({
       artist: '',
       startTime: newStartTime,
       endTime: '',
+      duration: '',
       trackNumber: segments.length + 1,
+      _autoFilledFrom: segments.length > 0 ? segments.length - 1 : null, // Track auto-fill source
     };
     
     setSegments([...segments, newSegment]);
@@ -442,6 +548,48 @@ function SegmentEditor({
     };
     setSegments(newSegments);
   }, [segments, setSegments]);
+
+  // Handle end time change with auto-propagation to next segment's start time
+  const handleEndTimeChangeWithPropagation = useCallback((index, endTimeValue) => {
+    if (!endTimeValue) return;
+    
+    // Check if there's a next segment
+    const nextIndex = index + 1;
+    if (nextIndex >= segments.length) return;
+    
+    const nextSegment = segments[nextIndex];
+    
+    // Only auto-fill if the next segment's start time is empty or matches the previous auto-fill
+    // This allows manual overrides while still providing the convenience
+    const endSeconds = parseTimeToSeconds(endTimeValue);
+    const nextStartSeconds = parseTimeToSeconds(nextSegment.startTime);
+    
+    // Auto-fill if:
+    // 1. Next segment has no start time, OR
+    // 2. Next segment's start time equals the previous segment's end time (was auto-filled)
+    const shouldAutoFill = !nextSegment.startTime || 
+      nextSegment.startTime === '' ||
+      (nextStartSeconds !== null && nextSegment._autoFilledFrom === index);
+    
+    if (shouldAutoFill && endSeconds !== null) {
+      const newSegments = [...segments];
+      newSegments[nextIndex] = {
+        ...newSegments[nextIndex],
+        startTime: endTimeValue,
+        _autoFilledFrom: index, // Track which segment auto-filled this
+      };
+      
+      // If in duration mode and next segment has a duration, recalculate its end time
+      if (timeInputMode === 'duration' && newSegments[nextIndex].duration) {
+        const durationSeconds = parseTimeToSeconds(newSegments[nextIndex].duration);
+        if (durationSeconds !== null) {
+          newSegments[nextIndex].endTime = formatSecondsToTime(endSeconds + durationSeconds);
+        }
+      }
+      
+      setSegments(newSegments);
+    }
+  }, [segments, setSegments, timeInputMode]);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -642,6 +790,40 @@ function SegmentEditor({
                 Define time segments to split this video into separate audio files. Each segment will be downloaded as a separate track with its own metadata.
               </Alert>
               
+              {/* Time input mode toggle */}
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+                  Time Input Mode
+                </Typography>
+                <ToggleButtonGroup
+                  value={timeInputMode}
+                  exclusive
+                  onChange={(e, newMode) => {
+                    if (newMode !== null) {
+                      setTimeInputMode(newMode);
+                    }
+                  }}
+                  aria-label="Time input mode"
+                  disabled={disabled}
+                  size="small"
+                  fullWidth
+                >
+                  <ToggleButton value="endTime" aria-label="End time mode">
+                    <ScheduleIcon sx={{ mr: 0.5 }} fontSize="small" />
+                    Start &amp; End Time
+                  </ToggleButton>
+                  <ToggleButton value="duration" aria-label="Duration mode">
+                    <TimerIcon sx={{ mr: 0.5 }} fontSize="small" />
+                    Start &amp; Duration
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  {timeInputMode === 'endTime'
+                    ? 'Define segments by specifying start and end timestamps. End time auto-fills next segment\'s start.'
+                    : 'Define segments by specifying start time and duration. End time is calculated automatically.'}
+                </Typography>
+              </Box>
+
               {/* Artist mode toggle */}
               <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                 <FormControlLabel
@@ -765,10 +947,12 @@ function SegmentEditor({
                           index={index}
                           onUpdate={handleUpdateSegment}
                           onRemove={handleRemoveSegment}
+                          onEndTimeChange={handleEndTimeChangeWithPropagation}
                           useSharedArtist={useSharedArtist}
                           disabled={disabled}
                           videoDuration={videoDuration}
                           isLast={index === segments.length - 1}
+                          timeInputMode={timeInputMode}
                         />
                       ))}
                     </List>
