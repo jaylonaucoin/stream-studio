@@ -385,15 +385,15 @@ const SegmentRow = ({
             color="primary"
             variant="outlined"
           />
-          {displayDuration && timeInputMode === 'endTime' && (
+          {displayDuration && (
             <Chip
-              icon={<AccessTimeIcon />}
+              icon={<TimerIcon />}
               label={displayDuration}
               size="small"
               variant="outlined"
             />
           )}
-          {segment.endTime && timeInputMode === 'duration' && (
+          {segment.endTime && (
             <Chip
               icon={<ScheduleIcon />}
               label={`Ends: ${segment.endTime}`}
@@ -417,35 +417,54 @@ const SegmentRow = ({
       
       {/* Time inputs row */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-        <TimeInput
-          label="Start Time"
-          value={segment.startTime}
-          onChange={handleStartTimeChange}
-          placeholder="0:00"
-          disabled={disabled}
-          error={!!startError}
-          helperText={startError || 'Type 348 for 3:48'}
-        />
         {timeInputMode === 'endTime' ? (
-          <TimeInput
-            label="End Time"
-            value={segment.endTime}
-            onChange={handleEndTimeChange}
-            placeholder={isLast && videoDuration ? formatSecondsToTime(videoDuration) : '0:00'}
-            disabled={disabled}
-            error={!!endError}
-            helperText={endError || (isLast ? 'Leave empty for end' : '')}
-          />
+          <>
+            <TimeInput
+              label="Start Time"
+              value={segment.startTime}
+              onChange={handleStartTimeChange}
+              placeholder="0:00"
+              disabled={disabled}
+              error={!!startError}
+              helperText={startError || 'Type 348 for 3:48'}
+            />
+            <TimeInput
+              label="End Time"
+              value={segment.endTime}
+              onChange={handleEndTimeChange}
+              placeholder={isLast && videoDuration ? formatSecondsToTime(videoDuration) : '0:00'}
+              disabled={disabled}
+              error={!!endError}
+              helperText={endError || (isLast ? 'Leave empty for end' : '')}
+            />
+          </>
         ) : (
-          <TimeInput
-            label="Duration"
-            value={segment.duration || ''}
-            onChange={handleDurationChange}
-            placeholder="3:00"
-            disabled={disabled}
-            error={!!durationError}
-            helperText={durationError || 'Segment length'}
-          />
+          <>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              minWidth: 140,
+              p: 1,
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+            }}>
+              <Typography variant="caption" color="text.secondary">
+                Starts at
+              </Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                {segment.startTime || '0:00'}
+              </Typography>
+            </Box>
+            <TimeInput
+              label="Duration"
+              value={segment.duration || ''}
+              onChange={handleDurationChange}
+              placeholder="3:00"
+              disabled={disabled}
+              error={!!durationError}
+              helperText={durationError || 'Segment length'}
+            />
+          </>
         )}
       </Box>
       
@@ -512,7 +531,11 @@ function SegmentEditor({
   // Add a new empty segment
   const handleAddSegment = useCallback(() => {
     const lastSegment = segments[segments.length - 1];
-    const newStartTime = lastSegment?.endTime || (segments.length === 0 ? '0:00' : '');
+    // For first segment, always start at 0:00
+    // For subsequent segments, start at previous segment's end time
+    const newStartTime = segments.length === 0 
+      ? '0:00' 
+      : (lastSegment?.endTime || lastSegment?.startTime || '0:00');
     
     const newSegment = {
       id: generateSegmentId(),
@@ -820,7 +843,7 @@ function SegmentEditor({
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                   {timeInputMode === 'endTime'
                     ? 'Define segments by specifying start and end timestamps. End time auto-fills next segment\'s start.'
-                    : 'Define segments by specifying start time and duration. End time is calculated automatically.'}
+                    : 'Just enter the duration for each segment. Start times are automatic based on previous segments.'}
                 </Typography>
               </Box>
 
