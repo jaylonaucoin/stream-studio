@@ -301,6 +301,7 @@ function App() {
           format: options.format || 'mp3',
           quality: options.quality || 'best',
           playlistMode: options.playlistMode || 'single',
+          selectedVideos: options.selectedVideos || null, // Pass selected video indices for playlist selection
           chapters: options.chapters || null,
           chapterDownloadMode: options.chapterDownloadMode || null,
           chapterInfo: options.chapterInfo || null, // Pass edited chapter titles

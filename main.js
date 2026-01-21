@@ -29,6 +29,7 @@ const store = new Store({
 let mainWindow;
 let currentConversionProcess = null;
 let currentOutputPath = null;
+let conversionCancelled = false; // Flag to track cancellation state for async operations
 
 function createWindow() {
   // Restore window bounds from store
@@ -716,6 +717,9 @@ async function applyMetadataToFile(filePath, metadata, thumbnailDataUrl) {
 
 // Convert handler
 ipcMain.handle('convert', async (event, url, options = {}) => {
+  // Reset cancellation flag at the start of a new conversion
+  conversionCancelled = false;
+  
   // Cancel any existing conversion
   if (currentConversionProcess) {
     currentConversionProcess.kill();
@@ -1093,10 +1097,22 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
     }
     
     // Spawn yt-dlp process
-    currentConversionProcess = spawn(ytDlpPath, args, {
+    // Use detached: true on Unix to create a process group for proper cancellation
+    const spawnOptions = {
       cwd: outputFolder,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // On Unix, detached creates a new process group that can be killed together
+      // On Windows, this is handled differently via taskkill /T
+      detached: process.platform !== 'win32'
+    };
+    currentConversionProcess = spawn(ytDlpPath, args, spawnOptions);
+    
+    // Unref on Unix so the process doesn't keep the parent alive if we exit
+    // (but we still track it via currentConversionProcess)
+    if (process.platform !== 'win32' && currentConversionProcess.unref) {
+      // Don't actually unref - we need to track it for cancellation
+      // Just note that detached mode is enabled for process group killing
+    }
     
     let outputFilePath = null;
     let errorOutput = '';
@@ -1389,6 +1405,11 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
             if (isChapterDownload && chapterInfoForDownload && chapterInfoForDownload.hasChapters) {
               // Make this async to allow for retries
               (async () => {
+                // Check if conversion was cancelled before processing
+                if (conversionCancelled) {
+                  reject(new Error('Conversion was cancelled'));
+                  return;
+                }
                 try {
                   // --split-chapters creates files in the output folder with format:
               // "Video Title - 001 Chapter Name [videoID].ext"
@@ -1595,6 +1616,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
               });
               
               for (const file of chapterFiles) {
+                // Check if conversion was cancelled
+                if (conversionCancelled) {
+                  reject(new Error('Conversion was cancelled'));
+                  return;
+                }
+                
                 // Extract chapter number and name from filename
                 // Pattern: "Video Title - 001 Chapter Name [videoID].ext"
                 // Extract chapter number (001 = 1, which is chapter index 0)
@@ -1754,6 +1781,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                         // IMPORTANT: sortedFiles are sorted by chapter number (001, 002, etc.)
                         // We stored chapterIndex in keptFiles when we processed them, so use that
                         for (let i = 0; i < sortedFiles.length; i++) {
+                          // Check if conversion was cancelled
+                          if (conversionCancelled) {
+                            reject(new Error('Conversion was cancelled'));
+                            return;
+                          }
+                          
                           const file = sortedFiles[i];
                           
                           // Use the chapterIndex we stored when processing the file
@@ -1931,6 +1964,20 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   const totalSegments = manualSegments.length;
                   
                   for (let i = 0; i < manualSegments.length; i++) {
+                    // Check if conversion was cancelled before processing each segment
+                    if (conversionCancelled) {
+                      // Clean up the full temp file
+                      try {
+                        if (fs.existsSync(fullFilePath)) {
+                          fs.unlinkSync(fullFilePath);
+                        }
+                      } catch (e) {
+                        // Ignore cleanup errors
+                      }
+                      reject(new Error('Conversion was cancelled'));
+                      return;
+                    }
+                    
                     const segment = manualSegments[i];
                     const startSeconds = parseTimeToSeconds(segment.startTime);
                     let endSeconds = parseTimeToSeconds(segment.endTime);
@@ -2033,6 +2080,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                     const perSegmentMeta = customMetadata.segmentMetadata.perSegmentMetadata || [];
                     
                     for (let i = 0; i < segmentFiles.length; i++) {
+                      // Check if conversion was cancelled
+                      if (conversionCancelled) {
+                        reject(new Error('Conversion was cancelled'));
+                        return;
+                      }
+                      
                       const segmentFile = segmentFiles[i];
                       const segMeta = perSegmentMeta[i] || {};
                       
@@ -2054,6 +2107,12 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
                   } else {
                     // Apply basic metadata from segment definitions
                     for (let i = 0; i < segmentFiles.length; i++) {
+                      // Check if conversion was cancelled
+                      if (conversionCancelled) {
+                        reject(new Error('Conversion was cancelled'));
+                        return;
+                      }
+                      
                       const segmentFile = segmentFiles[i];
                       const segment = manualSegments[i];
                       
@@ -2610,43 +2669,111 @@ ipcMain.handle('convert', async (event, url, options = {}) => {
   }
 });
 
-// Cancel handler
-ipcMain.handle('cancel', () => {
-  if (currentConversionProcess) {
-    // Try graceful shutdown first, then force kill
-    currentConversionProcess.kill('SIGTERM');
-    
-    // Force kill after 3 seconds if still running
-    const forceKillTimeout = setTimeout(() => {
-      if (currentConversionProcess) {
-        currentConversionProcess.kill('SIGKILL');
+// Helper function to kill process tree (kills all child processes)
+const killProcessTree = (pid) => {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      // On Windows, use taskkill with /T flag to kill entire process tree
+      const taskkill = spawn('taskkill', ['/pid', pid.toString(), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      taskkill.on('close', () => resolve());
+      taskkill.on('error', () => resolve());
+      // Timeout in case taskkill hangs
+      setTimeout(resolve, 5000);
+    } else {
+      // On Unix, try to kill the process group
+      try {
+        // Kill the process group (negative PID)
+        process.kill(-pid, 'SIGTERM');
+        // Force kill after a short delay
+        setTimeout(() => {
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch (e) {
+            // Process already dead, ignore
+          }
+          resolve();
+        }, 1000);
+      } catch (e) {
+        // If process group kill fails, try killing individual process
+        try {
+          process.kill(pid, 'SIGTERM');
+          setTimeout(() => {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch (e2) {
+              // Process already dead, ignore
+            }
+            resolve();
+          }, 1000);
+        } catch (e2) {
+          resolve();
+        }
       }
-    }, 3000);
+    }
+  });
+};
+
+// Cancel handler
+ipcMain.handle('cancel', async () => {
+  // Set cancellation flag first - this tells async operations to stop
+  conversionCancelled = true;
+  
+  if (currentConversionProcess) {
+    const pid = currentConversionProcess.pid;
     
-    currentConversionProcess.on('close', () => {
-      clearTimeout(forceKillTimeout);
-    });
+    // Kill the entire process tree (including ffmpeg child processes)
+    if (pid) {
+      await killProcessTree(pid);
+    }
+    
+    // Also try to kill the process directly as a fallback
+    try {
+      currentConversionProcess.kill('SIGTERM');
+      // Force kill after 2 seconds if still running
+      setTimeout(() => {
+        try {
+          if (currentConversionProcess) {
+            currentConversionProcess.kill('SIGKILL');
+          }
+        } catch (e) {
+          // Process already dead, ignore
+        }
+      }, 2000);
+    } catch (e) {
+      // Process already dead, ignore
+    }
     
     // Clean up partial files in output folder
     try {
       const outputFolder = getDefaultOutputFolder();
       if (fs.existsSync(outputFolder)) {
         const files = fs.readdirSync(outputFolder);
-        // Look for incomplete files (very small .mp3 files or .part files)
+        // Look for incomplete files (.part files, .temp files, and recently modified small files)
         files.forEach(file => {
-          if (file.endsWith('.part') || (file.endsWith('.mp3') && file.includes(' - '))) {
-            const filePath = path.join(outputFolder, file);
-            try {
-              const stats = fs.statSync(filePath);
-              const now = Date.now();
-              const fileTime = stats.mtime.getTime();
-              // If file was modified in the last 5 minutes and is small, it might be incomplete
-              if (now - fileTime < 5 * 60 * 1000 && stats.size < 50 * 1024) { // Less than 50KB
+          const filePath = path.join(outputFolder, file);
+          try {
+            // Remove .part files (yt-dlp partial downloads)
+            if (file.endsWith('.part') || file.endsWith('.ytdl') || file.includes('.temp.')) {
+              fs.unlinkSync(filePath);
+              return;
+            }
+            // Remove recently modified small files that might be incomplete
+            const stats = fs.statSync(filePath);
+            const now = Date.now();
+            const fileTime = stats.mtime.getTime();
+            // If file was modified in the last 2 minutes and is small, it might be incomplete
+            if (now - fileTime < 2 * 60 * 1000 && stats.size < 100 * 1024) { // Less than 100KB
+              // Only delete media files to avoid deleting unrelated files
+              const mediaExtensions = ['.mp3', '.m4a', '.mp4', '.webm', '.mkv', '.wav', '.flac', '.aac', '.opus', '.ogg'];
+              if (mediaExtensions.some(ext => file.toLowerCase().endsWith(ext))) {
                 fs.unlinkSync(filePath);
               }
-            } catch (err) {
-              // Ignore cleanup errors
             }
+          } catch (err) {
+            // Ignore cleanup errors
           }
         });
       }
