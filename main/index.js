@@ -1,15 +1,10 @@
 /**
  * Main process entry point
  * Media Converter - Electron Application
- * 
- * This file serves as the entry point and delegates to the modular structure in /main/
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
-
-// Import modular components
-const { createWindow, getMainWindow } = require('./main/window');
-const { registerAllHandlers } = require('./main/ipc');
+const { createWindow, getMainWindow } = require('./window');
+const { registerAllHandlers } = require('./ipc');
 
 // Handle app ready
 app.whenReady().then(() => {
@@ -33,7 +28,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Export for use by other modules that may need the main window
+// Export for use by other modules
 module.exports = {
   getMainWindow,
 };
