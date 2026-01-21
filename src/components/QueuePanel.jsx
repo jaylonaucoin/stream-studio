@@ -32,41 +32,12 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import { normalizeUrl, isValidUrl as validateUrl } from '../utils';
 
-// Normalize URL - add protocol if missing
-const normalizeUrl = (url) => {
-  let normalized = url.trim();
-  normalized = normalized.replace(/[\r\n]/g, '').trim();
-
-  if (normalized && !normalized.match(/^https?:\/\//i)) {
-    if (normalized.includes('.') && !normalized.includes(' ')) {
-      normalized = 'https://' + normalized;
-    }
-  }
-
-  return normalized;
-};
-
-// Validate any URL (not just YouTube)
+// Simple boolean wrapper for URL validation
 const isValidUrl = (url) => {
-  if (!url || url.trim().length === 0) {
-    return false;
-  }
-
-  const normalized = normalizeUrl(url);
-
-  try {
-    const urlObj = new URL(normalized);
-    if (!['http:', 'https:'].includes(urlObj.protocol)) {
-      return false;
-    }
-    if (!urlObj.hostname || urlObj.hostname.length < 3 || !urlObj.hostname.includes('.')) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  const result = validateUrl(url);
+  return result.valid;
 };
 
 function QueuePanel({

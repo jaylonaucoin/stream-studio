@@ -47,52 +47,10 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import EditIcon from '@mui/icons-material/Edit';
 import TimerIcon from '@mui/icons-material/Timer';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import { parseTimeToSeconds, formatSecondsToTime } from '../utils';
 
-// Parse timestamp string (MM:SS or H:MM:SS) to seconds
-export const parseTimeToSeconds = (timeStr) => {
-  if (!timeStr || typeof timeStr !== 'string') return null;
-  
-  const trimmed = timeStr.trim();
-  if (!trimmed) return null;
-  
-  // Try parsing as pure seconds (1-2 digit numbers, e.g., "45" or "9")
-  if (/^\d{1,2}$/.test(trimmed)) {
-    return parseInt(trimmed, 10);
-  }
-  
-  // Try parsing MM:SS or HH:MM:SS
-  const parts = trimmed.split(':').map(p => parseFloat(p.trim()));
-  
-  if (parts.some(isNaN)) return null;
-  
-  if (parts.length === 2) {
-    // MM:SS format
-    const [minutes, seconds] = parts;
-    if (minutes < 0 || seconds < 0 || seconds >= 60) return null;
-    return minutes * 60 + seconds;
-  } else if (parts.length === 3) {
-    // H:MM:SS format
-    const [hours, minutes, seconds] = parts;
-    if (hours < 0 || minutes < 0 || minutes >= 60 || seconds < 0 || seconds >= 60) return null;
-    return hours * 3600 + minutes * 60 + seconds;
-  }
-  
-  return null;
-};
-
-// Format seconds to MM:SS or HH:MM:SS string
-export const formatSecondsToTime = (totalSeconds) => {
-  if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) return '';
-  
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
+// Re-export for backward compatibility
+export { parseTimeToSeconds, formatSecondsToTime };
 
 // Parse timestamps from video description
 export const parseTimestampsFromDescription = (description, videoDuration) => {
