@@ -348,15 +348,9 @@ function ConversionForm({
   }, [chapterInfo, editedChapterTitles]);
 
   const handleChapterTitleSave = useCallback((chapterIndex) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:468',message:'handleChapterTitleSave called',data:{chapterIndex,editingChapterValue:editingChapterValue.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     if (editingChapterValue.trim()) {
       setEditedChapterTitles((prev) => {
         const newTitles = { ...prev, [chapterIndex]: editingChapterValue.trim() };
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:472',message:'editedChapterTitles updated',data:{chapterIndex,newTitle:editingChapterValue.trim(),allEditedTitles:newTitles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return newTitles;
       });
     } else {
@@ -364,9 +358,6 @@ function ConversionForm({
       setEditedChapterTitles((prev) => {
         const newTitles = { ...prev };
         delete newTitles[chapterIndex];
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:478',message:'editedChapterTitles removed',data:{chapterIndex,allEditedTitles:newTitles},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return newTitles;
       });
     }
@@ -416,18 +407,11 @@ function ConversionForm({
           options.chapterDownloadMode = null;
           options.chapters = null;
         } else if (chapterInfo && chapterInfo.hasChapters) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:527',message:'Building chapterInfo with edits',data:{editedChapterTitles,originalChapters:chapterInfo.chapters.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           // Merge edited chapter titles into chapterInfo
           const chaptersWithEdits = chapterInfo.chapters.map((chapter, index) => ({
             ...chapter,
             title: editedChapterTitles[index] ?? chapter.title,
           }));
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:532',message:'chaptersWithEdits created',data:{editedTitles:chaptersWithEdits.map(c=>c.title)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           
           // Create updated chapterInfo with edited titles
           const updatedChapterInfo = {
@@ -442,9 +426,6 @@ function ConversionForm({
             options.chapters = selectedChapters;
             // Pass updated chapterInfo with edited titles
             options.chapterInfo = updatedChapterInfo;
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/dac7c01d-8c04-4c1f-981d-2c3182cd7201',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConversionForm.jsx:546',message:'options.chapterInfo set',data:{chapterInfoTitles:updatedChapterInfo.chapters.map(c=>c.title),selectedChapters},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
           }
         }
         // Pass custom metadata if set
