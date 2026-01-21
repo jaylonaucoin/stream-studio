@@ -6,3 +6,4 @@
 export * from './formats';
 export * from './genres';
 export * from './sites';
+export * from './metadata';
