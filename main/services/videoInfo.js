@@ -27,6 +27,59 @@ function formatDuration(seconds) {
 }
 
 /**
+ * Get the best quality thumbnail from thumbnails array
+ * @param {Array} thumbnails - Array of thumbnail objects from yt-dlp
+ * @param {string} fallback - Fallback thumbnail URL
+ * @returns {string|null}
+ */
+function getBestThumbnail(thumbnails, fallback = null) {
+  if (!thumbnails || !Array.isArray(thumbnails) || thumbnails.length === 0) {
+    return fallback;
+  }
+  
+  // Sort by preference (higher is better) or by resolution
+  const sorted = [...thumbnails].sort((a, b) => {
+    // Prefer by preference field if available
+    if (a.preference !== undefined && b.preference !== undefined) {
+      return b.preference - a.preference;
+    }
+    // Otherwise sort by resolution (width * height)
+    const resA = (a.width || 0) * (a.height || 0);
+    const resB = (b.width || 0) * (b.height || 0);
+    return resB - resA;
+  });
+  
+  // Return the best thumbnail URL
+  return sorted[0]?.url || fallback;
+}
+
+/**
+ * Get multiple thumbnail URLs sorted by quality (best first)
+ * @param {Array} thumbnails - Array of thumbnail objects from yt-dlp
+ * @param {string} fallback - Fallback thumbnail URL
+ * @returns {Array<string>}
+ */
+function getThumbnailUrls(thumbnails, fallback = null) {
+  if (!thumbnails || !Array.isArray(thumbnails) || thumbnails.length === 0) {
+    return fallback ? [fallback] : [];
+  }
+  
+  // Sort by preference (higher is better) or by resolution
+  const sorted = [...thumbnails].sort((a, b) => {
+    if (a.preference !== undefined && b.preference !== undefined) {
+      return b.preference - a.preference;
+    }
+    const resA = (a.width || 0) * (a.height || 0);
+    const resB = (b.width || 0) * (b.height || 0);
+    return resB - resA;
+  });
+  
+  // Return array of URLs (best first), filter out duplicates
+  const urls = sorted.map(t => t.url).filter(Boolean);
+  return [...new Set(urls)];
+}
+
+/**
  * Get video info from URL
  * @param {string} url - Video URL
  * @returns {Promise<Object>}
@@ -72,18 +125,32 @@ async function getVideoInfo(url) {
       if (code === 0 && stdout) {
         try {
           const info = JSON.parse(stdout);
+          
+          // Get best quality thumbnail - try thumbnails array first, then fallback
+          const thumbnails = getThumbnailUrls(info.thumbnails, info.thumbnail);
+          const bestThumbnail = thumbnails[0] || info.thumbnail || null;
+          
           const result = {
             success: true,
             title: info.title || 'Unknown Title',
             duration: info.duration || 0,
             durationFormatted: formatDuration(info.duration),
-            thumbnail: info.thumbnail || null,
-            uploader: info.uploader || info.channel || null,
-            artist: info.artist || null,
+            // Provide both single thumbnail and array for fallback support
+            thumbnail: thumbnails.length > 0 ? thumbnails : bestThumbnail,
+            uploader: info.uploader || info.channel || info.creator || null,
+            artist: info.artist || info.creator || null,
+            album: info.album || null,
+            track: info.track || null,
             uploadDate: info.upload_date || null,
             description: info.description || null,
             viewCount: info.view_count || null,
             likeCount: info.like_count || null,
+            // Additional metadata fields
+            genre: info.genre || null,
+            releaseYear: info.release_year || (info.upload_date ? info.upload_date.substring(0, 4) : null),
+            ageLimit: info.age_limit || null,
+            categories: info.categories || [],
+            tags: info.tags || [],
           };
           // Cache the result
           videoInfoCache.set(cacheKey, { data: result, timestamp: Date.now() });
@@ -173,17 +240,29 @@ async function getPlaylistInfo(url) {
       }
 
       if (entries.length > 0) {
-        const videos = entries.map((entry, index) => ({
-          index: index + 1,
-          title: entry.title || `Video ${index + 1}`,
-          url: entry.url || entry.webpage_url || url,
-          thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url || null,
-          duration: entry.duration || 0,
-          durationFormatted: formatDuration(entry.duration),
-          artist: entry.artist || null,
-        }));
+        const videos = entries.map((entry, index) => {
+          // Get best quality thumbnail for each video
+          const thumbnails = getThumbnailUrls(entry.thumbnails, entry.thumbnail);
+          
+          return {
+            index: index + 1,
+            title: entry.title || `Video ${index + 1}`,
+            url: entry.url || entry.webpage_url || url,
+            thumbnail: thumbnails.length > 0 ? thumbnails : (entry.thumbnail || null),
+            duration: entry.duration || 0,
+            durationFormatted: formatDuration(entry.duration),
+            artist: entry.artist || entry.creator || null,
+            uploader: entry.uploader || entry.channel || null,
+          };
+        });
 
         const totalDuration = videos.reduce((sum, v) => sum + (v.duration || 0), 0);
+        
+        // Get playlist thumbnail from first video or playlist metadata
+        const playlistThumbnails = getThumbnailUrls(
+          entries.playlistMeta?.thumbnails,
+          entries.playlistMeta?.thumbnail || videos[0]?.thumbnail?.[0] || videos[0]?.thumbnail
+        );
 
         resolve({
           success: true,
@@ -192,7 +271,8 @@ async function getPlaylistInfo(url) {
           playlistVideoCount: videos.length,
           playlistTotalDuration: totalDuration,
           playlistTotalDurationFormatted: formatDuration(totalDuration),
-          playlistUploader: entries.playlistMeta?.uploader || null,
+          playlistUploader: entries.playlistMeta?.uploader || entries.playlistMeta?.channel || null,
+          playlistThumbnail: playlistThumbnails.length > 0 ? playlistThumbnails : null,
           videos,
         });
       } else {

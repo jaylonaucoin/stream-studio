@@ -181,6 +181,13 @@ function MetadataEditor({
       return;
     }
 
+    // Helper to get first thumbnail URL from thumbnail (string or array)
+    const getFirstThumbnailUrl = (thumbnail) => {
+      if (!thumbnail) return '';
+      if (Array.isArray(thumbnail)) return thumbnail[0] || '';
+      return thumbnail;
+    };
+
     // Initialize from videoInfo/playlistInfo/chapterInfo
     if (videoInfo && mode === 'single') {
       const artist = videoInfo.artist || videoInfo.uploader || '';
@@ -188,11 +195,13 @@ function MetadataEditor({
         ...DEFAULT_METADATA,
         title: videoInfo.title || '',
         artist: artist,
+        album: videoInfo.album || '',
         albumArtist: artist,
-        year: videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        genre: videoInfo.genre || '',
+        year: videoInfo.releaseYear || (videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
         description: videoInfo.description || '',
       });
-      setThumbnailUrl(videoInfo.thumbnail || '');
+      setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
       setCustomThumbnail(null);
     }
 
@@ -209,12 +218,15 @@ function MetadataEditor({
         artist: artist,
         album: playlistInfo?.playlistTitle || '',
         albumArtist: artist,
-        year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        genre: videoInfo?.genre || '',
+        year: videoInfo?.releaseYear || (videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
         description: playlistInfo?.playlistTitle
           ? `Playlist: ${playlistInfo.playlistTitle}`
           : videoInfo?.description || '',
       });
-      const thumbnailToUse = playlistInfo?.videos?.[0]?.thumbnail || videoInfo?.thumbnail || '';
+      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo?.playlistThumbnail) ||
+        getFirstThumbnailUrl(playlistInfo?.videos?.[0]?.thumbnail) ||
+        getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
@@ -238,7 +250,8 @@ function MetadataEditor({
         artist: sharedArtist,
         album: playlistInfo.playlistTitle || '',
         albumArtist: sharedArtist,
-        year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        genre: videoInfo?.genre || '',
+        year: videoInfo?.releaseYear || (videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
       });
 
       const perFile = videosToUse.map((video, index) => ({
@@ -249,7 +262,8 @@ function MetadataEditor({
       setPerFileMetadata(perFile);
       setUseSharedArtist(true);
 
-      const thumbnailToUse = playlistInfo.videos[0]?.thumbnail || videoInfo?.thumbnail || '';
+      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo.videos[0]?.thumbnail) ||
+        getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
@@ -263,13 +277,14 @@ function MetadataEditor({
           artist: artist,
           album: videoInfo?.title || '',
           albumArtist: artist,
-          year: videoInfo?.uploadDate
+          genre: videoInfo?.genre || '',
+          year: videoInfo?.releaseYear || (videoInfo?.uploadDate
             ? videoInfo.uploadDate.substring(0, 4)
-            : currentYear.toString(),
+            : currentYear.toString()),
         },
       }));
       if (videoInfo?.thumbnail) {
-        setThumbnailUrl(videoInfo.thumbnail);
+        setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
         setCustomThumbnail(null);
       }
     }
@@ -283,9 +298,10 @@ function MetadataEditor({
           artist: artist,
           album: videoInfo?.title || '',
           albumArtist: artist,
-          year: videoInfo?.uploadDate
+          genre: videoInfo?.genre || '',
+          year: videoInfo?.releaseYear || (videoInfo?.uploadDate
             ? videoInfo.uploadDate.substring(0, 4)
-            : currentYear.toString(),
+            : currentYear.toString()),
         },
         perSegmentMetadata: segments.map((seg, index) => ({
           title: seg.title || '',
@@ -294,7 +310,7 @@ function MetadataEditor({
         })),
       }));
       if (videoInfo?.thumbnail) {
-        setThumbnailUrl(videoInfo.thumbnail);
+        setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
         setCustomThumbnail(null);
       }
     }
