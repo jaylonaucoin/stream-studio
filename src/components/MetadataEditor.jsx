@@ -182,93 +182,132 @@ function MetadataEditor({
     }
 
     // Helper to get first thumbnail URL from thumbnail (string or array)
+    // This is needed because playlist first video thumbnail can be an array
     const getFirstThumbnailUrl = (thumbnail) => {
       if (!thumbnail) return '';
       if (Array.isArray(thumbnail)) return thumbnail[0] || '';
       return thumbnail;
     };
 
-    // Initialize from videoInfo/playlistInfo/chapterInfo
+    // No customMetadata exists, initialize from videoInfo/playlistInfo/chapterInfo
+    // Initialize single video metadata
     if (videoInfo && mode === 'single') {
+      // Prefer artist field over uploader (artist is more accurate for music)
       const artist = videoInfo.artist || videoInfo.uploader || '';
       setMetadata({
-        ...DEFAULT_METADATA,
         title: videoInfo.title || '',
         artist: artist,
-        album: videoInfo.album || '',
+        album: '', // Single videos typically don't have an album
         albumArtist: artist,
-        genre: videoInfo.genre || '',
-        year: videoInfo.releaseYear || (videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
+        genre: '',
+        year: videoInfo.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        trackNumber: '',
+        totalTracks: '',
+        composer: '',
+        publisher: '',
+        comment: '',
         description: videoInfo.description || '',
+        language: '',
+        copyright: '',
+        bpm: '',
       });
       setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
       setCustomThumbnail(null);
     }
 
+    // Initialize playlist bulk metadata - works even if videoInfo is null
+    // For albums/playlists, prioritize playlist metadata over individual video metadata
     if (mode === 'playlist' && playlistEditMode === 'bulk') {
+      // Prefer artist field from first video over uploader/channel
+      // For playlists, try to get artist from first video, fallback to playlist uploader
       const firstVideoArtist = playlistInfo?.videos?.[0]?.artist || null;
       const videoArtist = videoInfo?.artist || null;
       const playlistArtist = playlistInfo?.playlistUploader || null;
       const videoUploader = videoInfo?.uploader || null;
+
+      // Priority: first video artist > video artist > playlist uploader > video uploader
       const artist = firstVideoArtist || videoArtist || playlistArtist || videoUploader || '';
 
+      // Set metadata prioritizing playlist info (album metadata)
+      // Title is left empty for bulk mode since each track will have its own title
       setMetadata({
-        ...DEFAULT_METADATA,
-        title: '',
-        artist: artist,
-        album: playlistInfo?.playlistTitle || '',
-        albumArtist: artist,
-        genre: videoInfo?.genre || '',
-        year: videoInfo?.releaseYear || (videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
+        title: '', // Empty for bulk mode - each track gets its own title
+        artist: artist, // Use actual artist name, not "Release - Topic"
+        album: playlistInfo?.playlistTitle || '', // Album name (playlist title)
+        albumArtist: artist, // Album artist (same as artist for consistency)
+        genre: '',
+        year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        trackNumber: '',
+        totalTracks: '',
+        composer: '',
+        publisher: '',
+        comment: '',
         description: playlistInfo?.playlistTitle
           ? `Playlist: ${playlistInfo.playlistTitle}`
           : videoInfo?.description || '',
+        language: '',
+        copyright: '',
+        bpm: '',
       });
-      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo?.playlistThumbnail) ||
-        getFirstThumbnailUrl(playlistInfo?.videos?.[0]?.thumbnail) ||
+      // Always try to set thumbnail from playlist first video, fallback to videoInfo
+      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo?.videos?.[0]?.thumbnail) ||
         getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
 
+    // Initialize playlist individual mode
     if (
       playlistInfo &&
       playlistInfo.videos &&
       playlistEditMode === 'individual' &&
       mode === 'playlist'
     ) {
+      // Get videos to display (filter by selectedVideos if provided)
       const videosToUse =
         selectedVideos && selectedVideos.length > 0
           ? playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1))
           : playlistInfo.videos;
 
+      // Prefer artist field over uploader (artist is more accurate for music)
       const sharedArtist =
         videoInfo?.artist || videoInfo?.uploader || playlistInfo?.playlistUploader || '';
 
       setPlaylistSharedMetadata({
-        ...DEFAULT_PLAYLIST_SHARED_METADATA,
         artist: sharedArtist,
         album: playlistInfo.playlistTitle || '',
         albumArtist: sharedArtist,
-        genre: videoInfo?.genre || '',
-        year: videoInfo?.releaseYear || (videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString()),
+        genre: '',
+        year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+        composer: '',
+        publisher: '',
+        comment: '',
+        description: '',
+        language: '',
+        copyright: '',
+        bpm: '',
       });
 
+      // Initialize per-file metadata for displayed videos
+      // Use video's artist if available, otherwise use shared artist
       const perFile = videosToUse.map((video, index) => ({
         title: video.title || '',
-        artist: video.artist || sharedArtist,
+        artist: video.artist || sharedArtist, // Use video's artist if available, otherwise shared
         trackNumber: (index + 1).toString(),
       }));
       setPerFileMetadata(perFile);
       setUseSharedArtist(true);
 
+      // Set thumbnail to first video's thumbnail for individual mode
       const thumbnailToUse = getFirstThumbnailUrl(playlistInfo.videos[0]?.thumbnail) ||
         getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
 
+    // Initialize chapter metadata
     if (chapterInfo && mode === 'chapter') {
+      // Prefer artist field over uploader (artist is more accurate for music)
       const artist = videoInfo?.artist || videoInfo?.uploader || '';
       setChapterMetadata((prev) => ({
         ...prev,
@@ -277,19 +316,21 @@ function MetadataEditor({
           artist: artist,
           album: videoInfo?.title || '',
           albumArtist: artist,
-          genre: videoInfo?.genre || '',
-          year: videoInfo?.releaseYear || (videoInfo?.uploadDate
+          year: videoInfo?.uploadDate
             ? videoInfo.uploadDate.substring(0, 4)
-            : currentYear.toString()),
+            : currentYear.toString(),
         },
       }));
+      // Set thumbnail for chapters
       if (videoInfo?.thumbnail) {
         setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
         setCustomThumbnail(null);
       }
     }
 
+    // Initialize segment metadata
     if (segments && segments.length > 0 && mode === 'segment') {
+      // Prefer artist field over uploader (artist is more accurate for music)
       const artist = videoInfo?.artist || videoInfo?.uploader || '';
       setSegmentMetadata((prev) => ({
         ...prev,
@@ -298,10 +339,9 @@ function MetadataEditor({
           artist: artist,
           album: videoInfo?.title || '',
           albumArtist: artist,
-          genre: videoInfo?.genre || '',
-          year: videoInfo?.releaseYear || (videoInfo?.uploadDate
+          year: videoInfo?.uploadDate
             ? videoInfo.uploadDate.substring(0, 4)
-            : currentYear.toString()),
+            : currentYear.toString(),
         },
         perSegmentMetadata: segments.map((seg, index) => ({
           title: seg.title || '',
@@ -309,6 +349,7 @@ function MetadataEditor({
           trackNumber: index + 1,
         })),
       }));
+      // Set thumbnail for segments
       if (videoInfo?.thumbnail) {
         setThumbnailUrl(getFirstThumbnailUrl(videoInfo.thumbnail));
         setCustomThumbnail(null);

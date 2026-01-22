@@ -39,9 +39,9 @@ function PlaylistPreviewCard({
       }}
     >
       <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-        {/* Playlist thumbnail - prefer playlist thumbnail, fallback to first video */}
+        {/* Playlist thumbnail from first video */}
         <ThumbnailWithFallback
-          thumbnail={playlistInfo.playlistThumbnail || playlistInfo.videos?.[0]?.thumbnail}
+          thumbnail={playlistInfo.videos?.[0]?.thumbnail}
           alt={playlistInfo.playlistTitle}
           isPlaylist={true}
         />

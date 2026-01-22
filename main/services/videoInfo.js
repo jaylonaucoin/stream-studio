@@ -1,14 +1,18 @@
 /**
  * Video info service - fetches video/playlist metadata using yt-dlp
+ * This module preserves the exact functionality from the original main.js
  */
 const { spawn } = require('child_process');
 const { getYtDlpPath } = require('../utils/paths');
+const { sanitizeUrl } = require('../utils/url');
 
 // Cache for video info to avoid redundant fetches
 const videoInfoCache = new Map();
 const chapterInfoCache = new Map();
+const playlistInfoCache = new Map();
 const VIDEO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CHAPTER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Format duration from seconds to human readable string
@@ -27,56 +31,29 @@ function formatDuration(seconds) {
 }
 
 /**
- * Get the best quality thumbnail from thumbnails array
- * @param {Array} thumbnails - Array of thumbnail objects from yt-dlp
- * @param {string} fallback - Fallback thumbnail URL
- * @returns {string|null}
+ * Helper function to get high-quality thumbnail for a video
+ * Returns an array of thumbnail URLs in quality order (highest to lowest)
+ * Frontend will try them in sequence until one loads successfully
+ * @param {string} videoId - Video ID
+ * @param {string} videoUrl - Video URL
+ * @param {string} platform - Platform name
+ * @returns {Array<string>|null}
  */
-function getBestThumbnail(thumbnails, fallback = null) {
-  if (!thumbnails || !Array.isArray(thumbnails) || thumbnails.length === 0) {
-    return fallback;
+function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
+  // For YouTube, construct high-quality thumbnail URL array
+  if (platform === 'youtube' || videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be')) {
+    // YouTube thumbnail URL patterns (in order of quality - highest to lowest)
+    const thumbnailUrls = [
+      `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,  // Highest quality (1280x720 or 1920x1080)
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,      // High quality (480x360)
+      `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,      // Medium quality (320x180)
+    ];
+    // Return array of URLs for frontend to try in sequence
+    return thumbnailUrls;
   }
-  
-  // Sort by preference (higher is better) or by resolution
-  const sorted = [...thumbnails].sort((a, b) => {
-    // Prefer by preference field if available
-    if (a.preference !== undefined && b.preference !== undefined) {
-      return b.preference - a.preference;
-    }
-    // Otherwise sort by resolution (width * height)
-    const resA = (a.width || 0) * (a.height || 0);
-    const resB = (b.width || 0) * (b.height || 0);
-    return resB - resA;
-  });
-  
-  // Return the best thumbnail URL
-  return sorted[0]?.url || fallback;
-}
 
-/**
- * Get multiple thumbnail URLs sorted by quality (best first)
- * @param {Array} thumbnails - Array of thumbnail objects from yt-dlp
- * @param {string} fallback - Fallback thumbnail URL
- * @returns {Array<string>}
- */
-function getThumbnailUrls(thumbnails, fallback = null) {
-  if (!thumbnails || !Array.isArray(thumbnails) || thumbnails.length === 0) {
-    return fallback ? [fallback] : [];
-  }
-  
-  // Sort by preference (higher is better) or by resolution
-  const sorted = [...thumbnails].sort((a, b) => {
-    if (a.preference !== undefined && b.preference !== undefined) {
-      return b.preference - a.preference;
-    }
-    const resA = (a.width || 0) * (a.height || 0);
-    const resB = (b.width || 0) * (b.height || 0);
-    return resB - resA;
-  });
-  
-  // Return array of URLs (best first), filter out duplicates
-  const urls = sorted.map(t => t.url).filter(Boolean);
-  return [...new Set(urls)];
+  // For other platforms, return null to use the thumbnail from flat-playlist
+  return null;
 }
 
 /**
@@ -85,8 +62,11 @@ function getThumbnailUrls(thumbnails, fallback = null) {
  * @returns {Promise<Object>}
  */
 async function getVideoInfo(url) {
-  // Check cache
-  const cacheKey = url;
+  // Sanitize URL
+  const sanitizedUrl = sanitizeUrl(url);
+  
+  // Check cache first
+  const cacheKey = sanitizedUrl;
   const cached = videoInfoCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
     return cached.data;
@@ -94,78 +74,110 @@ async function getVideoInfo(url) {
 
   const ytDlpPath = getYtDlpPath();
   const args = [
-    '--dump-json',
-    '--no-playlist',
-    '--no-warnings',
-    url,
+    '--dump-json',      // Output JSON metadata
+    '--no-playlist',    // Don't download playlists
+    '--no-warnings',    // Suppress warnings
+    sanitizedUrl
   ];
 
   return new Promise((resolve, reject) => {
-    const process = spawn(ytDlpPath, args, {
+    const infoProcess = spawn(ytDlpPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let stdout = '';
     let stderr = '';
-    const timeoutId = setTimeout(() => {
-      process.kill();
-      reject(new Error('Video info fetch timed out'));
-    }, 30000);
+    let timeoutId = null;
+    
+    // Set timeout (10 seconds for info extraction - same as original)
+    timeoutId = setTimeout(() => {
+      infoProcess.kill();
+      reject(new Error('Video info extraction timed out. The URL may be invalid or the video may be unavailable.'));
+    }, 10000);
 
-    process.stdout.on('data', (data) => {
+    infoProcess.stdout.on('data', (data) => {
       stdout += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
+    infoProcess.stderr.on('data', (data) => {
       stderr += data.toString();
     });
 
-    process.on('close', (code) => {
-      clearTimeout(timeoutId);
+    infoProcess.on('close', (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
       if (code === 0 && stdout) {
         try {
           const info = JSON.parse(stdout);
           
-          // Get best quality thumbnail - try thumbnails array first, then fallback
-          const thumbnails = getThumbnailUrls(info.thumbnails, info.thumbnail);
-          const bestThumbnail = thumbnails[0] || info.thumbnail || null;
+          // Extract relevant information
+          // For music, prefer 'artist' field over 'uploader'/'channel' (which may be "Release - Topic")
+          const artist = info.artist || info.artists?.[0] || info.creator || info.creators?.[0] || null;
+          const uploader = info.uploader || info.channel || null;
           
-          const result = {
-            success: true,
+          const videoInfo = {
             title: info.title || 'Unknown Title',
-            duration: info.duration || 0,
-            durationFormatted: formatDuration(info.duration),
-            // Provide both single thumbnail and array for fallback support
-            thumbnail: thumbnails.length > 0 ? thumbnails : bestThumbnail,
-            uploader: info.uploader || info.channel || info.creator || null,
-            artist: info.artist || info.creator || null,
-            album: info.album || null,
-            track: info.track || null,
+            thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
+            duration: info.duration || null,
+            artist: artist, // Actual artist name (preferred for music)
+            uploader: uploader, // Channel/uploader name (fallback)
+            viewCount: info.view_count || null,
             uploadDate: info.upload_date || null,
             description: info.description || null,
-            viewCount: info.view_count || null,
-            likeCount: info.like_count || null,
-            // Additional metadata fields
-            genre: info.genre || null,
-            releaseYear: info.release_year || (info.upload_date ? info.upload_date.substring(0, 4) : null),
-            ageLimit: info.age_limit || null,
-            categories: info.categories || [],
-            tags: info.tags || [],
+            webpageUrl: info.webpage_url || sanitizedUrl,
           };
+          
+          // Format duration
+          if (videoInfo.duration) {
+            videoInfo.durationFormatted = formatDuration(videoInfo.duration);
+          }
+          
           // Cache the result
-          videoInfoCache.set(cacheKey, { data: result, timestamp: Date.now() });
+          const result = { success: true, ...videoInfo };
+          videoInfoCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
+          });
+          
           resolve(result);
-        } catch (e) {
-          reject(new Error('Failed to parse video info'));
+        } catch (parseError) {
+          reject(new Error(`Failed to parse video info: ${parseError.message}`));
         }
       } else {
-        reject(new Error(stderr || 'Failed to get video info'));
+        // Parse error from stderr
+        const errorLower = stderr.toLowerCase();
+        let errorMsg = 'Failed to get video info. ';
+        
+        if (errorLower.includes('private') || errorLower.includes('unavailable')) {
+          errorMsg += 'Video is private or unavailable.';
+        } else if (errorLower.includes('sign in') || errorLower.includes('login')) {
+          errorMsg += 'This video requires sign-in to access.';
+        } else if (errorLower.includes('age')) {
+          errorMsg += 'This video is age-restricted.';
+        } else if (errorLower.includes('not found') || errorLower.includes('does not exist')) {
+          errorMsg += 'Video not found.';
+        } else {
+          errorMsg += 'Please check the URL and try again.';
+        }
+        
+        reject(new Error(errorMsg));
       }
     });
 
-    process.on('error', (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
+    infoProcess.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+      } else {
+        reject(new Error(`Failed to get video info: ${error.message}`));
+      }
     });
   });
 }
@@ -176,114 +188,206 @@ async function getVideoInfo(url) {
  * @returns {Promise<Object>}
  */
 async function getPlaylistInfo(url) {
+  // Sanitize URL
+  const sanitizedUrl = sanitizeUrl(url);
+  
+  // Check cache first
+  const cacheKey = sanitizedUrl;
+  const cached = playlistInfoCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PLAYLIST_CACHE_TTL) {
+    return cached.data;
+  }
+  
   const ytDlpPath = getYtDlpPath();
-  const args = [
-    '--flat-playlist',
-    '--dump-json',
-    '--no-warnings',
-    url,
+  
+  // First, try to get info with --yes-playlist to check if it's a playlist
+  const playlistArgs = [
+    '--flat-playlist',   // Don't download, just list items
+    '--dump-json',       // Output JSON metadata
+    '--yes-playlist',    // Force playlist mode
+    '--no-warnings',     // Suppress warnings
+    sanitizedUrl
   ];
 
   return new Promise((resolve, reject) => {
-    const process = spawn(ytDlpPath, args, {
+    const playlistProcess = spawn(ytDlpPath, playlistArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let stdout = '';
     let stderr = '';
-    const entries = [];
-    const timeoutId = setTimeout(() => {
-      process.kill();
-      reject(new Error('Playlist info fetch timed out'));
-    }, 60000);
+    let timeoutId = null;
+    
+    // Set timeout (15 seconds for playlist info extraction - same as original)
+    timeoutId = setTimeout(() => {
+      playlistProcess.kill();
+      reject(new Error('Playlist info extraction timed out.'));
+    }, 15000);
 
-    process.stdout.on('data', (data) => {
+    playlistProcess.stdout.on('data', (data) => {
       stdout += data.toString();
-      // Process JSON lines as they come
-      const lines = stdout.split('\n');
-      stdout = lines.pop() || ''; // Keep incomplete line for next iteration
-      
-      for (const line of lines) {
-        if (line.trim()) {
-          try {
-            const entry = JSON.parse(line);
-            if (entry._type === 'playlist') {
-              // This is playlist metadata
-              entries.playlistMeta = entry;
-            } else {
-              entries.push(entry);
-            }
-          } catch (e) {
-            // Skip invalid JSON lines
-          }
-        }
-      }
     });
 
-    process.stderr.on('data', (data) => {
+    playlistProcess.stderr.on('data', (data) => {
       stderr += data.toString();
     });
 
-    process.on('close', (code) => {
-      clearTimeout(timeoutId);
-      
-      // Process any remaining stdout
-      if (stdout.trim()) {
-        try {
-          const entry = JSON.parse(stdout);
-          if (entry._type !== 'playlist') {
-            entries.push(entry);
-          }
-        } catch (e) {
-          // Skip invalid JSON
-        }
+    playlistProcess.on('close', async (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
       }
-
-      if (entries.length > 0) {
-        const videos = entries.map((entry, index) => {
-          // Get best quality thumbnail for each video
-          const thumbnails = getThumbnailUrls(entry.thumbnails, entry.thumbnail);
+      
+      if (code === 0 && stdout) {
+        try {
+          // Parse all JSON lines (one per video in playlist)
+          const lines = stdout.trim().split('\n').filter(line => line.trim());
           
-          return {
-            index: index + 1,
-            title: entry.title || `Video ${index + 1}`,
-            url: entry.url || entry.webpage_url || url,
-            thumbnail: thumbnails.length > 0 ? thumbnails : (entry.thumbnail || null),
-            duration: entry.duration || 0,
-            durationFormatted: formatDuration(entry.duration),
-            artist: entry.artist || entry.creator || null,
-            uploader: entry.uploader || entry.channel || null,
+          if (lines.length === 0) {
+            // Not a playlist or empty
+            const result = { success: true, isPlaylist: false };
+            playlistInfoCache.set(cacheKey, {
+              data: result,
+              timestamp: Date.now()
+            });
+            resolve(result);
+            return;
+          }
+          
+          // Parse first entry to get playlist metadata
+          const firstEntry = JSON.parse(lines[0]);
+          
+          // Check if this is actually a playlist or just a single video
+          // Be strict: only consider it a playlist if:
+          // 1. There are multiple videos (lines.length > 1), OR
+          // 2. There's a meaningful playlist title (not empty, not "Untitled Playlist")
+          const playlistTitle = firstEntry.playlist || firstEntry.playlist_title || '';
+          const hasValidPlaylistTitle = playlistTitle && 
+            playlistTitle !== 'Untitled Playlist' && 
+            playlistTitle.trim() !== '';
+          const isPlaylist = lines.length > 1 || hasValidPlaylistTitle;
+          
+          if (!isPlaylist) {
+            const result = { success: true, isPlaylist: false };
+            playlistInfoCache.set(cacheKey, {
+              data: result,
+              timestamp: Date.now()
+            });
+            resolve(result);
+            return;
+          }
+          
+          // Parse all videos and calculate total duration
+          let totalDuration = 0;
+          const videos = [];
+          
+          lines.forEach((line, lineIndex) => {
+            try {
+              const entry = JSON.parse(line);
+              
+              // Extract video details
+              const videoId = entry.id || entry.url?.split('/').pop() || null;
+              const videoTitle = entry.title || `Video ${lineIndex + 1}`;
+              const videoDuration = entry.duration || 0;
+              const videoUrl = entry.url || entry.webpage_url || null;
+              const videoThumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
+              // playlist_index from yt-dlp is already 1-based, use it directly
+              // If not present, use lineIndex (which is 0-based) + 1
+              const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index : lineIndex + 1;
+              // Extract artist if available (for music playlists)
+              const videoArtist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+              
+              videos.push({
+                id: videoId,
+                title: videoTitle,
+                duration: videoDuration,
+                durationFormatted: formatDuration(videoDuration),
+                index: playlistIndex,
+                url: videoUrl,
+                thumbnail: videoThumbnail,
+                artist: videoArtist, // Actual artist name (if available)
+              });
+              
+              if (entry.duration) {
+                totalDuration += entry.duration;
+              }
+            } catch (e) {
+              // Skip invalid entries
+              console.warn('Failed to parse playlist entry:', e);
+            }
+          });
+          
+          // Get high-quality thumbnail for first video (used as playlist thumbnail)
+          if (videos.length > 0 && videos[0].id) {
+            try {
+              const firstVideo = videos[0];
+              const originalThumbnail = firstVideo.thumbnail; // Preserve original thumbnail as fallback
+              const platform = sanitizedUrl.includes('youtube.com') || sanitizedUrl.includes('youtu.be') ? 'youtube' : 'other';
+              const highQualityThumbnails = getHighQualityThumbnail(firstVideo.id, firstVideo.url, platform);
+              
+              if (highQualityThumbnails && Array.isArray(highQualityThumbnails)) {
+                // Put yt-dlp provided URL FIRST (guaranteed to exist by YouTube), 
+                // then try higher quality alternatives as fallbacks
+                // This fixes the issue where maxresdefault.jpg returns a gray placeholder
+                // for videos that don't have high-res thumbnails
+                const thumbnailUrls = originalThumbnail 
+                  ? [originalThumbnail, ...highQualityThumbnails] 
+                  : [...highQualityThumbnails];
+                // Store as array - frontend will try URLs in sequence
+                firstVideo.thumbnail = thumbnailUrls;
+                videos[0] = firstVideo;
+              }
+            } catch (thumbnailError) {
+              console.warn('Failed to get high-quality thumbnail:', thumbnailError);
+            }
+          }
+          
+          // Format total duration
+          const totalDurationFormatted = formatDuration(totalDuration);
+          
+          const result = {
+            success: true,
+            isPlaylist: true,
+            playlistTitle: playlistTitle || 'Playlist',
+            playlistVideoCount: videos.length,
+            playlistTotalDuration: totalDuration,
+            playlistTotalDurationFormatted: totalDurationFormatted,
+            playlistUploader: firstEntry.uploader || firstEntry.channel || null,
+            videos,
           };
-        });
-
-        const totalDuration = videos.reduce((sum, v) => sum + (v.duration || 0), 0);
-        
-        // Get playlist thumbnail from first video or playlist metadata
-        const playlistThumbnails = getThumbnailUrls(
-          entries.playlistMeta?.thumbnails,
-          entries.playlistMeta?.thumbnail || videos[0]?.thumbnail?.[0] || videos[0]?.thumbnail
-        );
-
-        resolve({
-          success: true,
-          isPlaylist: true,
-          playlistTitle: entries.playlistMeta?.title || 'Playlist',
-          playlistVideoCount: videos.length,
-          playlistTotalDuration: totalDuration,
-          playlistTotalDurationFormatted: formatDuration(totalDuration),
-          playlistUploader: entries.playlistMeta?.uploader || entries.playlistMeta?.channel || null,
-          playlistThumbnail: playlistThumbnails.length > 0 ? playlistThumbnails : null,
-          videos,
-        });
+          
+          // Cache the result
+          playlistInfoCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
+          });
+          
+          resolve(result);
+        } catch (parseError) {
+          reject(new Error(`Failed to parse playlist info: ${parseError.message}`));
+        }
       } else {
-        // Not a playlist
-        resolve({ success: true, isPlaylist: false });
+        // Not a playlist or error
+        const result = { success: true, isPlaylist: false };
+        playlistInfoCache.set(cacheKey, {
+          data: result,
+          timestamp: Date.now()
+        });
+        resolve(result);
       }
     });
 
-    process.on('error', (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
+    playlistProcess.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+      } else {
+        reject(new Error(`Failed to get playlist info: ${error.message}`));
+      }
     });
   });
 }
@@ -294,8 +398,11 @@ async function getPlaylistInfo(url) {
  * @returns {Promise<Object>}
  */
 async function getChapterInfo(url) {
-  // Check cache
-  const cacheKey = url;
+  // Sanitize URL
+  const sanitizedUrl = sanitizeUrl(url);
+  
+  // Check cache first
+  const cacheKey = sanitizedUrl;
   const cached = chapterInfoCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL) {
     return cached.data;
@@ -306,7 +413,7 @@ async function getChapterInfo(url) {
     '--dump-json',
     '--no-playlist',
     '--no-warnings',
-    url,
+    sanitizedUrl,
   ];
 
   return new Promise((resolve, reject) => {
@@ -315,17 +422,24 @@ async function getChapterInfo(url) {
     });
 
     let stdout = '';
-    const timeoutId = setTimeout(() => {
+    let timeoutId = null;
+    
+    // Set timeout (10 seconds - same as video info)
+    timeoutId = setTimeout(() => {
       process.kill();
       reject(new Error('Chapter info fetch timed out'));
-    }, 30000);
+    }, 10000);
 
     process.stdout.on('data', (data) => {
       stdout += data.toString();
     });
 
     process.on('close', (code) => {
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
       if (code === 0 && stdout) {
         try {
           const info = JSON.parse(stdout);
@@ -370,7 +484,10 @@ async function getChapterInfo(url) {
     });
 
     process.on('error', (err) => {
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       reject(err);
     });
   });
@@ -382,9 +499,14 @@ async function getChapterInfo(url) {
  * @returns {Object|null}
  */
 function getCachedVideoInfo(url) {
-  const cached = videoInfoCache.get(url);
-  if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
-    return cached.data;
+  try {
+    const sanitizedUrl = sanitizeUrl(url);
+    const cached = videoInfoCache.get(sanitizedUrl);
+    if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
+      return cached.data;
+    }
+  } catch (e) {
+    // URL validation failed
   }
   return null;
 }
@@ -395,9 +517,14 @@ function getCachedVideoInfo(url) {
  * @returns {Object|null}
  */
 function getCachedChapterInfo(url) {
-  const cached = chapterInfoCache.get(url);
-  if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL) {
-    return cached.data;
+  try {
+    const sanitizedUrl = sanitizeUrl(url);
+    const cached = chapterInfoCache.get(sanitizedUrl);
+    if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL) {
+      return cached.data;
+    }
+  } catch (e) {
+    // URL validation failed
   }
   return null;
 }
@@ -409,4 +536,5 @@ module.exports = {
   getCachedVideoInfo,
   getCachedChapterInfo,
   formatDuration,
+  getHighQualityThumbnail,
 };
