@@ -77,8 +77,19 @@ function sanitizeFolderName(name) {
   return name.replace(/[<>:"/\\|?*]/g, '_').trim();
 }
 
+/**
+ * Sanitize filename for filesystem
+ * @param {string} name - The filename to sanitize
+ * @returns {string} Sanitized filename, or empty string if invalid
+ */
+function sanitizeFileName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name.replace(/[<>:"/\\|?*]/g, '_').trim() || '';
+}
+
 module.exports = {
   getFormatExtension,
   getUniqueFilename,
   sanitizeFolderName,
+  sanitizeFileName,
 };

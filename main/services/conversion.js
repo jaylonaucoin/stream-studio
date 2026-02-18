@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const { getYtDlpPath, getFfmpegPath } = require('../utils/paths');
 const { sanitizeUrl } = require('../utils/url');
-const { getFormatExtension, getUniqueFilename, sanitizeFolderName } = require('../utils/filename');
+const { getFormatExtension, getUniqueFilename, sanitizeFolderName, sanitizeFileName } = require('../utils/filename');
 const { checkFfmpegAvailable, getFfmpegUnavailableError, splitAudioByTime, buildMetadataArgs } = require('./ffmpeg');
 const { applyMetadataToFile } = require('./metadata');
 const { addToHistory } = require('./history');
@@ -550,7 +550,8 @@ async function handleManualSegments(
     }
 
     const segment = segments[i];
-    const segmentTitle = segment.title || `Track ${i + 1}`;
+    const customTitle = customMetadata?.segmentMetadata?.perSegmentMetadata?.[i]?.title;
+    const segmentTitle = sanitizeFileName(customTitle) || sanitizeFileName(segment.title) || `Track ${i + 1}`;
     const sanitizedTitle = sanitizeFolderName(segmentTitle);
     const ext = fileExtension || 'mp3';
     const segmentFilePath = path.join(segmentFolder, `${sanitizedTitle}.${ext}`);
@@ -663,21 +664,37 @@ async function handleSingleFileResult(
     await applyMetadataToFile(finalFilePath, customMetadata.metadata, customMetadata.thumbnail);
   }
 
+  // Optionally rename to match custom metadata title
+  let effectiveFilePath = finalFilePath;
+  const customTitle = customMetadata?.metadata?.title;
+  if (customTitle && typeof customTitle === 'string') {
+    const sanitizedCustomTitle = sanitizeFileName(customTitle);
+    if (sanitizedCustomTitle) {
+      const ext = path.extname(finalFilePath);
+      const currentBaseName = path.basename(finalFilePath, ext);
+      if (sanitizedCustomTitle !== currentBaseName) {
+        const newFilePath = getUniqueFilename(path.join(outputFolder, `${sanitizedCustomTitle}${ext}`));
+        fs.renameSync(finalFilePath, newFilePath);
+        effectiveFilePath = newFilePath;
+      }
+    }
+  }
+
   // Add to history
   addToHistory({
     url,
-    fileName: path.basename(finalFilePath),
-    filePath: finalFilePath,
+    fileName: path.basename(effectiveFilePath),
+    filePath: effectiveFilePath,
     format,
     mode,
   });
 
-  showNotification('Conversion Complete', `Saved to ${path.basename(finalFilePath)}`);
+  showNotification('Conversion Complete', `Saved to ${path.basename(effectiveFilePath)}`);
 
   return {
     success: true,
-    fileName: path.basename(finalFilePath),
-    filePath: finalFilePath,
+    fileName: path.basename(effectiveFilePath),
+    filePath: effectiveFilePath,
   };
 }
 
