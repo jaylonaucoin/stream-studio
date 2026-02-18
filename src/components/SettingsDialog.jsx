@@ -19,15 +19,11 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { AUDIO_FORMAT_VALUES, VIDEO_FORMAT_VALUES, QUALITY_OPTIONS } from '../constants';
 
-const AUDIO_FORMATS = ['mp3', 'm4a', 'flac', 'wav', 'aac', 'opus', 'vorbis', 'alac'];
-const VIDEO_FORMATS = ['mp4', 'mkv', 'webm', 'mov', 'avi'];
-const QUALITY_OPTIONS = [
-  { value: 'best', label: 'Best' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
+// Use format arrays from constants
+const AUDIO_FORMATS = AUDIO_FORMAT_VALUES;
+const VIDEO_FORMATS = VIDEO_FORMAT_VALUES;
 
 function SettingsDialog({ open, onClose }) {
   const [settings, setSettings] = useState({
