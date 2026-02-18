@@ -58,6 +58,7 @@
     },
     "files": [
       "main.js",
+      "main/**/*",
       "preload.js",
       "dist-renderer/**/*",
       "assets/**/*",
