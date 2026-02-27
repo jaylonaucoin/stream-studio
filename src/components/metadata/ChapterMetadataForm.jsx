@@ -23,22 +23,28 @@ function ChapterMetadataForm({
   onThumbnailChange,
   onError,
 }) {
-  const handleFieldChange = useCallback((field, value) => {
-    onChapterMetadataChange((prev) => ({
-      ...prev,
-      albumMetadata: {
-        ...prev.albumMetadata,
-        [field]: value,
-      },
-    }));
-  }, [onChapterMetadataChange]);
+  const handleFieldChange = useCallback(
+    (field, value) => {
+      onChapterMetadataChange((prev) => ({
+        ...prev,
+        albumMetadata: {
+          ...prev.albumMetadata,
+          [field]: value,
+        },
+      }));
+    },
+    [onChapterMetadataChange]
+  );
 
-  const handleTemplateChange = useCallback((value) => {
-    onChapterMetadataChange((prev) => ({
-      ...prev,
-      chapterTitleTemplate: value,
-    }));
-  }, [onChapterMetadataChange]);
+  const handleTemplateChange = useCallback(
+    (value) => {
+      onChapterMetadataChange((prev) => ({
+        ...prev,
+        chapterTitleTemplate: value,
+      }));
+    },
+    [onChapterMetadataChange]
+  );
 
   return (
     <Box>

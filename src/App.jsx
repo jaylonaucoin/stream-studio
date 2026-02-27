@@ -273,8 +273,7 @@ function App() {
         chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
       const isFullVideoWithChapters =
         chapterDownloadMode === 'full' && options.chapterDownloadMode !== undefined;
-      const isManualSegments =
-        options.manualSegments && options.manualSegments.length > 0;
+      const isManualSegments = options.manualSegments && options.manualSegments.length > 0;
       setStatusMessage(
         isPlaylist
           ? 'Starting playlist download...'
@@ -350,8 +349,7 @@ function App() {
         const chapterDownloadMode = options.chapterDownloadMode || 'split';
         const isChapters =
           chapterDownloadMode === 'split' && options.chapters && options.chapters.length > 0;
-        const isManualSegments =
-          options.manualSegments && options.manualSegments.length > 0;
+        const isManualSegments = options.manualSegments && options.manualSegments.length > 0;
         setStatusMessage(
           isPlaylist
             ? 'Playlist download failed'

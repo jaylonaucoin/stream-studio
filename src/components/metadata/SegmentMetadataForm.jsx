@@ -26,32 +26,38 @@ function SegmentMetadataForm({
   onThumbnailChange,
   onError,
 }) {
-  const handleAlbumFieldChange = useCallback((field, value) => {
-    onSegmentMetadataChange((prev) => ({
-      ...prev,
-      albumMetadata: {
-        ...prev.albumMetadata,
-        [field]: value,
-      },
-    }));
-  }, [onSegmentMetadataChange]);
-
-  const handlePerTrackChange = useCallback((index, field, value) => {
-    onSegmentMetadataChange((prev) => {
-      const updated = [...prev.perSegmentMetadata];
-      updated[index] = { ...updated[index], [field]: value };
-      return {
+  const handleAlbumFieldChange = useCallback(
+    (field, value) => {
+      onSegmentMetadataChange((prev) => ({
         ...prev,
-        perSegmentMetadata: updated,
-      };
-    });
-  }, [onSegmentMetadataChange]);
+        albumMetadata: {
+          ...prev.albumMetadata,
+          [field]: value,
+        },
+      }));
+    },
+    [onSegmentMetadataChange]
+  );
+
+  const handlePerTrackChange = useCallback(
+    (index, field, value) => {
+      onSegmentMetadataChange((prev) => {
+        const updated = [...prev.perSegmentMetadata];
+        updated[index] = { ...updated[index], [field]: value };
+        return {
+          ...prev,
+          perSegmentMetadata: updated,
+        };
+      });
+    },
+    [onSegmentMetadataChange]
+  );
 
   return (
     <Box>
       <Alert severity="info" sx={{ mb: 2 }}>
-        Album metadata will be applied to all segments. Each segment will be downloaded as a separate
-        track with its own title.
+        Album metadata will be applied to all segments. Each segment will be downloaded as a
+        separate track with its own title.
       </Alert>
       <Typography variant="h6" gutterBottom>
         Album Metadata

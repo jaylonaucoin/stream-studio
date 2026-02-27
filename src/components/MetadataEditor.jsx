@@ -250,8 +250,10 @@ function MetadataEditor({
         bpm: '',
       });
       // Always try to set thumbnail from playlist first video, fallback to videoInfo
-      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo?.videos?.[0]?.thumbnail) ||
-        getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
+      const thumbnailToUse =
+        getFirstThumbnailUrl(playlistInfo?.videos?.[0]?.thumbnail) ||
+        getFirstThumbnailUrl(videoInfo?.thumbnail) ||
+        '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
@@ -299,8 +301,10 @@ function MetadataEditor({
       setUseSharedArtist(true);
 
       // Set thumbnail to first video's thumbnail for individual mode
-      const thumbnailToUse = getFirstThumbnailUrl(playlistInfo.videos[0]?.thumbnail) ||
-        getFirstThumbnailUrl(videoInfo?.thumbnail) || '';
+      const thumbnailToUse =
+        getFirstThumbnailUrl(playlistInfo.videos[0]?.thumbnail) ||
+        getFirstThumbnailUrl(videoInfo?.thumbnail) ||
+        '';
       setThumbnailUrl(thumbnailToUse);
       setCustomThumbnail(null);
     }
@@ -482,7 +486,9 @@ function MetadataEditor({
       const mergedPerSegment = segmentMetadata.perSegmentMetadata.map((seg, index) => ({
         ...segmentMetadata.albumMetadata,
         title: seg.title || '',
-        artist: useSharedArtistForSegments ? segmentMetadata.albumMetadata.artist : seg.artist || '',
+        artist: useSharedArtistForSegments
+          ? segmentMetadata.albumMetadata.artist
+          : seg.artist || '',
         trackNumber: (index + 1).toString(),
         totalTracks: segmentMetadata.perSegmentMetadata.length.toString(),
       }));

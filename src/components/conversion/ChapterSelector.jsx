@@ -44,39 +44,48 @@ function ChapterSelector({
   const [editingChapterIndex, setEditingChapterIndex] = useState(null);
   const [editingChapterValue, setEditingChapterValue] = useState('');
 
-  const handleChapterTitleEdit = useCallback((chapterIndex) => {
-    const chapter = chapterInfo?.chapters?.[chapterIndex];
-    if (!chapter) return;
-    
-    const currentTitle = editedChapterTitles[chapterIndex] ?? chapter.title;
-    setEditingChapterIndex(chapterIndex);
-    setEditingChapterValue(currentTitle);
-  }, [chapterInfo, editedChapterTitles]);
+  const handleChapterTitleEdit = useCallback(
+    (chapterIndex) => {
+      const chapter = chapterInfo?.chapters?.[chapterIndex];
+      if (!chapter) return;
 
-  const handleChapterTitleSave = useCallback((chapterIndex) => {
-    if (editingChapterValue.trim()) {
-      onChapterTitleChange(chapterIndex, editingChapterValue.trim());
-    } else {
-      onChapterTitleChange(chapterIndex, null); // Remove edited title
-    }
-    setEditingChapterIndex(null);
-    setEditingChapterValue('');
-  }, [editingChapterValue, onChapterTitleChange]);
+      const currentTitle = editedChapterTitles[chapterIndex] ?? chapter.title;
+      setEditingChapterIndex(chapterIndex);
+      setEditingChapterValue(currentTitle);
+    },
+    [chapterInfo, editedChapterTitles]
+  );
+
+  const handleChapterTitleSave = useCallback(
+    (chapterIndex) => {
+      if (editingChapterValue.trim()) {
+        onChapterTitleChange(chapterIndex, editingChapterValue.trim());
+      } else {
+        onChapterTitleChange(chapterIndex, null); // Remove edited title
+      }
+      setEditingChapterIndex(null);
+      setEditingChapterValue('');
+    },
+    [editingChapterValue, onChapterTitleChange]
+  );
 
   const handleChapterTitleCancel = useCallback(() => {
     setEditingChapterIndex(null);
     setEditingChapterValue('');
   }, []);
 
-  const handleChapterTitleKeyDown = useCallback((e, chapterIndex) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleChapterTitleSave(chapterIndex);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      handleChapterTitleCancel();
-    }
-  }, [handleChapterTitleSave, handleChapterTitleCancel]);
+  const handleChapterTitleKeyDown = useCallback(
+    (e, chapterIndex) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleChapterTitleSave(chapterIndex);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleChapterTitleCancel();
+      }
+    },
+    [handleChapterTitleSave, handleChapterTitleCancel]
+  );
 
   return (
     <Paper
@@ -113,7 +122,9 @@ function ChapterSelector({
           <Button
             size="small"
             onClick={onSelectAll}
-            disabled={isConverting || disabled || selectedChapters.length === chapterInfo.totalChapters}
+            disabled={
+              isConverting || disabled || selectedChapters.length === chapterInfo.totalChapters
+            }
             sx={{ minWidth: 'auto', px: 1 }}
           >
             Select All
@@ -127,11 +138,7 @@ function ChapterSelector({
             Deselect All
           </Button>
           <Tooltip title="Edit Metadata">
-            <IconButton
-              size="small"
-              onClick={onEditMetadata}
-              disabled={isConverting || disabled}
-            >
+            <IconButton size="small" onClick={onEditMetadata} disabled={isConverting || disabled}>
               <EditIcon />
             </IconButton>
           </Tooltip>

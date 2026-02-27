@@ -257,15 +257,18 @@ function ConversionForm({
     }
   }, []);
 
-  const handlePlaylistModeChange = useCallback((newMode) => {
-    setPlaylistMode(newMode);
-    if (newMode === 'selected' && playlistInfo && playlistInfo.videos) {
-      const allIndices = playlistInfo.videos.map((v) => v.index);
-      setSelectedVideos(allIndices);
-    } else if (newMode === 'full') {
-      setSelectedVideos([]);
-    }
-  }, [playlistInfo]);
+  const handlePlaylistModeChange = useCallback(
+    (newMode) => {
+      setPlaylistMode(newMode);
+      if (newMode === 'selected' && playlistInfo && playlistInfo.videos) {
+        const allIndices = playlistInfo.videos.map((v) => v.index);
+        setSelectedVideos(allIndices);
+      } else if (newMode === 'full') {
+        setSelectedVideos([]);
+      }
+    },
+    [playlistInfo]
+  );
 
   const handleVideoToggle = useCallback((videoIndex) => {
     setSelectedVideos((prev) => {

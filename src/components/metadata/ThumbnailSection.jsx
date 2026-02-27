@@ -7,11 +7,7 @@ import ThumbnailCropper from '../ThumbnailCropper';
 /**
  * ThumbnailSection component for displaying and editing album art/thumbnails
  */
-function ThumbnailSection({
-  thumbnailUrl,
-  onThumbnailChange,
-  onError,
-}) {
+function ThumbnailSection({ thumbnailUrl, onThumbnailChange, onError }) {
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
 
@@ -34,21 +30,24 @@ function ThumbnailSection({
     }
   }, [onThumbnailChange, onError]);
 
-  const handleCropComplete = useCallback((croppedImageUrl) => {
-    if (!croppedImageUrl) {
-      console.error('No cropped image URL provided');
-      onError?.('Failed to crop image. Please try again.');
-      return;
-    }
+  const handleCropComplete = useCallback(
+    (croppedImageUrl) => {
+      if (!croppedImageUrl) {
+        console.error('No cropped image URL provided');
+        onError?.('Failed to crop image. Please try again.');
+        return;
+      }
 
-    try {
-      onThumbnailChange(croppedImageUrl);
-      setCropDialogOpen(false);
-    } catch (error) {
-      console.error('Error saving cropped image:', error);
-      onError?.('Failed to save cropped image. Please try again.');
-    }
-  }, [onThumbnailChange, onError]);
+      try {
+        onThumbnailChange(croppedImageUrl);
+        setCropDialogOpen(false);
+      } catch (error) {
+        console.error('Error saving cropped image:', error);
+        onError?.('Failed to save cropped image. Please try again.');
+      }
+    },
+    [onThumbnailChange, onError]
+  );
 
   return (
     <>
