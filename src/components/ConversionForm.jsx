@@ -475,13 +475,20 @@ function ConversionForm({
       <Tabs
         value={inputMode}
         onChange={(_, newValue) => setInputMode(newValue)}
-        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+        sx={{
+          mb: 3,
+          mt: 0.5,
+          minHeight: 48,
+          borderBottom: 1,
+          borderColor: 'divider',
+          '& .MuiTab-root': { minHeight: 48, py: 1.5 },
+        }}
         aria-label="Input mode tabs"
       >
         <Tab
           value="search"
           label="Search"
-          icon={<SearchIcon />}
+          icon={<SearchIcon fontSize="small" />}
           iconPosition="start"
           aria-controls="tabpanel-search"
           id="tab-search"
@@ -489,7 +496,7 @@ function ConversionForm({
         <Tab
           value="paste"
           label="Paste URL"
-          icon={<LinkIcon />}
+          icon={<LinkIcon fontSize="small" />}
           iconPosition="start"
           aria-controls="tabpanel-paste"
           id="tab-paste"
@@ -501,7 +508,7 @@ function ConversionForm({
           id="tabpanel-search"
           role="tabpanel"
           aria-labelledby="tab-search"
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, mt: 1 }}
         >
           <YouTubeSearchPanel
             onSelect={handleSearchSelect}
@@ -516,6 +523,7 @@ function ConversionForm({
           id="tabpanel-paste"
           role="tabpanel"
           aria-labelledby="tab-paste"
+          sx={{ mt: 1 }}
         >
           <TextField
             fullWidth

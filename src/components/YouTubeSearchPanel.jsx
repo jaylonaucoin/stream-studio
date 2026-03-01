@@ -77,9 +77,15 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          alignItems: 'stretch',
+          flexWrap: 'wrap',
+        }}
+      >
         <TextField
-          fullWidth
           placeholder="Search for a song (e.g. Keith Whitley When You Say Nothing At All)"
           value={query}
           onChange={(e) => {
@@ -88,11 +94,11 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
           }}
           onKeyDown={handleKeyDown}
           disabled={disabled || isConverting}
-          size="medium"
+          size="small"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon color="action" />
+                <SearchIcon color="action" fontSize="small" />
               </InputAdornment>
             ),
           }}
@@ -106,7 +112,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
           startIcon={<SearchIcon />}
           onClick={handleSearch}
           disabled={isSearchDisabled}
-          sx={{ flexShrink: 0 }}
+          sx={{ flexShrink: 0, minWidth: 100 }}
         >
           Search
         </Button>
