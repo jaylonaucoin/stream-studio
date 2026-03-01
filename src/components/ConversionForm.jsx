@@ -9,12 +9,17 @@ import {
   Alert,
   Paper,
   Skeleton,
+  Tabs,
+  Tab,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import LinkIcon from '@mui/icons-material/Link';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
 import CancelIcon from '@mui/icons-material/Cancel';
 import MetadataEditor from './MetadataEditor';
 import SegmentEditor from './SegmentEditor';
+import YouTubeSearchPanel from './YouTubeSearchPanel';
 import {
   VideoPreviewCard,
   PlaylistPreviewCard,
@@ -23,7 +28,7 @@ import {
   FormatControls,
 } from './conversion';
 import { SUPPORTED_SITES } from '../constants';
-import { normalizeUrl, isValidUrl } from '../utils';
+import { normalizeUrl, isValidUrl, isLikelyUrl } from '../utils';
 
 function ConversionForm({
   onConvert,
@@ -72,6 +77,9 @@ function ConversionForm({
   // Metadata editor state
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
   const [customMetadata, setCustomMetadata] = useState(null);
+
+  // Input mode: 'search' (YouTube search) or 'paste' (URL input)
+  const [inputMode, setInputMode] = useState('search');
 
   // Update mode/format/quality when defaults change
   useEffect(() => {
@@ -243,8 +251,17 @@ function ConversionForm({
       const text = await navigator.clipboard.readText();
       setUrl(text);
       validateUrl(text);
+      if (text.trim()) setInputMode('paste');
     } catch (err) {
       console.error('Failed to read clipboard:', err);
+    }
+  }, [validateUrl]);
+
+  const handleSearchSelect = useCallback((selectedUrl) => {
+    if (selectedUrl) {
+      setUrl(selectedUrl);
+      validateUrl(selectedUrl);
+      setInputMode('paste');
     }
   }, [validateUrl]);
 
@@ -418,8 +435,10 @@ function ConversionForm({
       const text = dt.getData('text/plain');
 
       if (text) {
-        setUrl(text.trim());
-        validateUrl(text.trim());
+        const trimmed = text.trim();
+        setUrl(trimmed);
+        validateUrl(trimmed);
+        if (isLikelyUrl(trimmed)) setInputMode('paste');
       }
     },
     [validateUrl]
@@ -453,43 +472,93 @@ function ConversionForm({
         </Alert>
       )}
 
-      <TextField
-        fullWidth
-        label="Video or Audio URL"
-        placeholder="Paste any video or audio URL (YouTube, Vimeo, TikTok, Twitter, SoundCloud, etc.)"
-        value={url}
-        onChange={handleUrlChange}
-        onKeyDown={handleKeyPress}
-        disabled={isConverting || disabled}
-        error={!isValid && url.length > 0}
-        helperText={
-          errorMessage ||
-          (url.length === 0
-            ? `Supports ${SUPPORTED_SITES.slice(0, 6).join(', ')} and 1000+ more sites`
-            : '')
-        }
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title="Paste from clipboard (Ctrl+V)">
-                <IconButton
-                  onClick={handlePaste}
-                  edge="center"
-                  disabled={isConverting || disabled}
-                  aria-label="Paste URL from clipboard"
-                >
-                  <ContentPasteIcon />
-                </IconButton>
-              </Tooltip>
-            </InputAdornment>
-          ),
-        }}
-        inputProps={{
-          'aria-label': 'Video or audio URL input',
-        }}
-        sx={{ mb: 2 }}
-      />
+      <Tabs
+        value={inputMode}
+        onChange={(_, newValue) => setInputMode(newValue)}
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+        aria-label="Input mode tabs"
+      >
+        <Tab
+          value="search"
+          label="Search"
+          icon={<SearchIcon />}
+          iconPosition="start"
+          aria-controls="tabpanel-search"
+          id="tab-search"
+        />
+        <Tab
+          value="paste"
+          label="Paste URL"
+          icon={<LinkIcon />}
+          iconPosition="start"
+          aria-controls="tabpanel-paste"
+          id="tab-paste"
+        />
+      </Tabs>
 
+      {inputMode === 'search' && (
+        <Box
+          id="tabpanel-search"
+          role="tabpanel"
+          aria-labelledby="tab-search"
+          sx={{ mb: 2 }}
+        >
+          <YouTubeSearchPanel
+            onSelect={handleSearchSelect}
+            disabled={disabled}
+            isConverting={isConverting}
+          />
+        </Box>
+      )}
+
+      {inputMode === 'paste' && (
+        <Box
+          id="tabpanel-paste"
+          role="tabpanel"
+          aria-labelledby="tab-paste"
+        >
+          <TextField
+            fullWidth
+            label="Video or Audio URL"
+            placeholder="Paste any video or audio URL (YouTube, Vimeo, TikTok, Twitter, SoundCloud, etc.)"
+            value={url}
+            onChange={handleUrlChange}
+            onKeyDown={handleKeyPress}
+            disabled={isConverting || disabled}
+            error={!isValid && url.length > 0}
+            helperText={
+              errorMessage ||
+              (url.length === 0
+                ? `Supports ${SUPPORTED_SITES.slice(0, 6).join(', ')} and 1000+ more sites`
+                : '')
+            }
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip title="Paste from clipboard (Ctrl+V)">
+                    <IconButton
+                      onClick={handlePaste}
+                      edge="center"
+                      disabled={isConverting || disabled}
+                      aria-label="Paste URL from clipboard"
+                    >
+                      <ContentPasteIcon />
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
+            inputProps={{
+              'aria-label': 'Video or audio URL input',
+            }}
+            sx={{ mb: 2 }}
+          />
+        </Box>
+      )}
+
+      {/* Preview, chapters, format etc. - only show when on paste tab */}
+      {inputMode === 'paste' && (
+        <>
       {/* Loading Preview Skeleton */}
       {loadingPreview && (
         <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
@@ -634,6 +703,8 @@ function ConversionForm({
           </Button>
         )}
       </Box>
+        </>
+      )}
 
       {/* Metadata Editor Dialog */}
       <MetadataEditor
