@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('api', {
   
   // Chapter info (for chapter selection)
   getChapterInfo: (url) => ipcRenderer.invoke('getChapterInfo', url),
+
+  // YouTube search (Chordify-style)
+  searchYouTube: (query, limit) => ipcRenderer.invoke('searchYouTube', query, limit),
   
   // Image selection (for thumbnail replacement)
   selectImageFile: () => ipcRenderer.invoke('selectImageFile'),

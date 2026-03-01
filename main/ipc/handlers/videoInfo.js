@@ -35,6 +35,15 @@ function registerHandlers(ipcMain) {
       return { success: false, hasChapters: false, error: error.message };
     }
   });
+
+  // Search YouTube
+  ipcMain.handle('searchYouTube', async (event, query, limit) => {
+    try {
+      return await videoInfoService.searchYouTube(query, limit);
+    } catch (error) {
+      return { success: false, results: [], error: error.message };
+    }
+  });
 }
 
 module.exports = { registerHandlers };

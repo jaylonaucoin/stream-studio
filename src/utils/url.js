@@ -25,6 +25,19 @@ export const normalizeUrl = (url) => {
 };
 
 /**
+ * Check if string looks like a URL (vs a search query)
+ * @param {string} str - Input string
+ * @returns {boolean}
+ */
+export const isLikelyUrl = (str) => {
+  const trimmed = (str || '').trim();
+  if (!trimmed) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  if (trimmed.includes('.') && !trimmed.includes(' ')) return true;
+  return false;
+};
+
+/**
  * Validate URL - accepts any valid URL, lets yt-dlp handle site-specific validation
  * @param {string} url - The URL to validate
  * @returns {{ valid: boolean, reason?: string, normalized?: string }}

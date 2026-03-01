@@ -494,6 +494,133 @@ async function getChapterInfo(url) {
 }
 
 /**
+ * Search YouTube by query (Chordify-style)
+ * Uses yt-dlp ytsearch extractor - no API key required
+ * @param {string} query - Search query (e.g. "artist song name")
+ * @param {number} [limit=15] - Max number of results
+ * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
+ */
+async function searchYouTube(query, limit = 15) {
+  const trimmed = (query || '').toString().trim();
+  if (!trimmed) {
+    return { success: false, results: [], error: 'Search query cannot be empty' };
+  }
+
+  const ytDlpPath = getYtDlpPath();
+  const searchArg = `ytsearch${Math.min(Math.max(limit, 1), 50)}:${trimmed}`;
+
+  const args = [
+    '--dump-json',
+    '--flat-playlist',
+    '--no-warnings',
+    '--no-playlist',
+    searchArg,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const searchProcess = spawn(ytDlpPath, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let timeoutId = null;
+
+    timeoutId = setTimeout(() => {
+      searchProcess.kill();
+      reject(new Error('Search timed out. Please try again.'));
+    }, 15000);
+
+    searchProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    searchProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    searchProcess.on('close', (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      if (code === 0 && stdout) {
+        try {
+          const lines = stdout.trim().split('\n').filter((line) => line.trim());
+          const results = [];
+
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
+              const videoId = entry.id || null;
+              const webpageUrl = entry.webpage_url || entry.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+
+              if (!webpageUrl) continue;
+
+              const artist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+              const uploader = entry.uploader || entry.channel || null;
+              const duration = entry.duration ?? null;
+              let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
+
+              if (videoId && !thumbnail) {
+                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+              } else if (videoId && thumbnail) {
+                const highQualityThumbnails = getHighQualityThumbnail(videoId, webpageUrl, 'youtube');
+                thumbnail = highQualityThumbnails
+                  ? [thumbnail, ...highQualityThumbnails]
+                  : thumbnail;
+              }
+
+              results.push({
+                id: videoId,
+                title: entry.title || 'Unknown Title',
+                duration,
+                durationFormatted: duration != null ? formatDuration(duration) : 'Live',
+                thumbnail,
+                webpageUrl,
+                artist,
+                uploader: uploader || artist,
+                viewCount: entry.view_count ?? null,
+              });
+            } catch (e) {
+              console.warn('Failed to parse search result line:', e);
+            }
+          }
+
+          resolve({ success: true, results });
+        } catch (parseError) {
+          reject(new Error(`Failed to parse search results: ${parseError.message}`));
+        }
+      } else {
+        const errorLower = (stderr || '').toLowerCase();
+        let errorMsg = 'Search failed. ';
+        if (errorLower.includes('enoent') || errorLower.includes('not found')) {
+          errorMsg += 'yt-dlp binary not found.';
+        } else if (errorLower.includes('unable to extract') || errorLower.includes('unavailable')) {
+          errorMsg += 'YouTube may be temporarily unavailable. Try again later.';
+        } else {
+          errorMsg += 'Please check your connection and try again.';
+        }
+        reject(new Error(errorMsg));
+      }
+    });
+
+    searchProcess.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+      } else {
+        reject(new Error(`Search failed: ${error.message}`));
+      }
+    });
+  });
+}
+
+/**
  * Get cached video info
  * @param {string} url
  * @returns {Object|null}
@@ -533,6 +660,7 @@ module.exports = {
   getVideoInfo,
   getPlaylistInfo,
   getChapterInfo,
+  searchYouTube,
   getCachedVideoInfo,
   getCachedChapterInfo,
   formatDuration,
