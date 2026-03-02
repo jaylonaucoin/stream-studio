@@ -89,11 +89,11 @@ async function getVideoInfo(url) {
     let stderr = '';
     let timeoutId = null;
     
-    // Set timeout (10 seconds for info extraction - same as original)
+    // Set timeout (15 seconds - longer on Mac where yt-dlp can be slower)
     timeoutId = setTimeout(() => {
       infoProcess.kill();
       reject(new Error('Video info extraction timed out. The URL may be invalid or the video may be unavailable.'));
-    }, 10000);
+    }, 15000);
 
     infoProcess.stdout.on('data', (data) => {
       stdout += data.toString();

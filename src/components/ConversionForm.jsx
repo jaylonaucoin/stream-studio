@@ -130,6 +130,9 @@ function ConversionForm({
         if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
           setVideoInfo(videoInfoResult.value);
           setPreviewError(null);
+        } else if (videoInfoResult.status === 'fulfilled' && !videoInfoResult.value?.success) {
+          setPreviewError(videoInfoResult.value?.error || 'Failed to load video preview');
+          setVideoInfo(null);
         } else if (videoInfoResult.status === 'rejected') {
           setPreviewError('Failed to load video preview');
           setVideoInfo(null);
