@@ -89,8 +89,31 @@ function getFfmpegPath() {
     }
   }
 
-  // On Mac/Linux, ffmpeg should be in system PATH
-  // On Windows, fallback to system PATH
+  // On Mac/Linux, check for bundled ffmpeg (from ffmpeg-static)
+  if (platform === 'darwin' || platform === 'linux') {
+    const binaryName = 'ffmpeg';
+    if (isDev()) {
+      const devPath = path.join(getAppRoot(), 'bin', binaryName);
+      if (fs.existsSync(devPath)) {
+        return path.normalize(devPath);
+      }
+    } else {
+      const possiblePaths = [
+        path.join(process.resourcesPath, 'bin', binaryName),
+        path.join(process.resourcesPath, '..', 'bin', binaryName),
+        path.join(getAppRoot(), '..', 'bin', binaryName),
+        path.join(app.getAppPath(), 'bin', binaryName),
+      ];
+      for (const prodPath of possiblePaths) {
+        const normalized = path.normalize(prodPath);
+        if (fs.existsSync(normalized)) {
+          return normalized;
+        }
+      }
+    }
+  }
+
+  // Fallback to system PATH
   return platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 }
 

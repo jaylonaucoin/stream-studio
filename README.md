@@ -96,7 +96,7 @@ The app features a sleek dark interface with red accents, providing:
 - Node.js 18+ (LTS version recommended)
 - npm or yarn
 - yt-dlp binary (auto-downloaded on install)
-- FFmpeg (bundled for Windows, system installation required for Mac/Linux)
+- FFmpeg (auto-populated from ffmpeg-static on all platforms via `npm run postinstall`)
 
 ## Setup
 
@@ -108,10 +108,10 @@ npm install
 
 ### 2. Binary Dependencies
 
-Binary dependencies (yt-dlp and FFmpeg for Windows) are **automatically downloaded** when you run `npm install`. The postinstall script will:
+Binary dependencies (yt-dlp and FFmpeg) are **automatically downloaded** when you run `npm install`. The postinstall script will:
 
 - Download `yt-dlp` for your platform
-- Download `ffmpeg.exe` for Windows (Mac/Linux users should install FFmpeg system-wide)
+- Copy `ffmpeg` from the ffmpeg-static package to `bin/` (all platforms: Windows, macOS, Linux)
 
 **Manual Download (if automatic download fails):**
 
@@ -120,12 +120,9 @@ Download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases):
 - **Windows**: `bin/yt-dlp.exe`
 - **Mac/Linux**: `bin/yt-dlp` (make executable: `chmod +x bin/yt-dlp`)
 
-#### FFmpeg (Windows only)
-Download from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases):
-- Extract and place `ffmpeg.exe` in the `bin/` folder
+#### FFmpeg
+The app uses [ffmpeg-static](https://www.npmjs.com/package/ffmpeg-static) which provides the binary during `npm install`. If the bundled `bin/ffmpeg` (or `bin/ffmpeg.exe` on Windows) is missing, you can install FFmpeg system-wide:
 
-**macOS/Linux:**
-Install FFmpeg system-wide:
 ```bash
 # macOS
 brew install ffmpeg
@@ -202,7 +199,8 @@ media-converter/
 ├── bin/                    # Binary dependencies (auto-downloaded)
 │   ├── yt-dlp              # (Mac/Linux)
 │   ├── yt-dlp.exe          # (Windows)
-│   └── ffmpeg.exe          # (Windows only)
+│   ├── ffmpeg              # (Mac/Linux, from ffmpeg-static)
+│   └── ffmpeg.exe          # (Windows, from ffmpeg-static)
 ├── scripts/                # Utility scripts
 │   └── download-binaries.js
 ├── src/                    # React source files
@@ -282,8 +280,9 @@ Access conversion history via the clock icon in the top-right corner:
 ## Troubleshooting
 
 ### FFmpeg Not Found
-- **Windows**: Ensure `ffmpeg.exe` is in the `bin/` folder or in system PATH
-- **Mac/Linux**: Install FFmpeg system-wide using package manager
+- Run `npm run postinstall` to copy the ffmpeg-static binary to `bin/`
+- **Windows**: Ensure `bin/ffmpeg.exe` exists or FFmpeg is in system PATH
+- **Mac/Linux**: Ensure `bin/ffmpeg` exists or install FFmpeg system-wide (e.g. `brew install ffmpeg`)
 
 ### yt-dlp Not Found
 - Ensure the appropriate binary is in the `bin/` folder

@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { execSync } = require('child_process');
 
 const binDir = path.join(__dirname, '..', 'bin');
 const platform = process.platform;
@@ -43,47 +42,6 @@ function downloadFile(url, dest) {
       });
     }).catch(reject);
   });
-}
-
-// Helper function to get JSON from API
-function getJson(url) {
-  return new Promise((resolve, reject) => {
-    httpsRequest(url, {
-      headers: {
-        'User-Agent': 'youtube-to-mp3-download-script',
-        'Accept': 'application/vnd.github.v3+json'
-      }
-    }).then((response) => {
-      let data = '';
-      response.on('data', chunk => data += chunk);
-      response.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error('Invalid JSON response'));
-        }
-      });
-    }).catch(reject);
-  });
-}
-
-// Helper function to extract ZIP file (Windows only)
-function extractZip(zipPath, extractTo) {
-  try {
-    // Use PowerShell to extract ZIP on Windows
-    if (platform === 'win32') {
-      execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${extractTo}' -Force"`, {
-        stdio: 'inherit'
-      });
-    } else {
-      // On Unix, try unzip command
-      execSync(`unzip -o '${zipPath}' -d '${extractTo}'`, { stdio: 'inherit' });
-    }
-    return true;
-  } catch (error) {
-    console.error('Failed to extract ZIP:', error.message);
-    return false;
-  }
 }
 
 async function downloadYtDlp() {
@@ -128,83 +86,26 @@ async function downloadYtDlp() {
 }
 
 async function downloadFfmpeg() {
-  // Only download FFmpeg for Windows
-  if (platform !== 'win32') {
+  const destName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const destPath = path.join(binDir, destName);
+
+  if (fs.existsSync(destPath)) {
+    if (platform !== 'win32') fs.chmodSync(destPath, 0o755);
     return true;
   }
-  
-  const ffmpegPath = path.join(binDir, 'ffmpeg.exe');
-  
-  // Skip if already exists
-  if (fs.existsSync(ffmpegPath)) {
-    return true;
-  }
-  
-  
+
   try {
-    // Get latest release from GitHub API
-    const releasesUrl = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest';
-    const release = await getJson(releasesUrl);
-    
-    // Find the Windows GPL static build (self-contained, no DLLs needed)
-    const asset = release.assets.find(a => 
-      a.name.includes('win64') && 
-      a.name.includes('gpl') && 
-      !a.name.includes('shared') &&
-      a.name.endsWith('.zip')
-    );
-    
-    if (!asset) {
-      throw new Error('Could not find FFmpeg Windows build in latest release');
+    const srcPath = require('ffmpeg-static');
+    if (!srcPath || !fs.existsSync(srcPath)) {
+      console.warn('ffmpeg-static binary not found; install with npm install');
+      return true; // non-fatal, user can use system ffmpeg
     }
-    
-    const zipPath = path.join(binDir, asset.name);
-    await downloadFile(asset.browser_download_url, zipPath);
-    
-    // Extract ZIP
-    const extractDir = path.join(binDir, 'ffmpeg-temp');
-    if (fs.existsSync(extractDir)) {
-      fs.rmSync(extractDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(extractDir, { recursive: true });
-    
-    if (extractZip(zipPath, extractDir)) {
-      // Find ffmpeg.exe recursively in extracted folder
-      function findFile(dir, filename) {
-        const files = fs.readdirSync(dir, { withFileTypes: true });
-        for (const file of files) {
-          const fullPath = path.join(dir, file.name);
-          if (file.isDirectory()) {
-            const found = findFile(fullPath, filename);
-            if (found) return found;
-          } else if (file.name === filename) {
-            return fullPath;
-          }
-        }
-        return null;
-      }
-      
-      const ffmpegPath = findFile(extractDir, 'ffmpeg.exe');
-      
-      if (ffmpegPath) {
-        fs.copyFileSync(ffmpegPath, path.join(binDir, 'ffmpeg.exe'));
-        // Clean up
-        fs.rmSync(extractDir, { recursive: true, force: true });
-        fs.unlinkSync(zipPath);
-        return true;
-      } else {
-        console.error('✗ Could not find ffmpeg.exe in extracted archive');
-        return false;
-      }
-    } else {
-      console.error('✗ Failed to extract FFmpeg ZIP');
-      return false;
-    }
-  } catch (error) {
-    console.error('✗ Failed to download FFmpeg:', error.message);
-    console.error('  Please manually download FFmpeg from:');
-    console.error('  https://github.com/BtbN/FFmpeg-Builds/releases/latest');
-    return false;
+    fs.copyFileSync(srcPath, destPath);
+    if (platform !== 'win32') fs.chmodSync(destPath, 0o755);
+    return true;
+  } catch (err) {
+    console.warn('Could not copy ffmpeg from ffmpeg-static:', err.message);
+    return true; // non-fatal
   }
 }
 

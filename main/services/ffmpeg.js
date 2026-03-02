@@ -104,7 +104,7 @@ function getFfmpegUnavailableError() {
     errorMessage += '2. Extract and place ffmpeg.exe in the bin/ folder\n';
     errorMessage += 'Or add FFmpeg to your system PATH';
   } else {
-    errorMessage += 'Please install FFmpeg on your system.\n\n';
+    errorMessage += 'Please ensure bin/ffmpeg is present (run npm run postinstall) or install FFmpeg on your system.\n\n';
     errorMessage += 'To install FFmpeg:\n';
     errorMessage += '• macOS: brew install ffmpeg\n';
     errorMessage += '• Ubuntu/Debian: sudo apt install ffmpeg\n';

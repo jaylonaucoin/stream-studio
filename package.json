@@ -41,6 +41,7 @@
     "@mui/icons-material": "^6.1.8",
     "@mui/material": "^6.1.8",
     "electron-store": "^8.2.0",
+    "ffmpeg-static": "^5.3.0",
     "music-metadata": "^8.1.4",
     "node-id3": "^0.2.6",
     "react": "^18.3.1",
