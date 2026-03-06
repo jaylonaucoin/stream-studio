@@ -50,6 +50,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // YouTube search (Chordify-style)
   searchYouTube: (query, limit) => ipcRenderer.invoke('searchYouTube', query, limit),
+
+  // Get direct audio stream URL for in-app preview
+  getAudioStreamUrl: (videoUrl) => ipcRenderer.invoke('getAudioStreamUrl', videoUrl),
   
   // Image selection (for thumbnail replacement)
   selectImageFile: () => ipcRenderer.invoke('selectImageFile'),

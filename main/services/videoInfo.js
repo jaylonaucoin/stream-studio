@@ -10,9 +10,11 @@ const { sanitizeUrl } = require('../utils/url');
 const videoInfoCache = new Map();
 const chapterInfoCache = new Map();
 const playlistInfoCache = new Map();
+const audioStreamCache = new Map();
 const VIDEO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CHAPTER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const AUDIO_STREAM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (stream URLs expire ~6h)
 
 /**
  * Format duration from seconds to human readable string
@@ -621,6 +623,81 @@ async function searchYouTube(query, limit = 15) {
 }
 
 /**
+ * Get a direct audio stream URL for a YouTube video using yt-dlp.
+ * Returns the best available audio-only stream URL so the renderer
+ * can play it directly via the HTML5 Audio API.
+ * @param {string} videoUrl - Full YouTube video URL
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+async function getAudioStreamUrl(videoUrl) {
+  const cacheKey = videoUrl;
+  const cached = audioStreamCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < AUDIO_STREAM_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const ytDlpPath = getYtDlpPath();
+  const args = [
+    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+    '--get-url',
+    '--no-playlist',
+    '--no-warnings',
+    videoUrl,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(ytDlpPath, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    const timeoutId = setTimeout(() => {
+      proc.kill();
+      reject(new Error('Timed out fetching audio stream URL.'));
+    }, 20000);
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      clearTimeout(timeoutId);
+      const url = stdout.trim().split('\n')[0];
+      if (code === 0 && url) {
+        const result = { success: true, url };
+        audioStreamCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        resolve(result);
+      } else {
+        const errLower = (stderr || '').toLowerCase();
+        let msg = 'Could not get audio stream. ';
+        if (errLower.includes('private') || errLower.includes('unavailable')) {
+          msg += 'Video is private or unavailable.';
+        } else if (errLower.includes('sign in') || errLower.includes('login')) {
+          msg += 'Video requires sign-in.';
+        } else {
+          msg += 'Please try again.';
+        }
+        reject(new Error(msg));
+      }
+    });
+
+    proc.on('error', (error) => {
+      clearTimeout(timeoutId);
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found.'));
+      } else {
+        reject(new Error(`Failed to get audio stream: ${error.message}`));
+      }
+    });
+  });
+}
+
+/**
  * Get cached video info
  * @param {string} url
  * @returns {Object|null}
@@ -661,6 +738,7 @@ module.exports = {
   getPlaylistInfo,
   getChapterInfo,
   searchYouTube,
+  getAudioStreamUrl,
   getCachedVideoInfo,
   getCachedChapterInfo,
   formatDuration,
