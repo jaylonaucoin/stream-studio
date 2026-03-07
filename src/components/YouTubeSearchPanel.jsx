@@ -34,20 +34,26 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const [results, setResults] = useState([]);
 
   // Audio preview state
+  // playingId  — ID of the track currently emitting sound
+  // loadedId   — ID of the track whose Audio element is alive (playing OR paused)
   const [playingId, setPlayingId] = useState(null);
+  const [loadedId, setLoadedId] = useState(null);
   const [loadingAudioId, setLoadingAudioId] = useState(null);
   const [audioProgress, setAudioProgress] = useState(0); // 0-100
   const [audioError, setAudioError] = useState(null);
   const audioRef = useRef(null);
 
-  // Stop and destroy the current audio element
+  // Fully stop and destroy the current audio element
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
+      // Remove src after pausing so no error event fires from clearing it
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
       audioRef.current = null;
     }
     setPlayingId(null);
+    setLoadedId(null);
     setAudioProgress(0);
   }, []);
 
@@ -114,16 +120,28 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
 
       setAudioError(null);
 
-      // Pause currently playing audio
-      if (playingId === result.id) {
-        if (audioRef.current) {
-          audioRef.current.pause();
+      const audio = audioRef.current;
+
+      // The audio element for this track is already loaded (playing or paused)
+      if (loadedId === result.id && audio) {
+        if (playingId === result.id) {
+          // Currently playing → pause
+          audio.pause();
+          setPlayingId(null);
+        } else {
+          // Currently paused → resume without re-fetching
+          try {
+            await audio.play();
+            setPlayingId(result.id);
+          } catch (err) {
+            setAudioError(`Could not resume preview for "${result.title}". Please try again.`);
+            stopAudio();
+          }
         }
-        setPlayingId(null);
         return;
       }
 
-      // Stop whatever was playing before
+      // Different track (or first play) → stop current and load a fresh stream
       stopAudio();
 
       if (!result.webpageUrl) return;
@@ -137,39 +155,43 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
           throw new Error(response?.error || 'Could not get audio stream.');
         }
 
-        const audio = new Audio(response.url);
-        audioRef.current = audio;
+        const newAudio = new Audio(response.url);
+        audioRef.current = newAudio;
 
-        audio.addEventListener('timeupdate', () => {
-          if (audio.duration && audio.duration > 0) {
-            setAudioProgress((audio.currentTime / audio.duration) * 100);
+        newAudio.addEventListener('timeupdate', () => {
+          if (newAudio.duration && newAudio.duration > 0) {
+            setAudioProgress((newAudio.currentTime / newAudio.duration) * 100);
           }
         });
 
-        audio.addEventListener('ended', () => {
+        newAudio.addEventListener('ended', () => {
           setPlayingId(null);
+          setLoadedId(null);
           setAudioProgress(0);
           audioRef.current = null;
         });
 
-        audio.addEventListener('error', () => {
-          setAudioError(`Could not play preview for "${result.title}". The stream may have expired.`);
+        newAudio.addEventListener('error', () => {
+          setAudioError(`Could not play preview for "${result.title}". Please try again.`);
           setPlayingId(null);
+          setLoadedId(null);
           setAudioProgress(0);
           audioRef.current = null;
         });
 
-        await audio.play();
+        setLoadedId(result.id);
+        await newAudio.play();
         setPlayingId(result.id);
       } catch (err) {
         setAudioError(err?.message || 'Audio preview failed. Please try again.');
         setPlayingId(null);
+        setLoadedId(null);
         audioRef.current = null;
       } finally {
         setLoadingAudioId(null);
       }
     },
-    [playingId, disabled, isConverting, stopAudio]
+    [playingId, loadedId, disabled, isConverting, stopAudio]
   );
 
   const isSearchDisabled = !query.trim() || loading || disabled || isConverting;
@@ -274,8 +296,14 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
           </Box>
           <List dense disablePadding sx={{ maxHeight: 400, overflow: 'auto' }}>
             {results.map((result, index) => {
-              const isPlaying = playingId === result.id;
+              const isLoaded = loadedId === result.id;   // audio element exists (playing or paused)
+              const isPlaying = playingId === result.id; // actively emitting sound
               const isLoadingAudio = loadingAudioId === result.id;
+
+              let tooltipTitle = 'Preview audio';
+              if (isLoadingAudio) tooltipTitle = 'Loading…';
+              else if (isPlaying) tooltipTitle = 'Pause preview';
+              else if (isLoaded) tooltipTitle = 'Resume preview';
 
               return (
                 <Box
@@ -289,14 +317,14 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                       py: 1.5,
                       borderBottom: index < results.length - 1 ? 1 : 0,
                       borderColor: 'divider',
-                      bgcolor: isPlaying ? 'action.selected' : undefined,
+                      bgcolor: isLoaded ? 'action.selected' : undefined,
                       '&:hover': {
-                        bgcolor: isPlaying ? 'action.selected' : 'action.hover',
+                        bgcolor: isLoaded ? 'action.selected' : 'action.hover',
                       },
                     }}
                   >
                     {/* Play/Pause button */}
-                    <Tooltip title={isPlaying ? 'Pause preview' : 'Preview audio'} placement="top">
+                    <Tooltip title={tooltipTitle} placement="top">
                       <span>
                         <IconButton
                           size="small"
@@ -305,7 +333,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                           sx={{
                             mr: 1,
                             flexShrink: 0,
-                            color: isPlaying ? 'primary.main' : 'text.secondary',
+                            color: isLoaded ? 'primary.main' : 'text.secondary',
                             '&:hover': { color: 'primary.main' },
                           }}
                         >
@@ -331,8 +359,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                       <Typography
                         variant="body1"
                         sx={{
-                          fontWeight: isPlaying ? 600 : 500,
-                          color: isPlaying ? 'primary.main' : 'text.primary',
+                          fontWeight: isLoaded ? 600 : 500,
+                          color: isLoaded ? 'primary.main' : 'text.primary',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           display: '-webkit-box',
@@ -378,8 +406,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                     </Box>
                   </ListItemButton>
 
-                  {/* Thin audio progress bar at the bottom of the row */}
-                  {isPlaying && (
+                  {/* Progress bar — visible while loaded (playing or paused) */}
+                  {isLoaded && (
                     <LinearProgress
                       variant="determinate"
                       value={audioProgress}
@@ -390,6 +418,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                         right: 0,
                         height: 2,
                         borderRadius: 0,
+                        opacity: isPlaying ? 1 : 0.5,
                       }}
                     />
                   )}
