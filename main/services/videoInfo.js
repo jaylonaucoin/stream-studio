@@ -15,6 +15,8 @@ const VIDEO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CHAPTER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const AUDIO_STREAM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (stream URLs expire ~6h)
+const VIDEO_INFO_TIMEOUT_MS = 25000; // 25 seconds - allows for slow networks/YouTube
+const VIDEO_INFO_TIMEOUT_ERROR = 'Video info extraction timed out. The URL may be invalid or the video may be unavailable.';
 
 /**
  * Format duration from seconds to human readable string
@@ -59,21 +61,12 @@ function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
 }
 
 /**
- * Get video info from URL
- * @param {string} url - Video URL
+ * Fetch video info from yt-dlp (single attempt, no retry)
+ * @param {string} sanitizedUrl - Sanitized video URL
+ * @param {string} cacheKey - Cache key for storing result
  * @returns {Promise<Object>}
  */
-async function getVideoInfo(url) {
-  // Sanitize URL
-  const sanitizedUrl = sanitizeUrl(url);
-  
-  // Check cache first
-  const cacheKey = sanitizedUrl;
-  const cached = videoInfoCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
-    return cached.data;
-  }
-
+function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
   const ytDlpPath = getYtDlpPath();
   const args = [
     '--dump-json',      // Output JSON metadata
@@ -90,12 +83,11 @@ async function getVideoInfo(url) {
     let stdout = '';
     let stderr = '';
     let timeoutId = null;
-    
-    // Set timeout (15 seconds - longer on Mac where yt-dlp can be slower)
+
     timeoutId = setTimeout(() => {
       infoProcess.kill();
-      reject(new Error('Video info extraction timed out. The URL may be invalid or the video may be unavailable.'));
-    }, 15000);
+      reject(new Error(VIDEO_INFO_TIMEOUT_ERROR));
+    }, VIDEO_INFO_TIMEOUT_MS);
 
     infoProcess.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -182,6 +174,31 @@ async function getVideoInfo(url) {
       }
     });
   });
+}
+
+/**
+ * Get video info from URL (with retry on timeout)
+ * @param {string} url - Video URL
+ * @returns {Promise<Object>}
+ */
+async function getVideoInfo(url) {
+  const sanitizedUrl = sanitizeUrl(url);
+  const cacheKey = sanitizedUrl;
+
+  const cached = videoInfoCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    return await fetchVideoInfoOnce(sanitizedUrl, cacheKey);
+  } catch (error) {
+    // Retry once on timeout - often succeeds on second attempt (slow network, etc.)
+    if (error?.message === VIDEO_INFO_TIMEOUT_ERROR) {
+      return await fetchVideoInfoOnce(sanitizedUrl, cacheKey);
+    }
+    throw error;
+  }
 }
 
 /**
