@@ -86,17 +86,19 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
         );
         const seen = new Set();
         const merged = [];
-        for (const res of responses) {
+        responses.forEach((res, idx) => {
+          const siteId = sites[idx];
+          const siteLabel = SEARCH_SITES.find((s) => s.id === siteId)?.label || siteId;
           if (res.status === 'fulfilled' && res.value?.success && Array.isArray(res.value.results)) {
             for (const r of res.value.results) {
               const url = r?.webpageUrl || r?.url;
               if (url && !seen.has(url)) {
                 seen.add(url);
-                merged.push(r);
+                merged.push({ ...r, sourceSite: siteId, sourceSiteLabel: siteLabel });
               }
             }
           }
-        }
+        });
         setResults(merged);
         if (merged.length === 0) {
           setError(`No results found for "${trimmed}" across ${sites.length} sites`);
@@ -108,7 +110,10 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
           : await window.api?.searchYouTube?.(trimmed, searchLimit);
 
         if (response?.success && Array.isArray(response.results)) {
-          setResults(response.results);
+          const siteLabel = SEARCH_SITES.find((s) => s.id === siteId)?.label || siteId;
+          setResults(
+            response.results.map((r) => ({ ...r, sourceSite: siteId, sourceSiteLabel: siteLabel }))
+          );
           if (response.results.length === 0) {
             setError(`No results found for "${trimmed}"`);
           }
@@ -248,6 +253,13 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
           >
             {SEARCH_SITES.map((site) => (
               <MenuItem key={site.id} value={site.id}>
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <Checkbox
+                    checked={searchSites.indexOf(site.id) > -1}
+                    size="small"
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
                 {site.label}
               </MenuItem>
             ))}
@@ -432,6 +444,24 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
                           >
                             <AccessTimeIcon sx={{ fontSize: 14 }} />
                             {result.durationFormatted}
+                          </Typography>
+                        )}
+                        {result.sourceSiteLabel && (
+                          <Typography
+                            variant="caption"
+                            color="primary.main"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              px: 0.75,
+                              py: 0.25,
+                              borderRadius: 1,
+                              bgcolor: 'primary.main',
+                              color: 'primary.contrastText',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {result.sourceSiteLabel}
                           </Typography>
                         )}
                       </Box>
