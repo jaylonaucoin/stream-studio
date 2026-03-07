@@ -19,7 +19,7 @@ import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ThumbnailWithFallback from '../ThumbnailWithFallback';
 
 /**
- * PlaylistVideoSelector - Displays list of videos in playlist for selection
+ * PlaylistVideoSelector - Displays list of videos/tracks in playlist for selection
  */
 function PlaylistVideoSelector({
   videos,
@@ -29,7 +29,9 @@ function PlaylistVideoSelector({
   onDeselectAll,
   disabled,
   isConverting,
+  isAudioOnly = false,
 }) {
+  const itemLabel = isAudioOnly ? 'tracks' : 'videos';
   return (
     <Paper
       elevation={1}
@@ -53,7 +55,7 @@ function PlaylistVideoSelector({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PlayArrowIcon sx={{ color: 'primary.main' }} />
           <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            Select Videos
+            Select {itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)}
           </Typography>
           <Chip
             label={`${selectedVideos.length} of ${videos.length} selected`}
@@ -158,7 +160,7 @@ function PlaylistVideoSelector({
       </Box>
       {selectedVideos.length === 0 && (
         <Alert severity="info" sx={{ mt: 1.5 }}>
-          No videos selected. Please select at least one video to download.
+          No {itemLabel} selected. Please select at least one {itemLabel.slice(0, -1)} to download.
         </Alert>
       )}
     </Paper>

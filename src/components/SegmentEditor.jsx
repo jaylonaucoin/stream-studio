@@ -964,7 +964,6 @@ function SegmentEditor({
                     borderRadius: 1,
                     border: 1,
                     borderColor: 'divider',
-                    borderStyle: 'dashed',
                   }}
                 >
                   <MusicNoteIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
