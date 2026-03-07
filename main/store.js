@@ -15,6 +15,9 @@ const store = new Store({
       defaultAudioFormat: 'mp3',
       defaultVideoFormat: 'mp4',
       defaultQuality: 'best',
+      theme: 'dark',
+      defaultSearchSite: 'youtube',
+      defaultSearchLimit: 15,
     },
   },
 });

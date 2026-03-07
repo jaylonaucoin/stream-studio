@@ -11,12 +11,15 @@ import {
   Skeleton,
   Tabs,
   Tab,
+  Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LinkIcon from '@mui/icons-material/Link';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
 import CancelIcon from '@mui/icons-material/Cancel';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import TimeInput from './TimeInput';
 import MetadataEditor from './MetadataEditor';
 import SegmentEditor from './SegmentEditor';
 import YouTubeSearchPanel from './YouTubeSearchPanel';
@@ -39,6 +42,8 @@ function ConversionForm({
   defaultAudioFormat = 'mp3',
   defaultVideoFormat = 'mp4',
   defaultQuality = 'best',
+  defaultSearchSite = 'youtube',
+  defaultSearchLimit = 15,
 }) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
@@ -78,8 +83,34 @@ function ConversionForm({
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
   const [customMetadata, setCustomMetadata] = useState(null);
 
-  // Input mode: 'search' (YouTube search) or 'paste' (URL input)
+  // Input mode: 'search', 'paste' (URL), or 'local'
   const [inputMode, setInputMode] = useState('search');
+
+  // Local file state
+  const [localFilePath, setLocalFilePath] = useState('');
+
+  // Clip/trim state (for URL or local file)
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+
+  // Audio-only file extensions: cannot convert to video (mp3->mp4 invalid)
+  const AUDIO_ONLY_EXTENSIONS = new Set([
+    'mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'alac', 'wma', 'ape',
+  ]);
+
+  // When local file is audio-only, disable Video mode (can't go mp3->mp4)
+  const isLocalFileAudioOnly =
+    inputMode === 'local' &&
+    localFilePath &&
+    AUDIO_ONLY_EXTENSIONS.has(localFilePath.split('.').pop()?.toLowerCase());
+
+  // When local file is audio-only, force mode to audio (cannot convert mp3 to mp4)
+  useEffect(() => {
+    if (isLocalFileAudioOnly && mode === 'video') {
+      setMode('audio');
+      setFormat(defaultAudioFormat);
+    }
+  }, [isLocalFileAudioOnly, mode, defaultAudioFormat]);
 
   // Update mode/format/quality when defaults change
   useEffect(() => {
@@ -260,6 +291,17 @@ function ConversionForm({
     }
   }, [validateUrl]);
 
+  const handleSelectLocalFile = useCallback(async () => {
+    try {
+      const result = await window.api?.selectLocalFile?.();
+      if (result?.success && result?.filePath) {
+        setLocalFilePath(result.filePath);
+      }
+    } catch (err) {
+      console.error('Failed to select file:', err);
+    }
+  }, []);
+
   const handleSearchSelect = useCallback((selectedUrl) => {
     if (selectedUrl) {
       setUrl(selectedUrl);
@@ -335,7 +377,18 @@ function ConversionForm({
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      if (isValid && url.trim() && !isConverting) {
+      if (isConverting) return;
+
+      if (inputMode === 'local') {
+        if (!localFilePath.trim()) return;
+        const options = { mode, format, quality, source: 'local', filePath: localFilePath };
+        if (startTime.trim()) options.startTime = startTime;
+        if (endTime.trim()) options.endTime = endTime;
+        onConvert(null, options);
+        return;
+      }
+
+      if (isValid && url.trim()) {
         const normalizedUrl = normalizeUrl(url.trim());
         const options = { mode, format, quality };
 
@@ -375,16 +428,23 @@ function ConversionForm({
           options.customMetadata = customMetadata;
         }
 
+        if (startTime.trim()) options.startTime = startTime;
+        if (endTime.trim()) options.endTime = endTime;
+
         onConvert(normalizedUrl, options);
       }
     },
     [
+      inputMode,
+      localFilePath,
       url,
       isValid,
       isConverting,
       mode,
       format,
       quality,
+      startTime,
+      endTime,
       playlistMode,
       playlistInfo,
       selectedVideos,
@@ -504,6 +564,14 @@ function ConversionForm({
           aria-controls="tabpanel-paste"
           id="tab-paste"
         />
+        <Tab
+          value="local"
+          label="Local File"
+          icon={<FolderOpenIcon fontSize="small" />}
+          iconPosition="start"
+          aria-controls="tabpanel-local"
+          id="tab-local"
+        />
       </Tabs>
 
       {inputMode === 'search' && (
@@ -564,6 +632,50 @@ function ConversionForm({
             }}
             sx={{ mb: 2 }}
           />
+        </Box>
+      )}
+
+      {inputMode === 'local' && (
+        <Box
+          id="tabpanel-local"
+          role="tabpanel"
+          aria-labelledby="tab-local"
+          sx={{ mt: 1, mb: 2 }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select a local audio or video file to convert to your preferred format.
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<FolderOpenIcon />}
+            onClick={handleSelectLocalFile}
+            disabled={isConverting || disabled}
+            sx={{ mb: 2 }}
+          >
+            Select File to Convert
+          </Button>
+          {localFilePath && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Selected: {localFilePath.split(/[/\\]/).pop()}
+            </Typography>
+          )}
+          {/* Clip/trim for local file */}
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3, flexWrap: 'wrap' }}>
+            <TimeInput
+              label="Start (optional)"
+              value={startTime}
+              onChange={setStartTime}
+              placeholder="0:00"
+              disabled={isConverting}
+            />
+            <TimeInput
+              label="End (optional)"
+              value={endTime}
+              onChange={setEndTime}
+              placeholder="0:00"
+              disabled={isConverting}
+            />
+          </Box>
         </Box>
       )}
 
@@ -684,37 +796,43 @@ function ConversionForm({
             isConverting={isConverting}
           />
         )}
-
-      {/* Format Controls */}
-      <FormatControls
-        mode={mode}
-        format={format}
-        quality={quality}
-        onModeChange={handleModeChange}
-        onFormatChange={setFormat}
-        onQualityChange={setQuality}
-        disabled={disabled}
-        isConverting={isConverting}
-      />
-
-      {/* Submit/Cancel Buttons */}
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-        {isConverting ? (
-          <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={<SyncIcon />}
-            disabled={!isValid || !url.trim() || disabled}
-          >
-            Convert
-          </Button>
-        )}
-      </Box>
         </>
+      )}
+
+      {/* Format Controls and Convert - show for both paste and local */}
+      {(inputMode === 'paste' || inputMode === 'local') && (
+        <Box sx={{ mt: 3 }}>
+          <FormatControls
+            mode={mode}
+            format={format}
+            quality={quality}
+            onModeChange={handleModeChange}
+            onFormatChange={setFormat}
+            onQualityChange={setQuality}
+            disabled={disabled}
+            isConverting={isConverting}
+            videoModeDisabled={isLocalFileAudioOnly}
+          />
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+            {isConverting ? (
+              <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<SyncIcon />}
+                disabled={
+                  disabled ||
+                  (inputMode === 'local' ? !localFilePath : !isValid || !url.trim())
+                }
+              >
+                Convert
+              </Button>
+            )}
+          </Box>
+        </Box>
       )}
 
       {/* Metadata Editor Dialog */}

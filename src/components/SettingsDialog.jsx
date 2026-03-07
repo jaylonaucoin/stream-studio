@@ -19,13 +19,20 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { AUDIO_FORMAT_VALUES, VIDEO_FORMAT_VALUES, QUALITY_OPTIONS } from '../constants';
+import {
+  AUDIO_FORMAT_VALUES,
+  VIDEO_FORMAT_VALUES,
+  QUALITY_OPTIONS,
+  SEARCH_SITES,
+  DEFAULT_SEARCH_SITE,
+  DEFAULT_SEARCH_LIMIT,
+} from '../constants';
 
 // Use format arrays from constants
 const AUDIO_FORMATS = AUDIO_FORMAT_VALUES;
 const VIDEO_FORMATS = VIDEO_FORMAT_VALUES;
 
-function SettingsDialog({ open, onClose }) {
+function SettingsDialog({ open, onClose, onSettingsSaved }) {
   const [settings, setSettings] = useState({
     notificationsEnabled: true,
     maxHistoryItems: 50,
@@ -33,6 +40,9 @@ function SettingsDialog({ open, onClose }) {
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
     defaultQuality: 'best',
+    theme: 'dark',
+    defaultSearchSite: DEFAULT_SEARCH_SITE,
+    defaultSearchLimit: DEFAULT_SEARCH_LIMIT,
   });
   const [loading, setLoading] = useState(true);
 
@@ -62,6 +72,7 @@ function SettingsDialog({ open, onClose }) {
     if (window.api && window.api.saveSettings) {
       try {
         await window.api.saveSettings(settings);
+        onSettingsSaved?.(settings);
       } catch (err) {
         console.error('Failed to save settings:', err);
       }
@@ -92,6 +103,40 @@ function SettingsDialog({ open, onClose }) {
       <DialogContent dividers>
         {!loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Theme */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
+                Appearance
+              </Typography>
+              <FormControl size="small" sx={{ minWidth: 160, mt: 1 }}>
+                <InputLabel>Theme</InputLabel>
+                <Select
+                  value={settings.theme || 'dark'}
+                  label="Theme"
+                  onChange={async (e) => {
+                    const newTheme = e.target.value;
+                    handleChange('theme', newTheme);
+                    if (window.api?.saveSettings) {
+                      await window.api.saveSettings({ ...settings, theme: newTheme });
+                      onSettingsSaved?.({ ...settings, theme: newTheme });
+                    }
+                  }}
+                  aria-label="Theme selection"
+                >
+                  <MenuItem value="light">Light</MenuItem>
+                  <MenuItem value="dark">Dark</MenuItem>
+                  <MenuItem value="system">System</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider />
+
             {/* Notifications */}
             <Box>
               <Typography
@@ -185,6 +230,53 @@ function SettingsDialog({ open, onClose }) {
                         {opt.label}
                       </MenuItem>
                     ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+
+            <Divider />
+
+            {/* Search defaults */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
+                Search Defaults
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Default site and result limit for the search tab
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel>Default Search Site</InputLabel>
+                  <Select
+                    value={settings.defaultSearchSite || DEFAULT_SEARCH_SITE}
+                    label="Default Search Site"
+                    onChange={(e) => handleChange('defaultSearchSite', e.target.value)}
+                  >
+                    {SEARCH_SITES.map((site) => (
+                      <MenuItem key={site.id} value={site.id}>
+                        {site.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>Results Limit</InputLabel>
+                  <Select
+                    value={settings.defaultSearchLimit ?? DEFAULT_SEARCH_LIMIT}
+                    label="Results Limit"
+                    onChange={(e) => handleChange('defaultSearchLimit', Number(e.target.value))}
+                  >
+                    <MenuItem value={10}>10</MenuItem>
+                    <MenuItem value={15}>15</MenuItem>
+                    <MenuItem value={20}>20</MenuItem>
+                    <MenuItem value={25}>25</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
                   </Select>
                 </FormControl>
               </Box>

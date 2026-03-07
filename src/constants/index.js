@@ -7,3 +7,4 @@ export * from './formats';
 export * from './genres';
 export * from './sites';
 export * from './metadata';
+export * from './searchSites';

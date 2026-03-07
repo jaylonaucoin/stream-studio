@@ -8,7 +8,7 @@ const os = require('os');
 const { getYtDlpPath, getFfmpegPath } = require('../utils/paths');
 const { sanitizeUrl } = require('../utils/url');
 const { getFormatExtension, getUniqueFilename, sanitizeFolderName, sanitizeFileName } = require('../utils/filename');
-const { checkFfmpegAvailable, getFfmpegUnavailableError, splitAudioByTime, buildMetadataArgs } = require('./ffmpeg');
+const { checkFfmpegAvailable, getFfmpegUnavailableError, splitAudioByTime, buildMetadataArgs, convertLocalFile: ffmpegConvertLocalFile } = require('./ffmpeg');
 const { applyMetadataToFile } = require('./metadata');
 const { addToHistory } = require('./history');
 const { showNotification } = require('./notifications');
@@ -158,6 +158,15 @@ function buildYtDlpArgs(options) {
     '--ffmpeg-location', path.dirname(ffmpegPath),
     '--output', outputTemplate,
   ];
+
+  // Clip/trim: download only a portion of the video
+  if (options.startTime != null && options.startTime !== '' && options.endTime != null && options.endTime !== '') {
+    const startFormatted = formatTimeForYtDlp(options.startTime);
+    const endFormatted = formatTimeForYtDlp(options.endTime);
+    if (startFormatted != null && endFormatted != null) {
+      args.push('--download-sections', `*${startFormatted}-${endFormatted}`);
+    }
+  }
 
   // Add playlist option based on mode
   if (playlistMode === 'full') {
@@ -326,6 +335,8 @@ async function convert(url, options = {}) {
   }
 
   // Build yt-dlp arguments
+  const startTime = options.startTime ?? null;
+  const endTime = options.endTime ?? null;
   const args = buildYtDlpArgs({
     outputTemplate,
     mode,
@@ -335,6 +346,8 @@ async function convert(url, options = {}) {
     selectedVideos,
     ffmpegPath,
     customMetadata,
+    startTime,
+    endTime,
   });
 
   args.push(sanitizedUrl);
@@ -699,6 +712,26 @@ async function handleSingleFileResult(
 }
 
 /**
+ * Format time string for yt-dlp --download-sections (HH:MM:SS)
+ * @param {string} timeStr - Time string (M:SS or H:MM:SS)
+ * @returns {string|null}
+ */
+function formatTimeForYtDlp(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const trimmed = timeStr.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(':').map((p) => p.trim());
+  if (parts.some((p) => !/^\d+$/.test(p))) return null;
+  if (parts.length === 2) {
+    return `0:${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+  }
+  if (parts.length === 3) {
+    return `${parts[0]}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`;
+  }
+  return null;
+}
+
+/**
  * Parse time string to seconds
  * @param {string} timeStr - Time string (MM:SS or H:MM:SS)
  * @returns {number|null}
@@ -731,8 +764,83 @@ function parseTimeToSeconds(timeStr) {
   return null;
 }
 
+/**
+ * Convert local file to target format using FFmpeg
+ * @param {string} filePath - Path to local file
+ * @param {Object} options - Conversion options
+ * @returns {Promise<Object>} Conversion result
+ */
+async function convertLocalFile(filePath, options = {}) {
+  conversionCancelled = false;
+
+  if (currentConversionProcess) {
+    currentConversionProcess.kill();
+    currentConversionProcess = null;
+  }
+
+  const ffmpegAvailable = await checkFfmpegAvailable();
+  if (!ffmpegAvailable) {
+    throw new Error(getFfmpegUnavailableError());
+  }
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    throw new Error('File not found or path is invalid');
+  }
+
+  const mode = options.mode || 'audio';
+  const format = options.format || 'mp3';
+  const quality = options.quality || 'best';
+  const outputFolder = options.outputFolder || path.join(os.homedir(), 'Downloads');
+  const startTime = parseTimeToSeconds(options.startTime);
+  const endTime = parseTimeToSeconds(options.endTime);
+
+  if (!fs.existsSync(outputFolder)) {
+    fs.mkdirSync(outputFolder, { recursive: true });
+  }
+
+  const fileExtension = getFormatExtension(format, mode);
+  const baseName = path.basename(filePath, path.extname(filePath));
+  const outputFileName = `${sanitizeFileName(baseName)}.${fileExtension}`;
+  const outputPath = getUniqueFilename(path.join(outputFolder, outputFileName));
+
+  sendProgress({ type: 'progress', percent: 0, message: 'Converting local file...' });
+
+  try {
+    await ffmpegConvertLocalFile(
+      filePath,
+      outputPath,
+      { mode, format, quality, startTime: startTime ?? undefined, endTime: endTime ?? undefined },
+      (percent) => sendProgress({ type: 'progress', percent, message: `Converting... ${percent}%` })
+    );
+  } catch (err) {
+    if (conversionCancelled) {
+      throw new Error('Conversion was cancelled');
+    }
+    throw err;
+  }
+
+  currentConversionProcess = null;
+
+  addToHistory({
+    url: `file://${filePath}`,
+    fileName: path.basename(outputPath),
+    filePath: outputPath,
+    format,
+    mode,
+  });
+
+  showNotification('Conversion Complete', `Saved to ${path.basename(outputPath)}`);
+
+  return {
+    success: true,
+    fileName: path.basename(outputPath),
+    filePath: outputPath,
+  };
+}
+
 module.exports = {
   convert,
+  convertLocalFile,
   cancelConversion,
   parseTimeToSeconds,
 };

@@ -256,6 +256,73 @@ function registerHandlers(ipcMain) {
       }
     });
   });
+
+  // Select local media file for conversion
+  ipcMain.handle('selectLocalFile', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: 'Audio & Video', extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+        title: 'Select File to Convert',
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const filePath = result.filePaths[0];
+        if (fs.existsSync(filePath)) {
+          return { success: true, filePath };
+        }
+        return { success: false, error: 'File not found' };
+      }
+      return { success: false, cancelled: true };
+    } catch (error) {
+      console.error('Select local file error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Save queue to file (export)
+  ipcMain.handle('saveQueueFile', async (event, data) => {
+    try {
+      const result = await dialog.showSaveDialog({
+        defaultPath: 'media-converter-queue.json',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        title: 'Export Queue',
+      });
+
+      if (!result.canceled && result.filePath) {
+        fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf8');
+        return { success: true, filePath: result.filePath };
+      }
+      return { success: false, cancelled: true };
+    } catch (error) {
+      console.error('Save queue file error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Open queue from file (import)
+  ipcMain.handle('openQueueFile', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        title: 'Import Queue',
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const content = fs.readFileSync(result.filePaths[0], 'utf8');
+        const data = JSON.parse(content);
+        return { success: true, data };
+      }
+      return { success: false, cancelled: true };
+    } catch (error) {
+      console.error('Open queue file error:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { registerHandlers };

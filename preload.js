@@ -48,8 +48,17 @@ contextBridge.exposeInMainWorld('api', {
   // Chapter info (for chapter selection)
   getChapterInfo: (url) => ipcRenderer.invoke('getChapterInfo', url),
 
-  // YouTube search (Chordify-style)
+  // Search (YouTube and multi-site)
   searchYouTube: (query, limit) => ipcRenderer.invoke('searchYouTube', query, limit),
+  searchMultiSite: (siteId, query, limit) => ipcRenderer.invoke('searchMultiSite', siteId, query, limit),
+
+  // Local file conversion
+  selectLocalFile: () => ipcRenderer.invoke('selectLocalFile'),
+  convertLocalFile: (filePath, options) => ipcRenderer.invoke('convertLocalFile', filePath, options),
+
+  // Queue import/export
+  saveQueueFile: (content) => ipcRenderer.invoke('saveQueueFile', content),
+  openQueueFile: () => ipcRenderer.invoke('openQueueFile'),
 
   // Get direct audio stream URL for in-app preview
   getAudioStreamUrl: (videoUrl) => ipcRenderer.invoke('getAudioStreamUrl', videoUrl),

@@ -14,7 +14,7 @@ import {
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
 import QueueIcon from '@mui/icons-material/Queue';
-import theme from './styles/theme';
+import { getTheme } from './styles/theme';
 import ConversionForm from './components/ConversionForm';
 import ProgressIndicator from './components/ProgressIndicator';
 import LogViewer from './components/LogViewer';
@@ -50,7 +50,26 @@ function App() {
     defaultAudioFormat: 'mp3',
     defaultVideoFormat: 'mp4',
     defaultQuality: 'best',
+    defaultSearchSite: 'youtube',
+    defaultSearchLimit: 15,
   });
+  const [themeMode, setThemeMode] = useState('dark');
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) ?? true
+  );
+
+  // Resolve theme: 'system' -> actual 'dark' or 'light' from OS preference
+  const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
+
+  // Listen for system preference changes when theme is 'system'
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [themeMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -115,7 +134,10 @@ function App() {
             defaultAudioFormat: settings.defaultAudioFormat || 'mp3',
             defaultVideoFormat: settings.defaultVideoFormat || 'mp4',
             defaultQuality: settings.defaultQuality || 'best',
+            defaultSearchSite: settings.defaultSearchSite || 'youtube',
+            defaultSearchLimit: settings.defaultSearchLimit ?? 15,
           });
+          setThemeMode(settings.theme || 'dark');
         } catch (err) {
           console.error('Failed to load settings:', err);
         }
@@ -263,7 +285,10 @@ function App() {
 
   const handleConvert = useCallback(
     async (url, options = {}) => {
-      if (!url || conversionState === 'converting') return;
+      const isLocal = options.source === 'local';
+      if (conversionState === 'converting') return;
+      if (!isLocal && !url) return;
+      if (isLocal && !options.filePath) return;
 
       setConversionState('converting');
       setProgress(0);
@@ -275,15 +300,17 @@ function App() {
         chapterDownloadMode === 'full' && options.chapterDownloadMode !== undefined;
       const isManualSegments = options.manualSegments && options.manualSegments.length > 0;
       setStatusMessage(
-        isPlaylist
-          ? 'Starting playlist download...'
-          : isManualSegments
-            ? 'Starting segmented download...'
-            : isChapters
-              ? 'Starting chapter download...'
-              : isFullVideoWithChapters
-                ? 'Downloading full video...'
-                : 'Starting conversion...'
+        options.source === 'local'
+          ? 'Converting local file...'
+          : isPlaylist
+            ? 'Starting playlist download...'
+            : isManualSegments
+              ? 'Starting segmented download...'
+              : isChapters
+                ? 'Starting chapter download...'
+                : isFullVideoWithChapters
+                  ? 'Downloading full video...'
+                  : 'Starting conversion...'
       );
       setProgressSpeed(null);
       setProgressEta(null);
@@ -294,20 +321,27 @@ function App() {
       setPlaylistInfo(null);
 
       try {
-        const result = await window.api.convert(url, {
+        const convertOptions = {
           outputFolder,
           mode: options.mode || 'audio',
           format: options.format || 'mp3',
           quality: options.quality || 'best',
           playlistMode: options.playlistMode || 'single',
-          selectedVideos: options.selectedVideos || null, // Pass selected video indices for playlist selection
+          selectedVideos: options.selectedVideos || null,
           chapters: options.chapters || null,
           chapterDownloadMode: options.chapterDownloadMode || null,
-          chapterInfo: options.chapterInfo || null, // Pass edited chapter titles
+          chapterInfo: options.chapterInfo || null,
           manualSegments: options.manualSegments || null,
           useSharedArtistForSegments: options.useSharedArtistForSegments !== false,
           customMetadata: options.customMetadata || null,
-        });
+          startTime: options.startTime || null,
+          endTime: options.endTime || null,
+        };
+
+        const result =
+          options.source === 'local'
+            ? await window.api.convertLocalFile(options.filePath, convertOptions)
+            : await window.api.convert(url, convertOptions);
 
         if (result.success) {
           setProgress(100);
@@ -433,7 +467,7 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={getTheme(resolvedTheme)}>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <AppBar position="static" elevation={1}>
@@ -498,6 +532,8 @@ function App() {
             defaultAudioFormat={defaultSettings.defaultAudioFormat}
             defaultVideoFormat={defaultSettings.defaultVideoFormat}
             defaultQuality={defaultSettings.defaultQuality}
+            defaultSearchSite={defaultSettings.defaultSearchSite}
+            defaultSearchLimit={defaultSettings.defaultSearchLimit}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -545,7 +581,22 @@ function App() {
           message={error?.message || ''}
         />
 
-        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onSettingsSaved={(settings) => {
+            setThemeMode(settings?.theme || 'dark');
+            setDefaultSettings((prev) => ({
+              ...prev,
+              defaultMode: settings?.defaultMode || prev.defaultMode,
+              defaultAudioFormat: settings?.defaultAudioFormat || prev.defaultAudioFormat,
+              defaultVideoFormat: settings?.defaultVideoFormat || prev.defaultVideoFormat,
+              defaultQuality: settings?.defaultQuality || prev.defaultQuality,
+              defaultSearchSite: settings?.defaultSearchSite || prev.defaultSearchSite,
+              defaultSearchLimit: settings?.defaultSearchLimit ?? prev.defaultSearchLimit,
+            }));
+          }}
+        />
 
         <HistoryPanel
           open={historyOpen}
@@ -571,6 +622,8 @@ function App() {
               : defaultSettings.defaultVideoFormat
           }
           defaultQuality={defaultSettings.defaultQuality}
+          defaultSearchSite={defaultSettings.defaultSearchSite}
+          defaultSearchLimit={defaultSettings.defaultSearchLimit}
           onQueueComplete={() => {
             // Refresh history count after batch processing
             if (window.api && window.api.getHistory) {
