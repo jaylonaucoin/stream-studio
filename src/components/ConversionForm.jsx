@@ -12,6 +12,9 @@ import {
   Tabs,
   Tab,
   Typography,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LinkIcon from '@mui/icons-material/Link';
@@ -19,6 +22,9 @@ import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import SyncIcon from '@mui/icons-material/Sync';
 import CancelIcon from '@mui/icons-material/Cancel';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SettingsIcon from '@mui/icons-material/Settings';
 import TimeInput from './TimeInput';
 import MetadataEditor from './MetadataEditor';
 import SegmentEditor from './SegmentEditor';
@@ -50,6 +56,8 @@ function ConversionForm({
   const [errorMessage, setErrorMessage] = useState('');
   const containerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLocalDropActive, setIsLocalDropActive] = useState(false);
+  const fileInputRef = useRef(null);
   const [mode, setMode] = useState(defaultMode);
   const [format, setFormat] = useState(
     defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat
@@ -497,14 +505,37 @@ function ConversionForm({
   }, []);
 
   const handleDrop = useCallback(
-    (e) => {
+    async (e) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
+      setIsLocalDropActive(false);
 
       const dt = e.dataTransfer;
-      const text = dt.getData('text/plain');
+      const files = dt?.files;
 
+      // Handle file drop (for local conversion)
+      if (files?.length > 0) {
+        const file = files[0];
+        let path = file.path || window.api?.getPathForFile?.(file) || '';
+        if (!path) {
+          try {
+            const buf = await file.arrayBuffer();
+            const res = await window.api?.saveFileToTemp?.(buf, file.name);
+            if (res?.success && res?.filePath) path = res.filePath;
+          } catch (err) {
+            console.error('File path fallback error:', err);
+          }
+        }
+        if (path) {
+          setLocalFilePath(path);
+          setInputMode('local');
+        }
+        return;
+      }
+
+      // Handle URL text drop
+      const text = dt.getData('text/plain');
       if (text) {
         const trimmed = text.trim();
         setUrl(trimmed);
@@ -514,6 +545,38 @@ function ConversionForm({
     },
     [validateUrl]
   );
+
+  const handleLocalFileDrop = useCallback(async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsLocalDropActive(false);
+    const files = e.dataTransfer?.files;
+    if (files?.length > 0) {
+      const file = files[0];
+      let path = file.path || window.api?.getPathForFile?.(file) || '';
+      if (!path) {
+        try {
+          const buf = await file.arrayBuffer();
+          const res = await window.api?.saveFileToTemp?.(buf, file.name);
+          if (res?.success && res?.filePath) path = res.filePath;
+        } catch (err) { console.error('File path fallback error:', err); }
+      }
+      if (path) setLocalFilePath(path);
+    }
+  }, []);
+
+  const handleLocalFileDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsLocalDropActive(true);
+  }, []);
+
+  const handleLocalFileDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsLocalDropActive(false);
+  }, []);
 
   return (
     <Box
@@ -651,41 +714,108 @@ function ConversionForm({
           aria-labelledby="tab-local"
           sx={{ mt: 1, mb: 2 }}
         >
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select a local audio or video file to convert to your preferred format.
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<FolderOpenIcon />}
-            onClick={handleSelectLocalFile}
-            disabled={isConverting || disabled}
-            sx={{ mb: 2 }}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*,video/*,.mp3,.m4a,.flac,.wav,.aac,.ogg,.opus,.mp4,.mkv,.webm,.avi,.mov"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) { e.target.value = ''; return; }
+              let path = file.path || window.api?.getPathForFile?.(file) || '';
+              if (!path) {
+                try {
+                  const buf = await file.arrayBuffer();
+                  const res = await window.api?.saveFileToTemp?.(buf, file.name);
+                  if (res?.success && res?.filePath) path = res.filePath;
+                } catch (err) { console.error('File path fallback error:', err); }
+              }
+              if (path) setLocalFilePath(path);
+              e.target.value = '';
+            }}
+          />
+          <Paper
+            component="div"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              if (isConverting || disabled) return;
+              fileInputRef.current?.click();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isConverting && !disabled) fileInputRef.current?.click();
+            }}
+            onDragOver={handleLocalFileDragOver}
+            onDragLeave={handleLocalFileDragLeave}
+            onDrop={handleLocalFileDrop}
+            sx={{
+              p: 4,
+              mb: 2,
+              textAlign: 'center',
+              cursor: isConverting || disabled ? 'default' : 'pointer',
+              border: 2,
+              borderStyle: 'dashed',
+              borderColor: isLocalDropActive ? 'primary.main' : 'divider',
+              bgcolor: isLocalDropActive ? 'action.selected' : 'transparent',
+              opacity: isConverting || disabled ? 0.6 : 1,
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                borderColor: isConverting || disabled ? 'divider' : 'primary.main',
+                bgcolor: isConverting || disabled ? 'action.hover' : 'action.selected',
+              },
+            }}
+            aria-label="Drop audio or video file here, or click to browse"
           >
-            Select File to Convert
-          </Button>
-          {localFilePath && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Selected: {localFilePath.split(/[/\\]/).pop()}
+            <CloudUploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
+              {localFilePath
+                ? localFilePath.split(/[/\\]/).pop()
+                : 'Drop audio or video file here, or click to browse'}
             </Typography>
-          )}
-          {/* Clip/trim for local file */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3, flexWrap: 'wrap' }}>
-            <TimeInput
-              label="Start (optional)"
-              value={startTime}
-              onChange={setStartTime}
-              placeholder="0:00"
-              disabled={isConverting}
-            />
-            <TimeInput
-              label="End (optional)"
-              value={endTime}
-              onChange={setEndTime}
-              placeholder="0:00"
-              disabled={isConverting}
-            />
-          </Box>
+            <Typography variant="caption" color="text.secondary">
+              Supports MP3, M4A, FLAC, WAV, MP4, MKV, WebM, and more
+            </Typography>
+          </Paper>
         </Box>
+      )}
+
+      {/* Advanced Settings accordion - start/end times for paste and local */}
+      {(inputMode === 'paste' || inputMode === 'local') && (
+        <Accordion
+          sx={{
+            mb: 2,
+            '&:before': { display: 'none' },
+            boxShadow: 'none',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 1,
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SettingsIcon fontSize="small" />
+              <Typography variant="body2">Advanced Settings</Typography>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TimeInput
+                label="Start (optional)"
+                value={startTime}
+                onChange={setStartTime}
+                placeholder="0:00"
+                disabled={isConverting}
+              />
+              <TimeInput
+                label="End (optional)"
+                value={endTime}
+                onChange={setEndTime}
+                placeholder="0:00"
+                disabled={isConverting}
+              />
+            </Box>
+          </AccordionDetails>
+        </Accordion>
       )}
 
       {/* Preview, chapters, format etc. - only show when on paste tab */}

@@ -4,6 +4,7 @@
 const { app, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { getMainWindow } = require('../../window');
 const os = require('os');
 const https = require('https');
 const http = require('http');
@@ -257,10 +258,27 @@ function registerHandlers(ipcMain) {
     });
   });
 
+  // Save file buffer to temp (fallback when getPathForFile returns empty)
+  ipcMain.handle('saveFileToTemp', async (event, { buffer, filename }) => {
+    try {
+      if (!buffer || !filename) return { success: false, error: 'Missing buffer or filename' };
+      const ext = path.extname(filename) || '';
+      const base = path.basename(filename, ext) || 'media';
+      const tempPath = path.join(os.tmpdir(), `media-converter-${Date.now()}-${base}${ext}`);
+      const nodeBuffer = Buffer.from(buffer);
+      fs.writeFileSync(tempPath, nodeBuffer);
+      return { success: true, filePath: tempPath };
+    } catch (error) {
+      console.error('Save file to temp error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Select local media file for conversion
   ipcMain.handle('selectLocalFile', async () => {
     try {
-      const result = await dialog.showOpenDialog({
+      const win = getMainWindow();
+      const result = await dialog.showOpenDialog(win || undefined, {
         properties: ['openFile'],
         filters: [
           { name: 'Audio & Video', extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv'] },
