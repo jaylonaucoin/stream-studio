@@ -26,11 +26,9 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed (except on macOS)
+// Quit when all windows are closed (Windows-style behavior on all platforms including macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 // Export for use by other modules that may need the main window

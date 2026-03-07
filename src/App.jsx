@@ -65,8 +65,8 @@ function App() {
         e.preventDefault();
         setHistoryOpen(true);
       }
-      // Ctrl+Q or Cmd+Q to open queue
-      if ((e.ctrlKey || e.metaKey) && e.key === 'q') {
+      // Ctrl+B or Cmd+B to open batch queue (Cmd+Q is reserved for quit on macOS)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         setQueueOpen(true);
       }
@@ -447,7 +447,7 @@ function App() {
                 sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
               />
             )}
-            <Tooltip title="Batch Queue (Ctrl+Q)">
+            <Tooltip title="Batch Queue (Ctrl+B)">
               <IconButton
                 color="inherit"
                 onClick={() => setQueueOpen(true)}

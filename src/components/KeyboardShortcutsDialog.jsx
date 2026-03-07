@@ -29,7 +29,7 @@ const SHORTCUTS = [
     category: 'Navigation',
     items: [
       { keys: ['Ctrl', 'H'], description: 'Open history panel' },
-      { keys: ['Ctrl', 'Q'], description: 'Open queue panel' },
+      { keys: ['Ctrl', 'B'], description: 'Open batch queue panel' },
       { keys: ['Ctrl', ','], description: 'Open settings' },
     ],
   },
