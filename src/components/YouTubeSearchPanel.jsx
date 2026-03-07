@@ -26,6 +26,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
+import { SEARCH_SITES } from '../constants';
 
 function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
   const [query, setQuery] = useState('');
@@ -193,10 +194,25 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Search bar */}
+      {/* Site selector and search bar */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Search site</InputLabel>
+          <Select
+            value={searchSite}
+            label="Search site"
+            onChange={(e) => setSearchSite(e.target.value)}
+            disabled={disabled || isConverting}
+          >
+            {SEARCH_SITES.map((site) => (
+              <MenuItem key={site.id} value={site.id}>
+                {site.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <TextField
-          placeholder="Search for a song (e.g. Keith Whitley When You Say Nothing At All)"
+          placeholder={`Search ${SEARCH_SITES.find((s) => s.id === searchSite)?.label || 'this site'}...`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

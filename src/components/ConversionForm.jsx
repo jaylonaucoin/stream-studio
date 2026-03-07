@@ -623,27 +623,25 @@ function ConversionForm({
           aria-labelledby="tab-local"
           sx={{ mt: 1, mb: 2 }}
         >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select a local audio or video file to convert to your preferred format.
+          </Typography>
           <Button
             variant="outlined"
             startIcon={<FolderOpenIcon />}
-            onClick={async () => {
-              const result = await window.api?.selectLocalFile?.();
-              if (result?.success && result.filePath) {
-                setLocalFilePath(result.filePath);
-              }
-            }}
+            onClick={handleSelectLocalFile}
             disabled={isConverting || disabled}
             sx={{ mb: 2 }}
           >
             Select File to Convert
           </Button>
           {localFilePath && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Selected: {localFilePath.split(/[/\\]/).pop()}
             </Typography>
           )}
           {/* Clip/trim for local file */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3, flexWrap: 'wrap' }}>
             <TimeInput
               label="Start (optional)"
               value={startTime}
@@ -779,44 +777,42 @@ function ConversionForm({
             isConverting={isConverting}
           />
         )}
-
-      {/* Format Controls - show for paste and local */}
-      {(inputMode === 'paste' || inputMode === 'local') && (
-        <>
-      <FormatControls
-        mode={mode}
-        format={format}
-        quality={quality}
-        onModeChange={handleModeChange}
-        onFormatChange={setFormat}
-        onQualityChange={setQuality}
-        disabled={disabled}
-        isConverting={isConverting}
-      />
-
-      {/* Submit/Cancel Buttons */}
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-        {isConverting ? (
-          <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={<SyncIcon />}
-            disabled={
-              disabled ||
-              (inputMode === 'local' ? !localFilePath : !isValid || !url.trim())
-            }
-          >
-            Convert
-          </Button>
-        )}
-      </Box>
         </>
       )}
-        </>
+
+      {/* Format Controls and Convert - show for both paste and local */}
+      {(inputMode === 'paste' || inputMode === 'local') && (
+        <Box sx={{ mt: 3 }}>
+          <FormatControls
+            mode={mode}
+            format={format}
+            quality={quality}
+            onModeChange={handleModeChange}
+            onFormatChange={setFormat}
+            onQualityChange={setQuality}
+            disabled={disabled}
+            isConverting={isConverting}
+          />
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+            {isConverting ? (
+              <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<SyncIcon />}
+                disabled={
+                  disabled ||
+                  (inputMode === 'local' ? !localFilePath : !isValid || !url.trim())
+                }
+              >
+                Convert
+              </Button>
+            )}
+          </Box>
+        </Box>
       )}
 
       {/* Metadata Editor Dialog */}

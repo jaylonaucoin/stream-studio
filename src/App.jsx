@@ -54,6 +54,22 @@ function App() {
     defaultSearchLimit: 15,
   });
   const [themeMode, setThemeMode] = useState('dark');
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) ?? true
+  );
+
+  // Resolve theme: 'system' -> actual 'dark' or 'light' from OS preference
+  const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
+
+  // Listen for system preference changes when theme is 'system'
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [themeMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -451,7 +467,7 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider theme={getTheme(themeMode)}>
+    <ThemeProvider theme={getTheme(resolvedTheme)}>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <AppBar position="static" elevation={1}>

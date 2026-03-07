@@ -113,16 +113,26 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
               >
                 Appearance
               </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings.theme === 'light'}
-                    onChange={(e) => handleChange('theme', e.target.checked ? 'light' : 'dark')}
-                    aria-label="Light theme"
-                  />
-                }
-                label="Light theme"
-              />
+              <FormControl size="small" sx={{ minWidth: 160, mt: 1 }}>
+                <InputLabel>Theme</InputLabel>
+                <Select
+                  value={settings.theme || 'dark'}
+                  label="Theme"
+                  onChange={async (e) => {
+                    const newTheme = e.target.value;
+                    handleChange('theme', newTheme);
+                    if (window.api?.saveSettings) {
+                      await window.api.saveSettings({ ...settings, theme: newTheme });
+                      onSettingsSaved?.({ ...settings, theme: newTheme });
+                    }
+                  }}
+                  aria-label="Theme selection"
+                >
+                  <MenuItem value="light">Light</MenuItem>
+                  <MenuItem value="dark">Dark</MenuItem>
+                  <MenuItem value="system">System</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
 
             <Divider />
