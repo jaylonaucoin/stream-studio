@@ -344,6 +344,13 @@ function App() {
           setHistoryCount((prev) => prev + (result.fileCount || 1));
         }
       } catch (error) {
+        // User-initiated cancellation - don't show error modal
+        if (error?.message === 'Conversion was cancelled') {
+          setConversionState('idle');
+          setProgress(0);
+          setStatusMessage('Cancelled');
+          return;
+        }
         setConversionState('error');
         const isPlaylist = options.playlistMode === 'full' || options.playlistMode === 'selected';
         const chapterDownloadMode = options.chapterDownloadMode || 'split';
