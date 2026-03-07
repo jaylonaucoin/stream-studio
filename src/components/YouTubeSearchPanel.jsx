@@ -501,7 +501,6 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
             borderRadius: 2,
             border: 1,
             borderColor: 'divider',
-            borderStyle: 'dashed',
           }}
         >
           <MusicNoteIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
