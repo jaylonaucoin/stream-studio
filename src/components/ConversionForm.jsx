@@ -530,7 +530,6 @@ function ConversionForm({
         bgcolor: 'background.paper',
         border: isDragging ? 2 : 1,
         borderColor: isDragging ? 'primary.main' : 'divider',
-        borderStyle: 'dashed',
         transition: 'all 0.2s ease-in-out',
         '&:hover': {
           borderColor: isDragging ? 'primary.main' : 'action.hover',
