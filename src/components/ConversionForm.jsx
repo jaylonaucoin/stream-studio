@@ -505,7 +505,7 @@ function ConversionForm({
   }, []);
 
   const handleDrop = useCallback(
-    (e) => {
+    async (e) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
@@ -517,8 +517,16 @@ function ConversionForm({
       // Handle file drop (for local conversion)
       if (files?.length > 0) {
         const file = files[0];
-        // Electron adds path property to File objects from filesystem
-        const path = file.path;
+        let path = file.path || window.api?.getPathForFile?.(file) || '';
+        if (!path) {
+          try {
+            const buf = await file.arrayBuffer();
+            const res = await window.api?.saveFileToTemp?.(buf, file.name);
+            if (res?.success && res?.filePath) path = res.filePath;
+          } catch (err) {
+            console.error('File path fallback error:', err);
+          }
+        }
         if (path) {
           setLocalFilePath(path);
           setInputMode('local');
@@ -538,13 +546,22 @@ function ConversionForm({
     [validateUrl]
   );
 
-  const handleLocalFileDrop = useCallback((e) => {
+  const handleLocalFileDrop = useCallback(async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsLocalDropActive(false);
     const files = e.dataTransfer?.files;
-    if (files?.length > 0 && files[0].path) {
-      setLocalFilePath(files[0].path);
+    if (files?.length > 0) {
+      const file = files[0];
+      let path = file.path || window.api?.getPathForFile?.(file) || '';
+      if (!path) {
+        try {
+          const buf = await file.arrayBuffer();
+          const res = await window.api?.saveFileToTemp?.(buf, file.name);
+          if (res?.success && res?.filePath) path = res.filePath;
+        } catch (err) { console.error('File path fallback error:', err); }
+      }
+      if (path) setLocalFilePath(path);
     }
   }, []);
 
@@ -702,9 +719,18 @@ function ConversionForm({
             type="file"
             accept="audio/*,video/*,.mp3,.m4a,.flac,.wav,.aac,.ogg,.opus,.mp4,.mkv,.webm,.avi,.mov"
             style={{ display: 'none' }}
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (file?.path) setLocalFilePath(file.path);
+              if (!file) { e.target.value = ''; return; }
+              let path = file.path || window.api?.getPathForFile?.(file) || '';
+              if (!path) {
+                try {
+                  const buf = await file.arrayBuffer();
+                  const res = await window.api?.saveFileToTemp?.(buf, file.name);
+                  if (res?.success && res?.filePath) path = res.filePath;
+                } catch (err) { console.error('File path fallback error:', err); }
+              }
+              if (path) setLocalFilePath(path);
               e.target.value = '';
             }}
           />
@@ -712,8 +738,13 @@ function ConversionForm({
             component="div"
             role="button"
             tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+            onClick={() => {
+              if (isConverting || disabled) return;
+              fileInputRef.current?.click();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isConverting && !disabled) fileInputRef.current?.click();
+            }}
             onDragOver={handleLocalFileDragOver}
             onDragLeave={handleLocalFileDragLeave}
             onDrop={handleLocalFileDrop}

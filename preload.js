@@ -1,4 +1,24 @@
 const { contextBridge, ipcRenderer } = require('electron');
+let webUtils;
+try {
+  webUtils = require('electron').webUtils;
+} catch (e) {
+  webUtils = null;
+}
+
+// Get file path from File object (works for drag-drop and file input in Electron sandbox)
+function getPathForFile(file) {
+  if (!file) return '';
+  try {
+    if (webUtils && typeof webUtils.getPathForFile === 'function') {
+      const path = webUtils.getPathForFile(file);
+      if (path) return path;
+    }
+    return file.path || '';
+  } catch (e) {
+    return file.path || '';
+  }
+}
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -55,6 +75,10 @@ contextBridge.exposeInMainWorld('api', {
   // Local file conversion
   selectLocalFile: () => ipcRenderer.invoke('selectLocalFile'),
   convertLocalFile: (filePath, options) => ipcRenderer.invoke('convertLocalFile', filePath, options),
+  // Get filesystem path from File object (for drag-drop; file.path is undefined in sandboxed renderer)
+  getPathForFile: (file) => getPathForFile(file),
+  // Fallback: save file buffer to temp when getPathForFile returns empty
+  saveFileToTemp: (buffer, filename) => ipcRenderer.invoke('saveFileToTemp', { buffer, filename }),
 
   // Queue import/export
   saveQueueFile: (content) => ipcRenderer.invoke('saveQueueFile', content),
