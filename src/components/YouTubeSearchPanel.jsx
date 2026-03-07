@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -10,27 +10,58 @@ import {
   Skeleton,
   Alert,
   InputAdornment,
+  IconButton,
+  CircularProgress,
+  LinearProgress,
+  Tooltip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 
-/**
- * YouTubeSearchPanel - Chordify-style YouTube search for songs
- * Search by song/artist, select result to populate URL and load preview
- */
 function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
 
+  // Audio preview state
+  // playingId  — ID of the track currently emitting sound
+  // loadedId   — ID of the track whose Audio element is alive (playing OR paused)
+  const [playingId, setPlayingId] = useState(null);
+  const [loadedId, setLoadedId] = useState(null);
+  const [loadingAudioId, setLoadingAudioId] = useState(null);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioError, setAudioError] = useState(null);
+  const audioRef = useRef(null);
+
+  // Fully stop and destroy the current audio element
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+      audioRef.current = null;
+    }
+    setPlayingId(null);
+    setLoadedId(null);
+    setAudioProgress(0);
+  }, []);
+
+  useEffect(() => {
+    return () => stopAudio();
+  }, [stopAudio]);
+
   const handleSearch = useCallback(async () => {
     const trimmed = query.trim();
     if (!trimmed || loading || disabled || isConverting) return;
 
+    stopAudio();
+    setAudioError(null);
     setLoading(true);
     setError(null);
     setResults([]);
@@ -48,11 +79,10 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
       }
     } catch (err) {
       setError(err?.message || 'Search failed. Please try again.');
-      setResults([]);
     } finally {
       setLoading(false);
     }
-  }, [query, loading, disabled, isConverting]);
+  }, [query, loading, disabled, isConverting, stopAudio]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -73,18 +103,90 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     [onSelect, disabled, isConverting]
   );
 
+  const handlePlayPause = useCallback(
+    async (result, e) => {
+      e.stopPropagation();
+      if (disabled || isConverting) return;
+
+      setAudioError(null);
+
+      const audio = audioRef.current;
+
+      // Audio element for this track already loaded — just toggle play/pause
+      if (loadedId === result.id && audio) {
+        if (playingId === result.id) {
+          audio.pause();
+          setPlayingId(null);
+        } else {
+          try {
+            await audio.play();
+            setPlayingId(result.id);
+          } catch (err) {
+            setAudioError(`Could not resume preview for "${result.title}". Please try again.`);
+            stopAudio();
+          }
+        }
+        return;
+      }
+
+      // Different track — stop current and fetch a new stream URL
+      stopAudio();
+      if (!result.webpageUrl) return;
+
+      setLoadingAudioId(result.id);
+
+      try {
+        const response = await window.api?.getAudioStreamUrl?.(result.webpageUrl);
+
+        if (!response?.success || !response.url) {
+          throw new Error(response?.error || 'Could not get audio stream.');
+        }
+
+        const newAudio = new Audio(response.url);
+        audioRef.current = newAudio;
+
+        newAudio.addEventListener('timeupdate', () => {
+          if (newAudio.duration > 0) {
+            setAudioProgress((newAudio.currentTime / newAudio.duration) * 100);
+          }
+        });
+
+        newAudio.addEventListener('ended', () => {
+          setPlayingId(null);
+          setLoadedId(null);
+          setAudioProgress(0);
+          audioRef.current = null;
+        });
+
+        newAudio.addEventListener('error', () => {
+          setAudioError(`Could not play preview for "${result.title}". Please try again.`);
+          setPlayingId(null);
+          setLoadedId(null);
+          setAudioProgress(0);
+          audioRef.current = null;
+        });
+
+        setLoadedId(result.id);
+        await newAudio.play();
+        setPlayingId(result.id);
+      } catch (err) {
+        setAudioError(err?.message || 'Audio preview failed. Please try again.');
+        setPlayingId(null);
+        setLoadedId(null);
+        audioRef.current = null;
+      } finally {
+        setLoadingAudioId(null);
+      }
+    },
+    [playingId, loadedId, disabled, isConverting, stopAudio]
+  );
+
   const isSearchDisabled = !query.trim() || loading || disabled || isConverting;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          alignItems: 'stretch',
-          flexWrap: 'wrap',
-        }}
-      >
+      {/* Search bar */}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch', flexWrap: 'wrap' }}>
         <TextField
           placeholder="Search for a song (e.g. Keith Whitley When You Say Nothing At All)"
           value={query}
@@ -102,9 +204,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
               </InputAdornment>
             ),
           }}
-          inputProps={{
-            'aria-label': 'YouTube search query',
-          }}
+          inputProps={{ 'aria-label': 'YouTube search query' }}
           sx={{ flex: '1 1 200px', minWidth: 0 }}
         />
         <Button
@@ -124,25 +224,40 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         </Alert>
       )}
 
+      {audioError && (
+        <Alert severity="warning" onClose={() => setAudioError(null)}>
+          {audioError}
+        </Alert>
+      )}
+
       {/* Loading skeleton */}
       {loading && (
         <Paper
           elevation={1}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-          }}
+          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
         >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Box key={i} sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Skeleton variant="rectangular" width={160} height={90} sx={{ borderRadius: 1 }} />
+          <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" color="text.secondary">Searching…</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  alignItems: 'center',
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: i < 4 ? 1 : 0,
+                  borderColor: 'divider',
+                }}
+              >
+                <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
+                <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
                 <Box sx={{ flexGrow: 1 }}>
-                  <Skeleton variant="text" width="80%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={20} />
+                  <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={16} />
                 </Box>
               </Box>
             ))}
@@ -154,91 +269,128 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
       {!loading && results.length > 0 && (
         <Paper
           elevation={1}
-          sx={{
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            overflow: 'hidden',
-          }}
+          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" color="text.secondary">
-              Click a result to select and preview
+              Click a result to select · use the play button to preview audio
             </Typography>
           </Box>
           <List dense disablePadding sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {results.map((result, index) => (
-              <ListItemButton
-                key={result.id || index}
-                onClick={() => handleSelect(result)}
-                disabled={disabled || isConverting}
-                sx={{
-                  py: 1.5,
-                  borderBottom: index < results.length - 1 ? 1 : 0,
-                  borderColor: 'divider',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-              >
-                <ThumbnailWithFallback
-                  thumbnail={result.thumbnail}
-                  alt={result.title}
-                  isPlaylist={false}
-                  width={80}
-                  height={45}
-                />
-                <Box sx={{ flexGrow: 1, minWidth: 0, ml: 2 }}>
-                  <Typography
-                    variant="body1"
+            {results.map((result, index) => {
+              const isLoaded = loadedId === result.id;
+              const isPlaying = playingId === result.id;
+              const isLoadingAudio = loadingAudioId === result.id;
+
+              let tooltipTitle = 'Preview audio';
+              if (isLoadingAudio) tooltipTitle = 'Loading…';
+              else if (isPlaying) tooltipTitle = 'Pause preview';
+              else if (isLoaded) tooltipTitle = 'Resume preview';
+
+              return (
+                <Box key={result.id || index} sx={{ position: 'relative' }}>
+                  <ListItemButton
+                    onClick={() => handleSelect(result)}
+                    disabled={disabled || isConverting}
                     sx={{
-                      fontWeight: 500,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
+                      py: 1.5,
+                      borderBottom: index < results.length - 1 ? 1 : 0,
+                      borderColor: 'divider',
+                      bgcolor: isLoaded ? 'action.selected' : undefined,
+                      '&:hover': { bgcolor: isLoaded ? 'action.selected' : 'action.hover' },
                     }}
                   >
-                    {result.title}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5, flexWrap: 'wrap' }}>
-                    {result.uploader && (
+                    <Tooltip title={tooltipTitle} placement="top">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handlePlayPause(result, e)}
+                          disabled={disabled || isConverting || isLoadingAudio}
+                          sx={{
+                            mr: 1,
+                            flexShrink: 0,
+                            color: isLoaded ? 'primary.main' : 'text.secondary',
+                            '&:hover': { color: 'primary.main' },
+                          }}
+                        >
+                          {isLoadingAudio ? (
+                            <CircularProgress size={18} color="inherit" />
+                          ) : isPlaying ? (
+                            <PauseIcon fontSize="small" />
+                          ) : (
+                            <PlayArrowIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <ThumbnailWithFallback
+                      thumbnail={result.thumbnail}
+                      alt={result.title}
+                      isPlaylist={false}
+                      width={80}
+                      height={45}
+                    />
+
+                    <Box sx={{ flexGrow: 1, minWidth: 0, ml: 2 }}>
                       <Typography
-                        variant="caption"
-                        color="text.secondary"
+                        variant="body1"
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.25,
+                          fontWeight: isLoaded ? 600 : 500,
+                          color: isLoaded ? 'primary.main' : 'text.primary',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          maxWidth: '100%',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
                         }}
                       >
-                        <PersonIcon sx={{ fontSize: 14 }} />
-                        {result.uploader}
+                        {result.title}
                       </Typography>
-                    )}
-                    {result.durationFormatted && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.25,
-                        }}
-                      >
-                        <AccessTimeIcon sx={{ fontSize: 14 }} />
-                        {result.durationFormatted}
-                      </Typography>
-                    )}
-                  </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5, flexWrap: 'wrap' }}>
+                        {result.uploader && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
+                          >
+                            <PersonIcon sx={{ fontSize: 14 }} />
+                            {result.uploader}
+                          </Typography>
+                        )}
+                        {result.durationFormatted && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}
+                          >
+                            <AccessTimeIcon sx={{ fontSize: 14 }} />
+                            {result.durationFormatted}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  </ListItemButton>
+
+                  {/* Progress bar — visible while loaded (playing or paused) */}
+                  {isLoaded && (
+                    <LinearProgress
+                      variant="determinate"
+                      value={audioProgress}
+                      sx={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 2,
+                        borderRadius: 0,
+                        opacity: isPlaying ? 1 : 0.5,
+                      }}
+                    />
+                  )}
                 </Box>
-              </ListItemButton>
-            ))}
+              );
+            })}
           </List>
         </Paper>
       )}

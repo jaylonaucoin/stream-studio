@@ -44,6 +44,15 @@ function registerHandlers(ipcMain) {
       return { success: false, results: [], error: error.message };
     }
   });
+
+  // Get direct audio stream URL for previewing a YouTube video
+  ipcMain.handle('getAudioStreamUrl', async (event, videoUrl) => {
+    try {
+      return await videoInfoService.getAudioStreamUrl(videoUrl);
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { registerHandlers };

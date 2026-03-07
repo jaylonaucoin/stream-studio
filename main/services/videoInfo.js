@@ -10,9 +10,11 @@ const { sanitizeUrl } = require('../utils/url');
 const videoInfoCache = new Map();
 const chapterInfoCache = new Map();
 const playlistInfoCache = new Map();
+const audioStreamCache = new Map();
 const VIDEO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CHAPTER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const AUDIO_STREAM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (stream URLs expire ~6h)
 
 /**
  * Format duration from seconds to human readable string
@@ -494,8 +496,48 @@ async function getChapterInfo(url) {
 }
 
 /**
+ * Parse a single yt-dlp flat-playlist JSON entry into a search result object.
+ * @param {Object} entry
+ * @returns {Object|null}
+ */
+function parseSearchEntry(entry) {
+  const videoId = entry.id || null;
+  const webpageUrl =
+    entry.webpage_url ||
+    entry.url ||
+    (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+
+  if (!webpageUrl) return null;
+
+  const artist =
+    entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+  const uploader = entry.uploader || entry.channel || null;
+  const duration = entry.duration ?? null;
+  let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
+
+  if (videoId && !thumbnail) {
+    thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  } else if (videoId && thumbnail) {
+    const highQualityThumbnails = getHighQualityThumbnail(videoId, webpageUrl, 'youtube');
+    thumbnail = highQualityThumbnails ? [thumbnail, ...highQualityThumbnails] : thumbnail;
+  }
+
+  return {
+    id: videoId,
+    title: entry.title || 'Unknown Title',
+    duration,
+    durationFormatted: duration != null ? formatDuration(duration) : 'Live',
+    thumbnail,
+    webpageUrl,
+    artist,
+    uploader: uploader || artist,
+    viewCount: entry.view_count ?? null,
+  };
+}
+
+/**
  * Search YouTube by query (Chordify-style)
- * Uses yt-dlp ytsearch extractor - no API key required
+ * Uses yt-dlp ytsearch extractor - no API key required.
  * @param {string} query - Search query (e.g. "artist song name")
  * @param {number} [limit=15] - Max number of results
  * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
@@ -546,52 +588,17 @@ async function searchYouTube(query, limit = 15) {
       }
 
       if (code === 0 && stdout) {
-        try {
-          const lines = stdout.trim().split('\n').filter((line) => line.trim());
-          const results = [];
-
-          for (const line of lines) {
-            try {
-              const entry = JSON.parse(line);
-              const videoId = entry.id || null;
-              const webpageUrl = entry.webpage_url || entry.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
-
-              if (!webpageUrl) continue;
-
-              const artist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
-              const uploader = entry.uploader || entry.channel || null;
-              const duration = entry.duration ?? null;
-              let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
-
-              if (videoId && !thumbnail) {
-                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-              } else if (videoId && thumbnail) {
-                const highQualityThumbnails = getHighQualityThumbnail(videoId, webpageUrl, 'youtube');
-                thumbnail = highQualityThumbnails
-                  ? [thumbnail, ...highQualityThumbnails]
-                  : thumbnail;
-              }
-
-              results.push({
-                id: videoId,
-                title: entry.title || 'Unknown Title',
-                duration,
-                durationFormatted: duration != null ? formatDuration(duration) : 'Live',
-                thumbnail,
-                webpageUrl,
-                artist,
-                uploader: uploader || artist,
-                viewCount: entry.view_count ?? null,
-              });
-            } catch (e) {
-              console.warn('Failed to parse search result line:', e);
-            }
+        const results = [];
+        for (const line of stdout.split('\n')) {
+          if (!line.trim()) continue;
+          try {
+            const result = parseSearchEntry(JSON.parse(line));
+            if (result) results.push(result);
+          } catch (e) {
+            console.warn('Failed to parse search result line:', e);
           }
-
-          resolve({ success: true, results });
-        } catch (parseError) {
-          reject(new Error(`Failed to parse search results: ${parseError.message}`));
         }
+        resolve({ success: true, results });
       } else {
         const errorLower = (stderr || '').toLowerCase();
         let errorMsg = 'Search failed. ';
@@ -615,6 +622,81 @@ async function searchYouTube(query, limit = 15) {
         reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
       } else {
         reject(new Error(`Search failed: ${error.message}`));
+      }
+    });
+  });
+}
+
+/**
+ * Get a direct audio stream URL for a YouTube video using yt-dlp.
+ * Returns the best available audio-only stream URL so the renderer
+ * can play it directly via the HTML5 Audio API.
+ * @param {string} videoUrl - Full YouTube video URL
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+async function getAudioStreamUrl(videoUrl) {
+  const cacheKey = videoUrl;
+  const cached = audioStreamCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < AUDIO_STREAM_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const ytDlpPath = getYtDlpPath();
+  const args = [
+    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+    '--get-url',
+    '--no-playlist',
+    '--no-warnings',
+    videoUrl,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(ytDlpPath, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    const timeoutId = setTimeout(() => {
+      proc.kill();
+      reject(new Error('Timed out fetching audio stream URL.'));
+    }, 20000);
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      clearTimeout(timeoutId);
+      const url = stdout.trim().split('\n')[0];
+      if (code === 0 && url) {
+        const result = { success: true, url };
+        audioStreamCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        resolve(result);
+      } else {
+        const errLower = (stderr || '').toLowerCase();
+        let msg = 'Could not get audio stream. ';
+        if (errLower.includes('private') || errLower.includes('unavailable')) {
+          msg += 'Video is private or unavailable.';
+        } else if (errLower.includes('sign in') || errLower.includes('login')) {
+          msg += 'Video requires sign-in.';
+        } else {
+          msg += 'Please try again.';
+        }
+        reject(new Error(msg));
+      }
+    });
+
+    proc.on('error', (error) => {
+      clearTimeout(timeoutId);
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found.'));
+      } else {
+        reject(new Error(`Failed to get audio stream: ${error.message}`));
       }
     });
   });
@@ -661,6 +743,7 @@ module.exports = {
   getPlaylistInfo,
   getChapterInfo,
   searchYouTube,
+  getAudioStreamUrl,
   getCachedVideoInfo,
   getCachedChapterInfo,
   formatDuration,
