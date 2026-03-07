@@ -45,6 +45,15 @@ function registerHandlers(ipcMain) {
     }
   });
 
+  // Search multi-site (YouTube, SoundCloud, Vimeo, etc.)
+  ipcMain.handle('searchMultiSite', async (event, siteId, query, limit) => {
+    try {
+      return await videoInfoService.searchMultiSite(siteId, query, limit);
+    } catch (error) {
+      return { success: false, results: [], error: error.message };
+    }
+  });
+
   // Get direct audio stream URL for previewing a YouTube video
   ipcMain.handle('getAudioStreamUrl', async (event, videoUrl) => {
     try {

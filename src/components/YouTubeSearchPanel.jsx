@@ -14,6 +14,10 @@ import {
   CircularProgress,
   LinearProgress,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -23,8 +27,10 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 
-function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
+function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
   const [query, setQuery] = useState('');
+  const [searchSite, setSearchSite] = useState(defaultSearchSite);
+  const [searchLimit, setSearchLimit] = useState(defaultSearchLimit);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
@@ -67,7 +73,9 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     setResults([]);
 
     try {
-      const response = await window.api?.searchYouTube?.(trimmed, 15);
+      const response = window.api?.searchMultiSite
+        ? await window.api.searchMultiSite(searchSite, trimmed, searchLimit)
+        : await window.api?.searchYouTube?.(trimmed, searchLimit);
 
       if (response?.success && Array.isArray(response.results)) {
         setResults(response.results);
@@ -82,7 +90,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     } finally {
       setLoading(false);
     }
-  }, [query, loading, disabled, isConverting, stopAudio]);
+  }, [query, loading, disabled, isConverting, stopAudio, searchSite, searchLimit]);
 
   const handleKeyDown = useCallback(
     (e) => {

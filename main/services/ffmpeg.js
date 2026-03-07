@@ -212,10 +212,101 @@ async function splitAudioByTime(inputPath, outputPath, startTime, endTime, metad
   });
 }
 
+/**
+ * Convert local file to target format using FFmpeg
+ * @param {string} inputPath - Input file path
+ * @param {string} outputPath - Output file path
+ * @param {Object} options - { mode, format, quality, startTime?, endTime? }
+ * @param {Function} onProgress - Progress callback (percent 0-100)
+ * @returns {Promise<void>}
+ */
+async function convertLocalFile(inputPath, outputPath, options = {}, onProgress = null) {
+  const ffmpegPath = getFfmpegPath();
+  const { mode = 'audio', format = 'mp3', quality = 'best', startTime, endTime } = options;
+
+  const bitrate = quality === 'best' ? '192k' : quality === 'high' ? '192k' : quality === 'medium' ? '128k' : '96k';
+  const args = ['-y', '-i', inputPath];
+
+  if (startTime != null) {
+    args.push('-ss', String(startTime));
+  }
+  if (endTime != null) {
+    args.push('-to', String(endTime));
+  }
+
+  if (mode === 'audio') {
+    args.push('-vn');
+    if (format === 'mp3') {
+      args.push('-acodec', 'libmp3lame', '-q:a', quality === 'best' ? '0' : quality === 'high' ? '2' : quality === 'medium' ? '5' : '9');
+    } else if (format === 'm4a' || format === 'aac') {
+      args.push('-acodec', 'aac', '-b:a', bitrate);
+    } else if (format === 'flac') {
+      args.push('-acodec', 'flac');
+    } else if (format === 'wav') {
+      args.push('-acodec', 'pcm_s16le');
+    } else if (format === 'opus') {
+      args.push('-acodec', 'libopus', '-b:a', bitrate);
+    } else if (format === 'vorbis') {
+      args.push('-acodec', 'libvorbis', '-q:a', quality === 'best' ? '10' : '5');
+    } else if (format === 'alac') {
+      args.push('-acodec', 'alac');
+    } else {
+      args.push('-acodec', 'libmp3lame', '-b:a', bitrate);
+    }
+  } else {
+    const height = quality === 'best' ? null : quality === 'high' ? 1080 : quality === 'medium' ? 720 : 480;
+    args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '23');
+    if (height) args.push('-vf', `scale=-2:min(${height},ih)`);
+    args.push('-c:a', 'aac', '-b:a', bitrate);
+  }
+
+  args.push(outputPath);
+
+  const onProcessSpawn = options.onProcessSpawn;
+
+  return new Promise((resolve, reject) => {
+    const ffmpegProc = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    if (onProcessSpawn) onProcessSpawn(ffmpegProc);
+    let lastPercent = 0;
+
+    const reportProgress = (p) => {
+      if (onProgress && p !== lastPercent) {
+        lastPercent = p;
+        onProgress(p);
+      }
+    };
+
+    ffmpegProc.stderr.on('data', (data) => {
+      const str = data.toString();
+      const timeMatch = str.match(/time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+      if (timeMatch && onProgress) {
+        const h = parseInt(timeMatch[1], 10);
+        const m = parseInt(timeMatch[2], 10);
+        const s = parseInt(timeMatch[3], 10);
+        const cs = parseInt(timeMatch[4], 10);
+        const elapsed = h * 3600 + m * 60 + s + cs / 100;
+        reportProgress(Math.min(95, Math.floor((elapsed / 300) * 100)));
+      }
+    });
+
+    ffmpegProc.on('close', (code) => {
+      if (code === 0) {
+        reportProgress(100);
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg conversion failed with code ${code}`));
+      }
+    });
+
+    ffmpegProc.on('error', reject);
+  });
+}
+
 module.exports = {
   checkFfmpegAvailable,
   getFfmpegUnavailableError,
   runFfmpegCommand,
   buildMetadataArgs,
   splitAudioByTime,
+  convertLocalFile,
 };

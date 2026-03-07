@@ -552,6 +552,45 @@ function parseSearchEntry(entry) {
   };
 }
 
+// Search site ID to yt-dlp search prefix mapping
+const SEARCH_SITE_PREFIXES = {
+  youtube: 'ytsearch',
+  soundcloud: 'scsearch',
+  bandcamp: 'bandcamp:search',
+  vimeo: 'vimsearch',
+  dailymotion: 'dmsearch',
+  peertube: 'peertube:search',
+  media_cc: 'media_cc:search',
+  naver: 'naver:search',
+  niconico: 'niconico:search',
+  rumble: 'rumble:search',
+  odysée: 'odyssee:search',
+  twitch: 'twitch:search',
+  twitter: 'twitter:search',
+  tiktok: 'tiktok:search',
+  bilibili: 'bilibili:search',
+};
+
+/**
+ * Search a site by query (multi-site search)
+ * @param {string} siteId - Site ID (youtube, soundcloud, etc.)
+ * @param {string} query - Search query
+ * @param {number} [limit=15] - Max number of results
+ * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
+ */
+async function searchMultiSite(siteId, query, limit = 15) {
+  const trimmed = (query || '').toString().trim();
+  if (!trimmed) {
+    return { success: false, results: [], error: 'Search query cannot be empty' };
+  }
+
+  const prefix = SEARCH_SITE_PREFIXES[siteId] || SEARCH_SITE_PREFIXES.youtube;
+  const limitNum = Math.min(Math.max(limit, 1), 50);
+  const searchArg = `${prefix}${limitNum}:${trimmed}`;
+
+  return runSearch(searchArg);
+}
+
 /**
  * Search YouTube by query (Chordify-style)
  * Uses yt-dlp ytsearch extractor - no API key required.
@@ -560,14 +599,16 @@ function parseSearchEntry(entry) {
  * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
  */
 async function searchYouTube(query, limit = 15) {
-  const trimmed = (query || '').toString().trim();
-  if (!trimmed) {
-    return { success: false, results: [], error: 'Search query cannot be empty' };
-  }
+  return searchMultiSite('youtube', query, limit);
+}
 
+/**
+ * Run yt-dlp search with given search argument
+ * @param {string} searchArg - e.g. "ytsearch15:query"
+ * @returns {Promise<Object>}
+ */
+function runSearch(searchArg) {
   const ytDlpPath = getYtDlpPath();
-  const searchArg = `ytsearch${Math.min(Math.max(limit, 1), 50)}:${trimmed}`;
-
   const args = [
     '--dump-json',
     '--flat-playlist',
@@ -623,6 +664,118 @@ async function searchYouTube(query, limit = 15) {
           errorMsg += 'yt-dlp binary not found.';
         } else if (errorLower.includes('unable to extract') || errorLower.includes('unavailable')) {
           errorMsg += 'YouTube may be temporarily unavailable. Try again later.';
+        } else {
+          errorMsg += 'Please check your connection and try again.';
+        }
+        reject(new Error(errorMsg));
+      }
+    });
+
+    searchProcess.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (error.code === 'ENOENT') {
+        reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
+      } else {
+        reject(new Error(`Search failed: ${error.message}`));
+      }
+    });
+  });
+}
+
+// Search prefix per site (matches SEARCH_SITES in frontend) - used by getAudioStreamUrl fallback
+const SEARCH_PREFIX_MAP = {
+  youtube: 'ytsearch',
+  soundcloud: 'scsearch',
+  bandcamp: 'bandcamp:search',
+  vimeo: 'vimsearch',
+  dailymotion: 'dmsearch',
+  peertube: 'peertube:search',
+  media_cc: 'media_cc:search',
+  naver: 'naver:search',
+  niconico: 'niconico:search',
+  rumble: 'rumble:search',
+  odysée: 'odyssee:search',
+  odyssee: 'odyssee:search',
+  twitch: 'twitch:search',
+  twitter: 'twitter:search',
+  tiktok: 'tiktok:search',
+  bilibili: 'bilibili:search',
+};
+
+/**
+ * Search a specific site by query
+ * @param {string} siteId - Site identifier (youtube, soundcloud, etc.)
+ * @param {string} query - Search query
+ * @param {number} [limit=15] - Max results
+ * @returns {Promise<Object>} { success, results, error? }
+ */
+async function searchMultiSite(siteId, query, limit = 15) {
+  const trimmed = (query || '').toString().trim();
+  if (!trimmed) {
+    return { success: false, results: [], error: 'Search query cannot be empty' };
+  }
+
+  const prefix = SEARCH_PREFIX_MAP[siteId] || 'ytsearch';
+  const cappedLimit = Math.min(Math.max(limit, 1), 50);
+  const searchArg = `${prefix}${cappedLimit}:${trimmed}`;
+
+  const ytDlpPath = getYtDlpPath();
+  const args = [
+    '--dump-json',
+    '--flat-playlist',
+    '--no-warnings',
+    '--no-playlist',
+    searchArg,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const searchProcess = spawn(ytDlpPath, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let timeoutId = null;
+
+    timeoutId = setTimeout(() => {
+      searchProcess.kill();
+      reject(new Error('Search timed out. Please try again.'));
+    }, YT_DLP_FETCH_TIMEOUT_MS);
+
+    searchProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    searchProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    searchProcess.on('close', (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      if (code === 0 && stdout) {
+        const results = [];
+        for (const line of stdout.split('\n')) {
+          if (!line.trim()) continue;
+          try {
+            const result = parseSearchEntry(JSON.parse(line));
+            if (result) results.push(result);
+          } catch (e) {
+            console.warn('Failed to parse search result line:', e);
+          }
+        }
+        resolve({ success: true, results });
+      } else {
+        const errorLower = (stderr || '').toLowerCase();
+        let errorMsg = 'Search failed. ';
+        if (errorLower.includes('enoent') || errorLower.includes('not found')) {
+          errorMsg += 'yt-dlp binary not found.';
         } else {
           errorMsg += 'Please check your connection and try again.';
         }
@@ -777,6 +930,7 @@ module.exports = {
   getPlaylistInfo,
   getChapterInfo,
   searchYouTube,
+  searchMultiSite,
   getAudioStreamUrl,
   getCachedVideoInfo,
   getCachedChapterInfo,

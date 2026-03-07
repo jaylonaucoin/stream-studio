@@ -23,6 +23,8 @@ import QueueIcon from '@mui/icons-material/Queue';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ClearIcon from '@mui/icons-material/Clear';
 import CloseIcon from '@mui/icons-material/Close';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -193,6 +195,47 @@ function QueuePanel({
       )
     );
   }, []);
+
+  const handleExportQueue = useCallback(async () => {
+    if (!window.api?.saveQueueFile || queue.length === 0) return;
+    try {
+      const exportData = queue.map((item) => ({
+        url: item.url,
+        isPlaylist: item.isPlaylist,
+        playlistMode: item.playlistMode || 'full',
+        title: item.title,
+      }));
+      const result = await window.api.saveQueueFile(exportData);
+      if (!result?.success && !result?.cancelled) {
+        console.error('Export failed:', result?.error);
+      }
+    } catch (err) {
+      console.error('Export queue error:', err);
+    }
+  }, [queue]);
+
+  const handleImportQueue = useCallback(async () => {
+    if (!window.api?.openQueueFile || isProcessing) return;
+    try {
+      const result = await window.api.openQueueFile();
+      if (result?.success && Array.isArray(result.data)) {
+        const newItems = result.data.map((item, index) => ({
+          id: Date.now().toString() + index,
+          url: item.url,
+          status: 'pending',
+          error: null,
+          isPlaylist: item.isPlaylist || false,
+          playlistInfo: null,
+          playlistMode: item.playlistMode || 'full',
+          title: item.title || null,
+          thumbnail: null,
+        }));
+        setQueue((prev) => [...prev, ...newItems]);
+      }
+    } catch (err) {
+      console.error('Import queue error:', err);
+    }
+  }, [isProcessing]);
 
   // Process queue items one by one
   const processQueue = useCallback(async () => {
