@@ -496,13 +496,56 @@ async function getChapterInfo(url) {
 }
 
 /**
+ * Parse a single yt-dlp flat-playlist JSON entry into a search result object.
+ * @param {Object} entry
+ * @returns {Object|null}
+ */
+function parseSearchEntry(entry) {
+  const videoId = entry.id || null;
+  const webpageUrl =
+    entry.webpage_url ||
+    entry.url ||
+    (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
+
+  if (!webpageUrl) return null;
+
+  const artist =
+    entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+  const uploader = entry.uploader || entry.channel || null;
+  const duration = entry.duration ?? null;
+  let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
+
+  if (videoId && !thumbnail) {
+    thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  } else if (videoId && thumbnail) {
+    const highQualityThumbnails = getHighQualityThumbnail(videoId, webpageUrl, 'youtube');
+    thumbnail = highQualityThumbnails ? [thumbnail, ...highQualityThumbnails] : thumbnail;
+  }
+
+  return {
+    id: videoId,
+    title: entry.title || 'Unknown Title',
+    duration,
+    durationFormatted: duration != null ? formatDuration(duration) : 'Live',
+    thumbnail,
+    webpageUrl,
+    artist,
+    uploader: uploader || artist,
+    viewCount: entry.view_count ?? null,
+  };
+}
+
+/**
  * Search YouTube by query (Chordify-style)
- * Uses yt-dlp ytsearch extractor - no API key required
+ * Uses yt-dlp ytsearch extractor - no API key required.
+ * Results are parsed line-by-line as stdout arrives so the caller
+ * can stream them to the UI before all N results have been fetched.
  * @param {string} query - Search query (e.g. "artist song name")
  * @param {number} [limit=15] - Max number of results
+ * @param {Function|null} [onPartialResult] - Called with each result as it arrives
  * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
  */
-async function searchYouTube(query, limit = 15) {
+async function searchYouTube(query, limit = 15, onPartialResult = null) {
   const trimmed = (query || '').toString().trim();
   if (!trimmed) {
     return { success: false, results: [], error: 'Search query cannot be empty' };
@@ -524,8 +567,10 @@ async function searchYouTube(query, limit = 15) {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    let stdout = '';
+    // lineBuffer accumulates incomplete stdout lines between data chunks
+    let lineBuffer = '';
     let stderr = '';
+    const results = [];
     let timeoutId = null;
 
     timeoutId = setTimeout(() => {
@@ -534,7 +579,26 @@ async function searchYouTube(query, limit = 15) {
     }, 15000);
 
     searchProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
+      lineBuffer += data.toString();
+      // Process all complete newline-delimited lines immediately
+      const newline = lineBuffer.lastIndexOf('\n');
+      if (newline === -1) return;
+      const completeChunk = lineBuffer.slice(0, newline);
+      lineBuffer = lineBuffer.slice(newline + 1);
+
+      for (const line of completeChunk.split('\n')) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        try {
+          const result = parseSearchEntry(JSON.parse(trimmedLine));
+          if (result) {
+            results.push(result);
+            onPartialResult?.(result);
+          }
+        } catch (e) {
+          // skip unparseable lines (warnings etc.)
+        }
+      }
     });
 
     searchProcess.stderr.on('data', (data) => {
@@ -547,53 +611,21 @@ async function searchYouTube(query, limit = 15) {
         timeoutId = null;
       }
 
-      if (code === 0 && stdout) {
+      // Flush any remaining buffered content
+      if (lineBuffer.trim()) {
         try {
-          const lines = stdout.trim().split('\n').filter((line) => line.trim());
-          const results = [];
-
-          for (const line of lines) {
-            try {
-              const entry = JSON.parse(line);
-              const videoId = entry.id || null;
-              const webpageUrl = entry.webpage_url || entry.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : null);
-
-              if (!webpageUrl) continue;
-
-              const artist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
-              const uploader = entry.uploader || entry.channel || null;
-              const duration = entry.duration ?? null;
-              let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
-
-              if (videoId && !thumbnail) {
-                thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-              } else if (videoId && thumbnail) {
-                const highQualityThumbnails = getHighQualityThumbnail(videoId, webpageUrl, 'youtube');
-                thumbnail = highQualityThumbnails
-                  ? [thumbnail, ...highQualityThumbnails]
-                  : thumbnail;
-              }
-
-              results.push({
-                id: videoId,
-                title: entry.title || 'Unknown Title',
-                duration,
-                durationFormatted: duration != null ? formatDuration(duration) : 'Live',
-                thumbnail,
-                webpageUrl,
-                artist,
-                uploader: uploader || artist,
-                viewCount: entry.view_count ?? null,
-              });
-            } catch (e) {
-              console.warn('Failed to parse search result line:', e);
-            }
+          const result = parseSearchEntry(JSON.parse(lineBuffer.trim()));
+          if (result) {
+            results.push(result);
+            onPartialResult?.(result);
           }
-
-          resolve({ success: true, results });
-        } catch (parseError) {
-          reject(new Error(`Failed to parse search results: ${parseError.message}`));
+        } catch (e) {
+          // ignore
         }
+      }
+
+      if (code === 0 || results.length > 0) {
+        resolve({ success: true, results });
       } else {
         const errorLower = (stderr || '').toLowerCase();
         let errorMsg = 'Search failed. ';
@@ -642,6 +674,8 @@ async function getAudioStreamUrl(videoUrl) {
     '--get-url',
     '--no-playlist',
     '--no-warnings',
+    // Android innertube client skips JS-player signature decryption (~2-3x faster)
+    '--extractor-args', 'youtube:player_client=android',
     videoUrl,
   ];
 

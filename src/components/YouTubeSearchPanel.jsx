@@ -30,8 +30,11 @@ import ThumbnailWithFallback from './ThumbnailWithFallback';
 function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [skeletonCount, setSkeletonCount] = useState(5); // shrinks as real results stream in
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
+  // A search epoch counter lets us discard stale streaming events from a previous search
+  const searchEpochRef = useRef(0);
 
   // Audio preview state
   // playingId  — ID of the track currently emitting sound
@@ -73,22 +76,40 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     setLoading(true);
     setError(null);
     setResults([]);
+    setSkeletonCount(5);
+
+    // Increment epoch so any stale listeners from a previous search are ignored
+    const epoch = ++searchEpochRef.current;
+
+    // Subscribe to streaming results BEFORE invoking search so we don't miss early items
+    window.api?.offSearchResultItem?.();
+    window.api?.onSearchResultItem?.((item) => {
+      if (searchEpochRef.current !== epoch) return; // discard stale events
+      setResults((prev) => {
+        // Guard against duplicate items (shouldn't happen, but be safe)
+        if (prev.some((r) => r.id === item.id)) return prev;
+        return [...prev, item];
+      });
+      // Replace one skeleton row with the real result
+      setSkeletonCount((n) => Math.max(0, n - 1));
+      // Hide the full skeleton once we have something to show
+      setLoading(false);
+    });
 
     try {
       const response = await window.api?.searchYouTube?.(trimmed, 15);
 
-      if (response?.success && Array.isArray(response.results)) {
-        setResults(response.results);
-        if (response.results.length === 0) {
-          setError(`No results found for "${trimmed}"`);
-        }
-      } else {
+      if (!response?.success) {
         setError(response?.error || 'Search failed. Please try again.');
+        if (searchEpochRef.current === epoch) setResults([]);
+      } else if (response.results?.length === 0) {
+        setError(`No results found for "${trimmed}"`);
       }
     } catch (err) {
       setError(err?.message || 'Search failed. Please try again.');
-      setResults([]);
+      if (searchEpochRef.current === epoch) setResults([]);
     } finally {
+      window.api?.offSearchResultItem?.();
       setLoading(false);
     }
   }, [query, loading, disabled, isConverting, stopAudio]);
@@ -251,34 +272,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         </Alert>
       )}
 
-      {/* Loading skeleton */}
-      {loading && (
-        <Paper
-          elevation={1}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Box key={i} sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Skeleton variant="rectangular" width={160} height={90} sx={{ borderRadius: 1 }} />
-                <Box sx={{ flexGrow: 1 }}>
-                  <Skeleton variant="text" width="80%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={20} />
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
-
-      {/* Results list */}
-      {!loading && results.length > 0 && (
+      {/* Results list — shows skeleton while waiting, then real rows as they stream in */}
+      {(results.length > 0 || loading) && (
         <Paper
           elevation={1}
           sx={{
@@ -291,13 +286,19 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" color="text.secondary">
-              Click a result to select · use the play button to preview audio
+              {loading && results.length === 0
+                ? 'Searching…'
+                : loading
+                ? `${results.length} results so far…`
+                : 'Click a result to select · use the play button to preview audio'}
             </Typography>
           </Box>
           <List dense disablePadding sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {/* Real results */}
+            {/* Real results */}
             {results.map((result, index) => {
-              const isLoaded = loadedId === result.id;   // audio element exists (playing or paused)
-              const isPlaying = playingId === result.id; // actively emitting sound
+              const isLoaded = loadedId === result.id;
+              const isPlaying = playingId === result.id;
               const isLoadingAudio = loadingAudioId === result.id;
 
               let tooltipTitle = 'Preview audio';
@@ -425,11 +426,61 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                 </Box>
               );
             })}
+
+            {/* Skeleton rows for results still in-flight during streaming */}
+            {loading && skeletonCount > 0 &&
+              Array.from({ length: skeletonCount }).map((_, i) => (
+                <Box
+                  key={`skel-${i}`}
+                  sx={{
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    px: 2,
+                    py: 1.5,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
+                  <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="text" width="40%" height={16} />
+                  </Box>
+                </Box>
+              ))
+            }
+
+            {/* Full skeleton before first result arrives */}
+            {loading && results.length === 0 &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <Box
+                  key={`pre-${i}`}
+                  sx={{
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    px: 2,
+                    py: 1.5,
+                    borderTop: i > 0 ? 1 : 0,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
+                  <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="text" width="40%" height={16} />
+                  </Box>
+                </Box>
+              ))
+            }
           </List>
         </Paper>
       )}
 
-      {/* Empty state */}
+      {/* Empty state — only when not loading and nothing to show */}
       {!loading && results.length === 0 && !error && (
         <Box
           sx={{
