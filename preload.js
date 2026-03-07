@@ -51,11 +51,6 @@ contextBridge.exposeInMainWorld('api', {
   // YouTube search (Chordify-style)
   searchYouTube: (query, limit) => ipcRenderer.invoke('searchYouTube', query, limit),
 
-  // Streaming search results — fires once per result as yt-dlp outputs each line
-  onSearchResultItem: (callback) =>
-    ipcRenderer.on('search-result-item', (_, item) => callback(item)),
-  offSearchResultItem: () => ipcRenderer.removeAllListeners('search-result-item'),
-
   // Get direct audio stream URL for in-app preview
   getAudioStreamUrl: (videoUrl) => ipcRenderer.invoke('getAudioStreamUrl', videoUrl),
   

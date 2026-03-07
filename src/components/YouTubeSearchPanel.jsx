@@ -23,18 +23,11 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 
-/**
- * YouTubeSearchPanel - Chordify-style YouTube search for songs
- * Search by song/artist, select result to populate URL and load preview
- */
 function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [skeletonCount, setSkeletonCount] = useState(5); // shrinks as real results stream in
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
-  // A search epoch counter lets us discard stale streaming events from a previous search
-  const searchEpochRef = useRef(0);
 
   // Audio preview state
   // playingId  — ID of the track currently emitting sound
@@ -42,7 +35,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const [playingId, setPlayingId] = useState(null);
   const [loadedId, setLoadedId] = useState(null);
   const [loadingAudioId, setLoadingAudioId] = useState(null);
-  const [audioProgress, setAudioProgress] = useState(0); // 0-100
+  const [audioProgress, setAudioProgress] = useState(0);
   const [audioError, setAudioError] = useState(null);
   const audioRef = useRef(null);
 
@@ -50,7 +43,6 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      // Remove src after pausing so no error event fires from clearing it
       audioRef.current.removeAttribute('src');
       audioRef.current.load();
       audioRef.current = null;
@@ -60,11 +52,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     setAudioProgress(0);
   }, []);
 
-  // Clean up audio when component unmounts or new search starts
   useEffect(() => {
-    return () => {
-      stopAudio();
-    };
+    return () => stopAudio();
   }, [stopAudio]);
 
   const handleSearch = useCallback(async () => {
@@ -76,40 +65,21 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
     setLoading(true);
     setError(null);
     setResults([]);
-    setSkeletonCount(5);
-
-    // Increment epoch so any stale listeners from a previous search are ignored
-    const epoch = ++searchEpochRef.current;
-
-    // Subscribe to streaming results BEFORE invoking search so we don't miss early items
-    window.api?.offSearchResultItem?.();
-    window.api?.onSearchResultItem?.((item) => {
-      if (searchEpochRef.current !== epoch) return; // discard stale events
-      setResults((prev) => {
-        // Guard against duplicate items (shouldn't happen, but be safe)
-        if (prev.some((r) => r.id === item.id)) return prev;
-        return [...prev, item];
-      });
-      // Replace one skeleton row with the real result
-      setSkeletonCount((n) => Math.max(0, n - 1));
-      // Hide the full skeleton once we have something to show
-      setLoading(false);
-    });
 
     try {
       const response = await window.api?.searchYouTube?.(trimmed, 15);
 
-      if (!response?.success) {
+      if (response?.success && Array.isArray(response.results)) {
+        setResults(response.results);
+        if (response.results.length === 0) {
+          setError(`No results found for "${trimmed}"`);
+        }
+      } else {
         setError(response?.error || 'Search failed. Please try again.');
-        if (searchEpochRef.current === epoch) setResults([]);
-      } else if (response.results?.length === 0) {
-        setError(`No results found for "${trimmed}"`);
       }
     } catch (err) {
       setError(err?.message || 'Search failed. Please try again.');
-      if (searchEpochRef.current === epoch) setResults([]);
     } finally {
-      window.api?.offSearchResultItem?.();
       setLoading(false);
     }
   }, [query, loading, disabled, isConverting, stopAudio]);
@@ -136,21 +106,18 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
   const handlePlayPause = useCallback(
     async (result, e) => {
       e.stopPropagation();
-
       if (disabled || isConverting) return;
 
       setAudioError(null);
 
       const audio = audioRef.current;
 
-      // The audio element for this track is already loaded (playing or paused)
+      // Audio element for this track already loaded — just toggle play/pause
       if (loadedId === result.id && audio) {
         if (playingId === result.id) {
-          // Currently playing → pause
           audio.pause();
           setPlayingId(null);
         } else {
-          // Currently paused → resume without re-fetching
           try {
             await audio.play();
             setPlayingId(result.id);
@@ -162,9 +129,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         return;
       }
 
-      // Different track (or first play) → stop current and load a fresh stream
+      // Different track — stop current and fetch a new stream URL
       stopAudio();
-
       if (!result.webpageUrl) return;
 
       setLoadingAudioId(result.id);
@@ -180,7 +146,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         audioRef.current = newAudio;
 
         newAudio.addEventListener('timeupdate', () => {
-          if (newAudio.duration && newAudio.duration > 0) {
+          if (newAudio.duration > 0) {
             setAudioProgress((newAudio.currentTime / newAudio.duration) * 100);
           }
         });
@@ -219,14 +185,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          alignItems: 'stretch',
-          flexWrap: 'wrap',
-        }}
-      >
+      {/* Search bar */}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch', flexWrap: 'wrap' }}>
         <TextField
           placeholder="Search for a song (e.g. Keith Whitley When You Say Nothing At All)"
           value={query}
@@ -244,9 +204,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
               </InputAdornment>
             ),
           }}
-          inputProps={{
-            'aria-label': 'YouTube search query',
-          }}
+          inputProps={{ 'aria-label': 'YouTube search query' }}
           sx={{ flex: '1 1 200px', minWidth: 0 }}
         />
         <Button
@@ -272,30 +230,53 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
         </Alert>
       )}
 
-      {/* Results list — shows skeleton while waiting, then real rows as they stream in */}
-      {(results.length > 0 || loading) && (
+      {/* Loading skeleton */}
+      {loading && (
         <Paper
           elevation={1}
-          sx={{
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            overflow: 'hidden',
-          }}
+          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
+        >
+          <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" color="text.secondary">Searching…</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  alignItems: 'center',
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: i < 4 ? 1 : 0,
+                  borderColor: 'divider',
+                }}
+              >
+                <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
+                <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                <Box sx={{ flexGrow: 1 }}>
+                  <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={16} />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      )}
+
+      {/* Results list */}
+      {!loading && results.length > 0 && (
+        <Paper
+          elevation={1}
+          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" color="text.secondary">
-              {loading && results.length === 0
-                ? 'Searching…'
-                : loading
-                ? `${results.length} results so far…`
-                : 'Click a result to select · use the play button to preview audio'}
+              Click a result to select · use the play button to preview audio
             </Typography>
           </Box>
           <List dense disablePadding sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {/* Real results */}
-            {/* Real results */}
             {results.map((result, index) => {
               const isLoaded = loadedId === result.id;
               const isPlaying = playingId === result.id;
@@ -307,10 +288,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
               else if (isLoaded) tooltipTitle = 'Resume preview';
 
               return (
-                <Box
-                  key={result.id || index}
-                  sx={{ position: 'relative' }}
-                >
+                <Box key={result.id || index} sx={{ position: 'relative' }}>
                   <ListItemButton
                     onClick={() => handleSelect(result)}
                     disabled={disabled || isConverting}
@@ -319,12 +297,9 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                       borderBottom: index < results.length - 1 ? 1 : 0,
                       borderColor: 'divider',
                       bgcolor: isLoaded ? 'action.selected' : undefined,
-                      '&:hover': {
-                        bgcolor: isLoaded ? 'action.selected' : 'action.hover',
-                      },
+                      '&:hover': { bgcolor: isLoaded ? 'action.selected' : 'action.hover' },
                     }}
                   >
-                    {/* Play/Pause button */}
                     <Tooltip title={tooltipTitle} placement="top">
                       <span>
                         <IconButton
@@ -356,6 +331,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                       width={80}
                       height={45}
                     />
+
                     <Box sx={{ flexGrow: 1, minWidth: 0, ml: 2 }}>
                       <Typography
                         variant="body1"
@@ -376,14 +352,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                           <Typography
                             variant="caption"
                             color="text.secondary"
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.25,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              maxWidth: '100%',
-                            }}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
                           >
                             <PersonIcon sx={{ fontSize: 14 }} />
                             {result.uploader}
@@ -393,11 +362,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                           <Typography
                             variant="caption"
                             color="text.secondary"
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.25,
-                            }}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}
                           >
                             <AccessTimeIcon sx={{ fontSize: 14 }} />
                             {result.durationFormatted}
@@ -426,61 +391,11 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting }) {
                 </Box>
               );
             })}
-
-            {/* Skeleton rows for results still in-flight during streaming */}
-            {loading && skeletonCount > 0 &&
-              Array.from({ length: skeletonCount }).map((_, i) => (
-                <Box
-                  key={`skel-${i}`}
-                  sx={{
-                    display: 'flex',
-                    gap: 2,
-                    alignItems: 'center',
-                    px: 2,
-                    py: 1.5,
-                    borderTop: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
-                  <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
-                    <Skeleton variant="text" width="40%" height={16} />
-                  </Box>
-                </Box>
-              ))
-            }
-
-            {/* Full skeleton before first result arrives */}
-            {loading && results.length === 0 &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <Box
-                  key={`pre-${i}`}
-                  sx={{
-                    display: 'flex',
-                    gap: 2,
-                    alignItems: 'center',
-                    px: 2,
-                    py: 1.5,
-                    borderTop: i > 0 ? 1 : 0,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
-                  <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
-                    <Skeleton variant="text" width="40%" height={16} />
-                  </Box>
-                </Box>
-              ))
-            }
           </List>
         </Paper>
       )}
 
-      {/* Empty state — only when not loading and nothing to show */}
+      {/* Empty state */}
       {!loading && results.length === 0 && !error && (
         <Box
           sx={{

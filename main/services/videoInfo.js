@@ -538,14 +538,11 @@ function parseSearchEntry(entry) {
 /**
  * Search YouTube by query (Chordify-style)
  * Uses yt-dlp ytsearch extractor - no API key required.
- * Results are parsed line-by-line as stdout arrives so the caller
- * can stream them to the UI before all N results have been fetched.
  * @param {string} query - Search query (e.g. "artist song name")
  * @param {number} [limit=15] - Max number of results
- * @param {Function|null} [onPartialResult] - Called with each result as it arrives
  * @returns {Promise<Object>} { success: boolean, results: Array, error?: string }
  */
-async function searchYouTube(query, limit = 15, onPartialResult = null) {
+async function searchYouTube(query, limit = 15) {
   const trimmed = (query || '').toString().trim();
   if (!trimmed) {
     return { success: false, results: [], error: 'Search query cannot be empty' };
@@ -567,10 +564,8 @@ async function searchYouTube(query, limit = 15, onPartialResult = null) {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    // lineBuffer accumulates incomplete stdout lines between data chunks
-    let lineBuffer = '';
+    let stdout = '';
     let stderr = '';
-    const results = [];
     let timeoutId = null;
 
     timeoutId = setTimeout(() => {
@@ -579,26 +574,7 @@ async function searchYouTube(query, limit = 15, onPartialResult = null) {
     }, 15000);
 
     searchProcess.stdout.on('data', (data) => {
-      lineBuffer += data.toString();
-      // Process all complete newline-delimited lines immediately
-      const newline = lineBuffer.lastIndexOf('\n');
-      if (newline === -1) return;
-      const completeChunk = lineBuffer.slice(0, newline);
-      lineBuffer = lineBuffer.slice(newline + 1);
-
-      for (const line of completeChunk.split('\n')) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) continue;
-        try {
-          const result = parseSearchEntry(JSON.parse(trimmedLine));
-          if (result) {
-            results.push(result);
-            onPartialResult?.(result);
-          }
-        } catch (e) {
-          // skip unparseable lines (warnings etc.)
-        }
-      }
+      stdout += data.toString();
     });
 
     searchProcess.stderr.on('data', (data) => {
@@ -611,20 +587,17 @@ async function searchYouTube(query, limit = 15, onPartialResult = null) {
         timeoutId = null;
       }
 
-      // Flush any remaining buffered content
-      if (lineBuffer.trim()) {
-        try {
-          const result = parseSearchEntry(JSON.parse(lineBuffer.trim()));
-          if (result) {
-            results.push(result);
-            onPartialResult?.(result);
+      if (code === 0 && stdout) {
+        const results = [];
+        for (const line of stdout.split('\n')) {
+          if (!line.trim()) continue;
+          try {
+            const result = parseSearchEntry(JSON.parse(line));
+            if (result) results.push(result);
+          } catch (e) {
+            console.warn('Failed to parse search result line:', e);
           }
-        } catch (e) {
-          // ignore
         }
-      }
-
-      if (code === 0 || results.length > 0) {
         resolve({ success: true, results });
       } else {
         const errorLower = (stderr || '').toLowerCase();
@@ -674,8 +647,6 @@ async function getAudioStreamUrl(videoUrl) {
     '--get-url',
     '--no-playlist',
     '--no-warnings',
-    // Android innertube client skips JS-player signature decryption (~2-3x faster)
-    '--extractor-args', 'youtube:player_client=android',
     videoUrl,
   ];
 

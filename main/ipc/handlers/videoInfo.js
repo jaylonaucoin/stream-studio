@@ -36,30 +36,10 @@ function registerHandlers(ipcMain) {
     }
   });
 
-  // Search YouTube — streams each result to the renderer as it arrives, then
-  // silently pre-warms audio stream URLs for the top results in the background.
+  // Search YouTube
   ipcMain.handle('searchYouTube', async (event, query, limit) => {
     try {
-      const onPartialResult = (item) => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send('search-result-item', item);
-        }
-      };
-
-      const result = await videoInfoService.searchYouTube(query, limit, onPartialResult);
-
-      // Pre-warm audio stream URLs for the top results so the first click is near-instant.
-      // Stagger spawns to avoid competing for CPU/network simultaneously.
-      if (result.success && result.results.length > 0) {
-        const topUrls = result.results.slice(0, 3).map((r) => r.webpageUrl).filter(Boolean);
-        topUrls.forEach((url, i) => {
-          setTimeout(() => {
-            videoInfoService.getAudioStreamUrl(url).catch(() => {});
-          }, i * 1500);
-        });
-      }
-
-      return result;
+      return await videoInfoService.searchYouTube(query, limit);
     } catch (error) {
       return { success: false, results: [], error: error.message };
     }
