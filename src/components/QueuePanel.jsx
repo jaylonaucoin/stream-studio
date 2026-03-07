@@ -411,15 +411,44 @@ function QueuePanel({
             size="small"
             sx={{ mb: 1 }}
           />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleAddToQueue}
-            disabled={!urls.trim() || isProcessing || isChecking}
-            startIcon={isChecking ? <CircularProgress size={16} color="inherit" /> : null}
-          >
-            {isChecking ? 'Checking URLs...' : 'Add to Queue'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleAddToQueue}
+              disabled={!urls.trim() || isProcessing || isChecking}
+              startIcon={isChecking ? <CircularProgress size={16} color="inherit" /> : null}
+            >
+              {isChecking ? 'Checking URLs...' : 'Add to Queue'}
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>·</Typography>
+            <Tooltip title="Import queue from a saved JSON file">
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleImportQueue}
+                  disabled={isProcessing}
+                  startIcon={<FileUploadIcon />}
+                >
+                  Import
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title="Export queue to a JSON file">
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleExportQueue}
+                  disabled={queue.length === 0 || isProcessing}
+                  startIcon={<FileDownloadIcon />}
+                >
+                  Export
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
         </Paper>
 
         <Divider sx={{ mb: 2 }} />

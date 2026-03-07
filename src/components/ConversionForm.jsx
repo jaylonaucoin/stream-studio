@@ -93,6 +93,25 @@ function ConversionForm({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
 
+  // Audio-only file extensions: cannot convert to video (mp3->mp4 invalid)
+  const AUDIO_ONLY_EXTENSIONS = new Set([
+    'mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'alac', 'wma', 'ape',
+  ]);
+
+  // When local file is audio-only, disable Video mode (can't go mp3->mp4)
+  const isLocalFileAudioOnly =
+    inputMode === 'local' &&
+    localFilePath &&
+    AUDIO_ONLY_EXTENSIONS.has(localFilePath.split('.').pop()?.toLowerCase());
+
+  // When local file is audio-only, force mode to audio (cannot convert mp3 to mp4)
+  useEffect(() => {
+    if (isLocalFileAudioOnly && mode === 'video') {
+      setMode('audio');
+      setFormat(defaultAudioFormat);
+    }
+  }, [isLocalFileAudioOnly, mode, defaultAudioFormat]);
+
   // Update mode/format/quality when defaults change
   useEffect(() => {
     setMode(defaultMode);
@@ -792,6 +811,7 @@ function ConversionForm({
             onQualityChange={setQuality}
             disabled={disabled}
             isConverting={isConverting}
+            videoModeDisabled={isLocalFileAudioOnly}
           />
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
             {isConverting ? (

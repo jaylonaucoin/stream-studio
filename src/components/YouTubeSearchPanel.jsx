@@ -7,6 +7,7 @@ import {
   Typography,
   List,
   ListItemButton,
+  ListItemIcon,
   Skeleton,
   Alert,
   InputAdornment,
@@ -18,6 +19,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -30,7 +32,7 @@ import { SEARCH_SITES } from '../constants';
 
 function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
   const [query, setQuery] = useState('');
-  const [searchSite, setSearchSite] = useState(defaultSearchSite);
+  const [searchSites, setSearchSites] = useState([defaultSearchSite]);
   const [searchLimit, setSearchLimit] = useState(defaultSearchLimit);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -67,6 +69,8 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
     const trimmed = query.trim();
     if (!trimmed || loading || disabled || isConverting) return;
 
+    const sites = Array.isArray(searchSites) && searchSites.length > 0 ? searchSites : [defaultSearchSite];
+
     stopAudio();
     setAudioError(null);
     setLoading(true);
@@ -74,24 +78,50 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
     setResults([]);
 
     try {
-      const response = window.api?.searchMultiSite
-        ? await window.api.searchMultiSite(searchSite, trimmed, searchLimit)
-        : await window.api?.searchYouTube?.(trimmed, searchLimit);
-
-      if (response?.success && Array.isArray(response.results)) {
-        setResults(response.results);
-        if (response.results.length === 0) {
-          setError(`No results found for "${trimmed}"`);
+      if (sites.length > 1 && window.api?.searchMultiSite) {
+        // Multi-site: search all in parallel, merge and dedupe by URL
+        const limitPerSite = Math.max(5, Math.ceil(searchLimit / sites.length));
+        const responses = await Promise.allSettled(
+          sites.map((siteId) => window.api.searchMultiSite(siteId, trimmed, limitPerSite))
+        );
+        const seen = new Set();
+        const merged = [];
+        for (const res of responses) {
+          if (res.status === 'fulfilled' && res.value?.success && Array.isArray(res.value.results)) {
+            for (const r of res.value.results) {
+              const url = r?.webpageUrl || r?.url;
+              if (url && !seen.has(url)) {
+                seen.add(url);
+                merged.push(r);
+              }
+            }
+          }
+        }
+        setResults(merged);
+        if (merged.length === 0) {
+          setError(`No results found for "${trimmed}" across ${sites.length} sites`);
         }
       } else {
-        setError(response?.error || 'Search failed. Please try again.');
+        const siteId = sites[0];
+        const response = window.api?.searchMultiSite
+          ? await window.api.searchMultiSite(siteId, trimmed, searchLimit)
+          : await window.api?.searchYouTube?.(trimmed, searchLimit);
+
+        if (response?.success && Array.isArray(response.results)) {
+          setResults(response.results);
+          if (response.results.length === 0) {
+            setError(`No results found for "${trimmed}"`);
+          }
+        } else {
+          setError(response?.error || 'Search failed. Please try again.');
+        }
       }
     } catch (err) {
       setError(err?.message || 'Search failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [query, loading, disabled, isConverting, stopAudio, searchSite, searchLimit]);
+  }, [query, loading, disabled, isConverting, stopAudio, searchSites, searchLimit, defaultSearchSite]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -196,13 +226,25 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Site selector and search bar */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch', flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Search site</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Search site(s)</InputLabel>
           <Select
-            value={searchSite}
-            label="Search site"
-            onChange={(e) => setSearchSite(e.target.value)}
+            multiple
+            value={searchSites}
+            label="Search site(s)"
+            onChange={(e) => {
+              const v = e.target.value;
+              const arr = Array.isArray(v) ? v : (typeof v === 'string' ? [v] : [defaultSearchSite]);
+              setSearchSites(arr.length > 0 ? arr : [defaultSearchSite]);
+            }}
             disabled={disabled || isConverting}
+            renderValue={(selected) =>
+              selected.length === 0
+                ? 'Select sites'
+                : selected.length === 1
+                  ? SEARCH_SITES.find((s) => s.id === selected[0])?.label || selected[0]
+                  : `${selected.length} sites`
+            }
           >
             {SEARCH_SITES.map((site) => (
               <MenuItem key={site.id} value={site.id}>
@@ -212,7 +254,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
           </Select>
         </FormControl>
         <TextField
-          placeholder={`Search ${SEARCH_SITES.find((s) => s.id === searchSite)?.label || 'this site'}...`}
+          placeholder={`Search ${searchSites.length === 1 ? (SEARCH_SITES.find((s) => s.id === searchSites[0])?.label || 'this site') : `${searchSites.length} sites`}...`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

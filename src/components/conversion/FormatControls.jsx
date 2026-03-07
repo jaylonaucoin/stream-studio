@@ -21,6 +21,7 @@ function FormatControls({
   onQualityChange,
   disabled,
   isConverting,
+  videoModeDisabled = false,
 }) {
   return (
     <Box
@@ -45,7 +46,7 @@ function FormatControls({
           value={mode}
           exclusive
           onChange={(e, newMode) => {
-            if (newMode !== null) {
+            if (newMode !== null && !(newMode === 'video' && videoModeDisabled)) {
               onModeChange(newMode);
             }
           }}
@@ -57,7 +58,11 @@ function FormatControls({
           <ToggleButton value="audio" aria-label="Audio mode">
             Audio
           </ToggleButton>
-          <ToggleButton value="video" aria-label="Video mode">
+          <ToggleButton
+            value="video"
+            aria-label="Video mode"
+            disabled={videoModeDisabled}
+          >
             Video
           </ToggleButton>
         </ToggleButtonGroup>
