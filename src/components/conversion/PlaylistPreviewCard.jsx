@@ -13,6 +13,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EditIcon from '@mui/icons-material/Edit';
 import ThumbnailWithFallback from '../ThumbnailWithFallback';
+import { isAudioOnlyExtractor } from '../../constants';
 
 /**
  * PlaylistPreviewCard - Displays playlist preview with mode toggle
@@ -26,6 +27,8 @@ function PlaylistPreviewCard({
   disabled,
   isConverting,
 }) {
+  const isAudioOnly = isAudioOnlyExtractor(playlistInfo?.extractor);
+  const itemLabel = isAudioOnly ? 'tracks' : 'videos';
   return (
     <Paper
       elevation={1}
@@ -81,7 +84,7 @@ function PlaylistPreviewCard({
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
             <Chip
               icon={<AccessTimeIcon />}
-              label={`${playlistInfo.playlistVideoCount} videos`}
+              label={`${playlistInfo.playlistVideoCount} ${itemLabel}`}
               size="small"
               variant="outlined"
               sx={{ borderColor: 'primary.main', color: 'text.primary' }}
@@ -126,10 +129,10 @@ function PlaylistPreviewCard({
           sx={{ height: '40px' }}
         >
           <ToggleButton value="full" aria-label="Full playlist mode">
-            Full Playlist ({playlistInfo.playlistVideoCount} videos)
+            Full Playlist ({playlistInfo.playlistVideoCount} {itemLabel})
           </ToggleButton>
-          <ToggleButton value="selected" aria-label="Selected videos mode">
-            Selected Videos
+          <ToggleButton value="selected" aria-label={`Selected ${itemLabel} mode`}>
+            Selected {itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)}
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>

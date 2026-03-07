@@ -35,6 +35,7 @@ import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { normalizeUrl, isValidUrl as validateUrl } from '../utils';
+import { isAudioOnlyExtractor, isAudioOnlyUrl } from '../constants';
 
 // Simple boolean wrapper for URL validation
 const isValidUrl = (url) => {
@@ -96,6 +97,7 @@ function QueuePanel({
             if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
               baseItem.title = videoInfoResult.value.title;
               baseItem.thumbnail = videoInfoResult.value.thumbnail;
+              baseItem.extractor = videoInfoResult.value.extractor || null;
             }
 
             // Handle playlist info
@@ -108,6 +110,7 @@ function QueuePanel({
               baseItem.playlistInfo = playlistInfoResult.value;
               baseItem.title = playlistInfoResult.value.playlistTitle;
               baseItem.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
+              baseItem.extractor = playlistInfoResult.value.extractor || baseItem.extractor;
             }
           } catch (error) {
             console.error('Error checking URL:', error);
@@ -141,6 +144,7 @@ function QueuePanel({
       title: video.title,
       thumbnail: video.thumbnail,
       parentPlaylistId: item.id,
+      extractor: item.playlistInfo?.extractor || item.extractor,
     }));
 
     // Replace the playlist item with individual video items
@@ -274,12 +278,19 @@ function QueuePanel({
           window.api.onProgress(progressHandler);
         }
 
-        // Determine playlist mode for conversion
+        // Force audio mode for audio-only sources (SoundCloud, Bandcamp, Mixcloud)
+        const isAudioOnly =
+          (item.extractor && isAudioOnlyExtractor(item.extractor)) ||
+          isAudioOnlyUrl(item.url);
+        const effectiveMode = isAudioOnly ? 'audio' : (defaultMode || 'audio');
+        const effectiveFormat = isAudioOnly ? (defaultFormat === 'mp3' ? 'mp3' : 'mp3') : (defaultFormat || 'mp3');
+        const effectiveQuality = defaultQuality || 'best';
+
         const convertOptions = {
           outputFolder,
-          mode: defaultMode || 'audio',
-          format: defaultFormat || 'mp3',
-          quality: defaultQuality || 'best',
+          mode: effectiveMode,
+          format: effectiveMode === 'audio' ? effectiveFormat : defaultFormat,
+          quality: effectiveQuality,
         };
 
         // If it's a playlist, pass the playlist mode
@@ -625,7 +636,7 @@ function QueuePanel({
                             {item.isPlaylist && (
                               <Chip
                                 icon={<PlaylistPlayIcon />}
-                                label={`${item.playlistInfo?.playlistVideoCount || '?'} videos`}
+                                label={`${item.playlistInfo?.playlistVideoCount || '?'} ${(item.extractor && isAudioOnlyExtractor(item.extractor)) ? 'tracks' : 'videos'}`}
                                 size="small"
                                 color="primary"
                                 sx={{ height: 20, fontSize: '0.7rem' }}

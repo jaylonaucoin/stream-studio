@@ -203,7 +203,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
         });
 
         newAudio.addEventListener('error', () => {
-          setAudioError(`Could not play preview for "${result.title}". Please try again.`);
+          setAudioError('Preview not available for this site.');
           setPlayingId(null);
           setLoadedId(null);
           setAudioProgress(0);
@@ -214,7 +214,7 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
         await newAudio.play();
         setPlayingId(result.id);
       } catch (err) {
-        setAudioError(err?.message || 'Audio preview failed. Please try again.');
+        setAudioError('Preview not available for this site.');
         setPlayingId(null);
         setLoadedId(null);
         audioRef.current = null;

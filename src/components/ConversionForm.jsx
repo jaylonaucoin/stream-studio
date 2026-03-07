@@ -30,7 +30,7 @@ import {
   ChapterSelector,
   FormatControls,
 } from './conversion';
-import { SUPPORTED_SITES } from '../constants';
+import { SUPPORTED_SITES, isAudioOnlyExtractor, isAudioOnlyUrl } from '../constants';
 import { normalizeUrl, isValidUrl, isLikelyUrl } from '../utils';
 
 function ConversionForm({
@@ -104,19 +104,27 @@ function ConversionForm({
     localFilePath &&
     AUDIO_ONLY_EXTENSIONS.has(localFilePath.split('.').pop()?.toLowerCase());
 
-  // When local file is audio-only, force mode to audio (cannot convert mp3 to mp4)
+  // When URL is from audio-only site (SoundCloud, Bandcamp, Mixcloud), disable Video mode
+  const isUrlAudioOnly =
+    (inputMode === 'paste' && url.trim() && isAudioOnlyUrl(url.trim())) ||
+    (videoInfo?.extractor && isAudioOnlyExtractor(videoInfo.extractor));
+
+  const videoModeDisabled = isLocalFileAudioOnly || isUrlAudioOnly;
+
+  // When local file or URL is audio-only, force mode to audio (cannot convert to video)
   useEffect(() => {
-    if (isLocalFileAudioOnly && mode === 'video') {
+    if ((isLocalFileAudioOnly || isUrlAudioOnly) && mode === 'video') {
       setMode('audio');
       setFormat(defaultAudioFormat);
     }
-  }, [isLocalFileAudioOnly, mode, defaultAudioFormat]);
+  }, [isLocalFileAudioOnly, isUrlAudioOnly, mode, defaultAudioFormat]);
 
-  // Update mode/format/quality when defaults change
+  // Update mode/format/quality when defaults change (respect audio-only: never set to video)
   useEffect(() => {
-    setMode(defaultMode);
-    setFormat(defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat);
-  }, [defaultMode, defaultAudioFormat, defaultVideoFormat]);
+    const effectiveMode = videoModeDisabled && defaultMode === 'video' ? 'audio' : defaultMode;
+    setMode(effectiveMode);
+    setFormat(effectiveMode === 'audio' ? defaultAudioFormat : defaultVideoFormat);
+  }, [defaultMode, defaultAudioFormat, defaultVideoFormat, videoModeDisabled]);
 
   useEffect(() => {
     setQuality(defaultQuality);
@@ -585,6 +593,8 @@ function ConversionForm({
             onSelect={handleSearchSelect}
             disabled={disabled}
             isConverting={isConverting}
+            defaultSearchSite={defaultSearchSite}
+            defaultSearchLimit={defaultSearchLimit}
           />
         </Box>
       )}
@@ -745,6 +755,7 @@ function ConversionForm({
             onDeselectAll={() => setSelectedVideos([])}
             disabled={disabled}
             isConverting={isConverting}
+            isAudioOnly={isAudioOnlyExtractor(playlistInfo.extractor)}
           />
         )}
 
@@ -811,7 +822,7 @@ function ConversionForm({
             onQualityChange={setQuality}
             disabled={disabled}
             isConverting={isConverting}
-            videoModeDisabled={isLocalFileAudioOnly}
+            videoModeDisabled={videoModeDisabled}
           />
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
             {isConverting ? (

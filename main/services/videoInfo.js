@@ -124,6 +124,8 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
             uploadDate: info.upload_date || null,
             description: info.description || null,
             webpageUrl: info.webpage_url || sanitizedUrl,
+            extractor: info.extractor || null, // yt-dlp extractor (e.g. youtube, soundcloud)
+            _type: info._type || null, // yt-dlp type (video, playlist, etc.)
           };
           
           // Format duration
@@ -373,6 +375,7 @@ async function getPlaylistInfo(url) {
             playlistTotalDuration: totalDuration,
             playlistTotalDurationFormatted: totalDurationFormatted,
             playlistUploader: firstEntry.uploader || firstEntry.channel || null,
+            extractor: firstEntry.extractor || null, // For audio-only playlist labeling
             videos,
           };
           
