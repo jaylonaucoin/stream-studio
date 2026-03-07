@@ -15,7 +15,9 @@ const VIDEO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CHAPTER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const PLAYLIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const AUDIO_STREAM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (stream URLs expire ~6h)
-const VIDEO_INFO_TIMEOUT_MS = 25000; // 25 seconds - allows for slow networks/YouTube
+// Shared timeout for all yt-dlp fetches - 40s allows for slow networks, YouTube throttling, complex videos
+const YT_DLP_FETCH_TIMEOUT_MS = 40000;
+const VIDEO_INFO_TIMEOUT_MS = YT_DLP_FETCH_TIMEOUT_MS;
 const VIDEO_INFO_TIMEOUT_ERROR = 'Video info extraction timed out. The URL may be invalid or the video may be unavailable.';
 
 /**
@@ -237,11 +239,10 @@ async function getPlaylistInfo(url) {
     let stderr = '';
     let timeoutId = null;
     
-    // Set timeout (15 seconds for playlist info extraction - same as original)
     timeoutId = setTimeout(() => {
       playlistProcess.kill();
       reject(new Error('Playlist info extraction timed out.'));
-    }, 15000);
+    }, YT_DLP_FETCH_TIMEOUT_MS);
 
     playlistProcess.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -443,11 +444,10 @@ async function getChapterInfo(url) {
     let stdout = '';
     let timeoutId = null;
     
-    // Set timeout (10 seconds - same as video info)
     timeoutId = setTimeout(() => {
       process.kill();
       reject(new Error('Chapter info fetch timed out'));
-    }, 10000);
+    }, YT_DLP_FETCH_TIMEOUT_MS);
 
     process.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -588,7 +588,7 @@ async function searchYouTube(query, limit = 15) {
     timeoutId = setTimeout(() => {
       searchProcess.kill();
       reject(new Error('Search timed out. Please try again.'));
-    }, 15000);
+    }, YT_DLP_FETCH_TIMEOUT_MS);
 
     searchProcess.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -644,20 +644,15 @@ async function searchYouTube(query, limit = 15) {
   });
 }
 
+const AUDIO_STREAM_TIMEOUT_ERROR = 'Timed out fetching audio stream URL.';
+
 /**
- * Get a direct audio stream URL for a YouTube video using yt-dlp.
- * Returns the best available audio-only stream URL so the renderer
- * can play it directly via the HTML5 Audio API.
+ * Fetch audio stream URL (single attempt, no retry)
  * @param {string} videoUrl - Full YouTube video URL
+ * @param {string} cacheKey - Cache key for storing result
  * @returns {Promise<{success: boolean, url?: string, error?: string}>}
  */
-async function getAudioStreamUrl(videoUrl) {
-  const cacheKey = videoUrl;
-  const cached = audioStreamCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < AUDIO_STREAM_CACHE_TTL) {
-    return cached.data;
-  }
-
+function fetchAudioStreamUrlOnce(videoUrl, cacheKey) {
   const ytDlpPath = getYtDlpPath();
   const args = [
     '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
@@ -676,8 +671,8 @@ async function getAudioStreamUrl(videoUrl) {
     let stderr = '';
     const timeoutId = setTimeout(() => {
       proc.kill();
-      reject(new Error('Timed out fetching audio stream URL.'));
-    }, 20000);
+      reject(new Error(AUDIO_STREAM_TIMEOUT_ERROR));
+    }, YT_DLP_FETCH_TIMEOUT_MS);
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -717,6 +712,28 @@ async function getAudioStreamUrl(videoUrl) {
       }
     });
   });
+}
+
+/**
+ * Get a direct audio stream URL for a YouTube video using yt-dlp (with retry on timeout)
+ * @param {string} videoUrl - Full YouTube video URL
+ * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+ */
+async function getAudioStreamUrl(videoUrl) {
+  const cacheKey = videoUrl;
+  const cached = audioStreamCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < AUDIO_STREAM_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    return await fetchAudioStreamUrlOnce(videoUrl, cacheKey);
+  } catch (error) {
+    if (error?.message === AUDIO_STREAM_TIMEOUT_ERROR) {
+      return await fetchAudioStreamUrlOnce(videoUrl, cacheKey);
+    }
+    throw error;
+  }
 }
 
 /**
