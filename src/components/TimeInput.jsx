@@ -38,14 +38,6 @@ const formatDuration = (digits) => {
 };
 
 /**
- * Parse formatted duration back to raw digits
- */
-const parseDuration = (formatted) => {
-  if (!formatted) return '';
-  return formatted.replace(/:/g, '');
-};
-
-/**
  * Validate and cap seconds/minutes at 59 where appropriate
  */
 const validateDuration = (value) => {
@@ -122,7 +114,6 @@ function TimeInput({
 
       // Extract only digits from input
       const newDigits = input.replace(/\D/g, '');
-      const oldDigits = internalValue.replace(/\D/g, '');
 
       // Limit to 6 digits (HH:MM:SS)
       const limitedDigits = newDigits.slice(0, 6);
@@ -133,11 +124,11 @@ function TimeInput({
       setInternalValue(formatted);
       onChange(formatted);
     },
-    [onChange, internalValue]
+    [onChange]
   );
 
   const handleBlur = useCallback(
-    (e) => {
+    (_e) => {
       // Validate on blur (cap seconds at 59)
       const validated = validateDuration(internalValue);
       if (validated !== internalValue) {

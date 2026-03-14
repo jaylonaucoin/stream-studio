@@ -452,7 +452,8 @@ function MetadataEditor({
       };
     } else if (mode === 'playlist') {
       if (playlistEditMode === 'bulk') {
-        const { totalTracks: _, ...bulkMeta } = metadata;
+        // eslint-disable-next-line no-unused-vars -- destructure to exclude totalTracks from bulkMeta
+        const { totalTracks, ...bulkMeta } = metadata;
         metadataToSave = {
           type: 'playlist',
           mode: 'bulk',
@@ -549,7 +550,7 @@ function MetadataEditor({
       return playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1));
     }
     return playlistInfo.videos;
-  }, [playlistInfo?.videos, selectedVideos]);
+  }, [playlistInfo, selectedVideos]);
 
   // Paginate videos for performance
   const paginatedVideos = useMemo(() => {

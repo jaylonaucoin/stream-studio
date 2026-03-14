@@ -41,7 +41,7 @@ function YouTubeSearchPanel({
 }) {
   const [query, setQuery] = useState('');
   const [searchSites, setSearchSites] = useState([defaultSearchSite]);
-  const [searchLimit, setSearchLimit] = useState(defaultSearchLimit);
+  const [searchLimit] = useState(defaultSearchLimit);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);

@@ -155,7 +155,7 @@ function ThumbnailCropper({ open, imageUrl, onClose, onCropComplete }) {
     } catch (error) {
       console.error('Error cropping image:', error);
     }
-  }, [getCroppedImg, onCropComplete, completedCrop, crop, imageLoaded]);
+  }, [getCroppedImg, onCropComplete, completedCrop, crop]);
 
   const handleClose = useCallback(() => {
     setImageLoaded(false);

@@ -206,55 +206,64 @@ function QueuePanel({
   }, [addSingleToQueue, onRegisterAddToQueue]);
 
   // Expand playlist into individual video items
-  const handleExpandPlaylist = useCallback((item) => {
-    if (!item.isPlaylist || !item.playlistInfo?.videos) return;
+  const handleExpandPlaylist = useCallback(
+    (item) => {
+      if (!item.isPlaylist || !item.playlistInfo?.videos) return;
 
-    const videos = item.playlistInfo.videos;
-    const newItems = videos.map((video, index) => ({
-      id: `${item.id}-video-${index}`,
-      url: video.url || item.url,
-      status: 'pending',
-      error: null,
-      isPlaylist: false,
-      playlistInfo: null,
-      playlistMode: 'single',
-      title: video.title,
-      thumbnail: video.thumbnail,
-      parentPlaylistId: item.id,
-      extractor: item.playlistInfo?.extractor || item.extractor,
-    }));
+      const videos = item.playlistInfo.videos;
+      const newItems = videos.map((video, index) => ({
+        id: `${item.id}-video-${index}`,
+        url: video.url || item.url,
+        status: 'pending',
+        error: null,
+        isPlaylist: false,
+        playlistInfo: null,
+        playlistMode: 'single',
+        title: video.title,
+        thumbnail: video.thumbnail,
+        parentPlaylistId: item.id,
+        extractor: item.playlistInfo?.extractor || item.extractor,
+      }));
 
-    // Replace the playlist item with individual video items
-    setQueue((prev) => {
-      const index = prev.findIndex((q) => q.id === item.id);
-      if (index === -1) return prev;
-      return [...prev.slice(0, index), ...newItems, ...prev.slice(index + 1)];
-    });
-  }, []);
+      // Replace the playlist item with individual video items
+      setQueue((prev) => {
+        const index = prev.findIndex((q) => q.id === item.id);
+        if (index === -1) return prev;
+        return [...prev.slice(0, index), ...newItems, ...prev.slice(index + 1)];
+      });
+    },
+    [setQueue]
+  );
 
   // Toggle playlist mode between full and single
-  const handleTogglePlaylistMode = useCallback((id, newMode) => {
-    if (newMode === null) return;
-    setQueue((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, playlistMode: newMode } : item))
-    );
-  }, []);
+  const handleTogglePlaylistMode = useCallback(
+    (id, newMode) => {
+      if (newMode === null) return;
+      setQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, playlistMode: newMode } : item))
+      );
+    },
+    [setQueue]
+  );
 
-  const handleRemoveItem = useCallback((id) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  const handleRemoveItem = useCallback(
+    (id) => {
+      setQueue((prev) => prev.filter((item) => item.id !== id));
+    },
+    [setQueue]
+  );
 
   const handleClearQueue = useCallback(() => {
     if (!isProcessing) {
       setQueue([]);
     }
-  }, [isProcessing]);
+  }, [isProcessing, setQueue]);
 
   const handleClearCompleted = useCallback(() => {
     setQueue((prev) =>
       prev.filter((item) => item.status !== 'completed' && item.status !== 'error')
     );
-  }, []);
+  }, [setQueue]);
 
   const handleStopQueue = useCallback(() => {
     stopRequestedRef.current = true;
@@ -263,11 +272,14 @@ function QueuePanel({
     }
   }, []);
 
-  const handleRetryItem = useCallback((id) => {
-    setQueue((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: 'pending', error: null } : item))
-    );
-  }, []);
+  const handleRetryItem = useCallback(
+    (id) => {
+      setQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: 'pending', error: null } : item))
+      );
+    },
+    [setQueue]
+  );
 
   const handleRetryAllFailed = useCallback(() => {
     setQueue((prev) =>
@@ -275,7 +287,7 @@ function QueuePanel({
         item.status === 'error' ? { ...item, status: 'pending', error: null } : item
       )
     );
-  }, []);
+  }, [setQueue]);
 
   const handleExportQueue = useCallback(async () => {
     if (!window.api?.saveQueueFile || queue.length === 0) return;
@@ -316,7 +328,7 @@ function QueuePanel({
     } catch (err) {
       console.error('Import queue error:', err);
     }
-  }, [isProcessing]);
+  }, [isProcessing, setQueue]);
 
   // Process queue items one by one
   const processQueue = useCallback(async () => {
@@ -420,6 +432,7 @@ function QueuePanel({
     defaultFormat,
     defaultQuality,
     onQueueComplete,
+    setQueue,
   ]);
 
   const getStatusIcon = (status) => {

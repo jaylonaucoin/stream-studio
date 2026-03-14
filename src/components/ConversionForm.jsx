@@ -317,17 +317,6 @@ function ConversionForm({
     }
   }, [validateUrl]);
 
-  const handleSelectLocalFile = useCallback(async () => {
-    try {
-      const result = await window.api?.selectLocalFile?.();
-      if (result?.success && result?.filePath) {
-        setLocalFilePath(result.filePath);
-      }
-    } catch (err) {
-      console.error('Failed to select file:', err);
-    }
-  }, []);
-
   const handleSearchSelect = useCallback(
     (selectedUrl) => {
       if (selectedUrl) {

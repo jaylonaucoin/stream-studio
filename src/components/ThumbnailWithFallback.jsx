@@ -55,6 +55,7 @@ const ThumbnailWithFallback = ({
 
   // Use a ref to track the last loaded URL to prevent unnecessary resets
   const lastLoadedUrlRef = useRef(null);
+  const imgRef = useRef(null);
 
   // Compute if image is cached synchronously using useMemo
   // This runs during render, before effects, so we can use it immediately
@@ -159,8 +160,6 @@ const ThumbnailWithFallback = ({
   if (showPlaceholder || !currentUrl) {
     return <ThumbnailPlaceholder isPlaylist={isPlaylist} width={width} height={height} />;
   }
-
-  const imgRef = useRef(null);
 
   // Show placeholder while image is loading
   if (!imageLoadedRef.current) {
