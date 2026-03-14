@@ -58,11 +58,7 @@ function FormatControls({
           <ToggleButton value="audio" aria-label="Audio mode">
             Audio
           </ToggleButton>
-          <ToggleButton
-            value="video"
-            aria-label="Video mode"
-            disabled={videoModeDisabled}
-          >
+          <ToggleButton value="video" aria-label="Video mode" disabled={videoModeDisabled}>
             Video
           </ToggleButton>
         </ToggleButtonGroup>

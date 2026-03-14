@@ -8,20 +8,12 @@
  * yt-dlp extractors that are audio-only (no video output possible).
  * Used to disable Video mode and adjust UI labels (videos -> tracks).
  */
-export const AUDIO_ONLY_EXTRACTORS = new Set([
-  'soundcloud',
-  'bandcamp',
-  'mixcloud',
-]);
+export const AUDIO_ONLY_EXTRACTORS = new Set(['soundcloud', 'bandcamp', 'mixcloud']);
 
 /**
  * URL hostnames that indicate audio-only sources (fallback before videoInfo loads).
  */
-export const AUDIO_ONLY_URL_PATTERNS = [
-  'soundcloud.com',
-  'bandcamp.com',
-  'mixcloud.com',
-];
+export const AUDIO_ONLY_URL_PATTERNS = ['soundcloud.com', 'bandcamp.com', 'mixcloud.com'];
 
 /**
  * Check if extractor is audio-only

@@ -61,66 +61,69 @@ function QueuePanel({
   const [isChecking, setIsChecking] = useState(false);
   const stopRequestedRef = useRef(false);
 
-  const addUrlsToQueue = useCallback(async (urlStrings) => {
-    const validUrls = urlStrings.filter((u) => u?.trim()).filter(isValidUrl);
-    if (validUrls.length === 0) return;
+  const addUrlsToQueue = useCallback(
+    async (urlStrings) => {
+      const validUrls = urlStrings.filter((u) => u?.trim()).filter(isValidUrl);
+      if (validUrls.length === 0) return;
 
-    const baseIds = validUrls.map((_, i) => Date.now().toString() + i);
-    const initialItems = validUrls.map((url, index) => {
-      const normalizedUrl = normalizeUrl(url.trim());
-      return {
-        id: baseIds[index],
-        url: normalizedUrl,
-        status: 'pending',
-        error: null,
-        isPlaylist: false,
-        playlistInfo: null,
-        playlistMode: 'full',
-        title: null,
-        thumbnail: null,
-      };
-    });
+      const baseIds = validUrls.map((_, i) => Date.now().toString() + i);
+      const initialItems = validUrls.map((url, index) => {
+        const normalizedUrl = normalizeUrl(url.trim());
+        return {
+          id: baseIds[index],
+          url: normalizedUrl,
+          status: 'pending',
+          error: null,
+          isPlaylist: false,
+          playlistInfo: null,
+          playlistMode: 'full',
+          title: null,
+          thumbnail: null,
+        };
+      });
 
-    setQueue((prev) => [...prev, ...initialItems]);
+      setQueue((prev) => [...prev, ...initialItems]);
 
-    validUrls.forEach(async (url, index) => {
-      const normalizedUrl = normalizeUrl(url.trim());
-      const id = baseIds[index];
-      try {
-        const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
-          window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
-          window.api?.getPlaylistInfo?.(normalizedUrl) ||
-            Promise.resolve({ success: false, isPlaylist: false }),
-        ]);
+      validUrls.forEach(async (url, index) => {
+        const normalizedUrl = normalizeUrl(url.trim());
+        const id = baseIds[index];
+        try {
+          const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
+            window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
+            window.api?.getPlaylistInfo?.(normalizedUrl) ||
+              Promise.resolve({ success: false, isPlaylist: false }),
+          ]);
 
-        setQueue((prev) =>
-          prev.map((item) => {
-            if (item.id !== id) return item;
-            const next = { ...item };
-            if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
-              next.title = videoInfoResult.value.title;
-              next.thumbnail = videoInfoResult.value.thumbnail;
-              next.extractor = videoInfoResult.value.extractor || null;
-            }
-            if (
-              playlistInfoResult.status === 'fulfilled' &&
-              playlistInfoResult.value.success &&
-              playlistInfoResult.value.isPlaylist
-            ) {
-              next.isPlaylist = true;
-              next.playlistInfo = playlistInfoResult.value;
-              next.title = playlistInfoResult.value.playlistTitle;
-              next.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
-              next.extractor = playlistInfoResult.value.extractor || next.extractor;
-            }
-            return next;
-          })
-        );
-      } catch (error) {
-        console.error('Error enriching URL:', error);
-      }
-    });
-  }, [setQueue]);
+          setQueue((prev) =>
+            prev.map((item) => {
+              if (item.id !== id) return item;
+              const next = { ...item };
+              if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
+                next.title = videoInfoResult.value.title;
+                next.thumbnail = videoInfoResult.value.thumbnail;
+                next.extractor = videoInfoResult.value.extractor || null;
+              }
+              if (
+                playlistInfoResult.status === 'fulfilled' &&
+                playlistInfoResult.value.success &&
+                playlistInfoResult.value.isPlaylist
+              ) {
+                next.isPlaylist = true;
+                next.playlistInfo = playlistInfoResult.value;
+                next.title = playlistInfoResult.value.playlistTitle;
+                next.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
+                next.extractor = playlistInfoResult.value.extractor || next.extractor;
+              }
+              return next;
+            })
+          );
+        } catch (error) {
+          console.error('Error enriching URL:', error);
+        }
+      });
+    },
+    [setQueue]
+  );
 
   const handleAddToQueue = useCallback(async () => {
     const lines = urls.split('\n').filter((line) => line.trim());
@@ -153,7 +156,9 @@ function QueuePanel({
           playlistInfo: null,
           playlistMode: 'full',
           title: urlOrItem.title ?? null,
-          thumbnail: Array.isArray(urlOrItem.thumbnail) ? urlOrItem.thumbnail[0] : urlOrItem.thumbnail ?? null,
+          thumbnail: Array.isArray(urlOrItem.thumbnail)
+            ? urlOrItem.thumbnail[0]
+            : (urlOrItem.thumbnail ?? null),
         };
         setQueue((prev) => [...prev, item]);
         (async () => {
@@ -352,10 +357,13 @@ function QueuePanel({
 
         // Force audio mode for audio-only sources (SoundCloud, Bandcamp, Mixcloud)
         const isAudioOnly =
-          (item.extractor && isAudioOnlyExtractor(item.extractor)) ||
-          isAudioOnlyUrl(item.url);
-        const effectiveMode = isAudioOnly ? 'audio' : (defaultMode || 'audio');
-        const effectiveFormat = isAudioOnly ? (defaultFormat === 'mp3' ? 'mp3' : 'mp3') : (defaultFormat || 'mp3');
+          (item.extractor && isAudioOnlyExtractor(item.extractor)) || isAudioOnlyUrl(item.url);
+        const effectiveMode = isAudioOnly ? 'audio' : defaultMode || 'audio';
+        const effectiveFormat = isAudioOnly
+          ? defaultFormat === 'mp3'
+            ? 'mp3'
+            : 'mp3'
+          : defaultFormat || 'mp3';
         const effectiveQuality = defaultQuality || 'best';
 
         const convertOptions = {
@@ -505,7 +513,9 @@ function QueuePanel({
             >
               {isChecking ? 'Checking URLs...' : 'Add to Queue'}
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>·</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>
+              ·
+            </Typography>
             <Tooltip title="Import queue from a saved JSON file">
               <span>
                 <Button
@@ -709,7 +719,7 @@ function QueuePanel({
                             {item.isPlaylist && (
                               <Chip
                                 icon={<PlaylistPlayIcon />}
-                                label={`${item.playlistInfo?.playlistVideoCount || '?'} ${(item.extractor && isAudioOnlyExtractor(item.extractor)) ? 'tracks' : 'videos'}`}
+                                label={`${item.playlistInfo?.playlistVideoCount || '?'} ${item.extractor && isAudioOnlyExtractor(item.extractor) ? 'tracks' : 'videos'}`}
                                 size="small"
                                 color="primary"
                                 sx={{ height: 20, fontSize: '0.7rem' }}

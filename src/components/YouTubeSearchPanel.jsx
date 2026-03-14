@@ -31,7 +31,14 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 import { SEARCH_SITES } from '../constants';
 
-function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
+function YouTubeSearchPanel({
+  onSelect,
+  onAddToQueue,
+  disabled,
+  isConverting,
+  defaultSearchSite = 'youtube',
+  defaultSearchLimit = 15,
+}) {
   const [query, setQuery] = useState('');
   const [searchSites, setSearchSites] = useState([defaultSearchSite]);
   const [searchLimit, setSearchLimit] = useState(defaultSearchLimit);
@@ -70,7 +77,8 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
     const trimmed = query.trim();
     if (!trimmed || loading || disabled || isConverting) return;
 
-    const sites = Array.isArray(searchSites) && searchSites.length > 0 ? searchSites : [defaultSearchSite];
+    const sites =
+      Array.isArray(searchSites) && searchSites.length > 0 ? searchSites : [defaultSearchSite];
 
     stopAudio();
     setAudioError(null);
@@ -90,7 +98,11 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
         responses.forEach((res, idx) => {
           const siteId = sites[idx];
           const siteLabel = SEARCH_SITES.find((s) => s.id === siteId)?.label || siteId;
-          if (res.status === 'fulfilled' && res.value?.success && Array.isArray(res.value.results)) {
+          if (
+            res.status === 'fulfilled' &&
+            res.value?.success &&
+            Array.isArray(res.value.results)
+          ) {
             for (const r of res.value.results) {
               const url = r?.webpageUrl || r?.url;
               if (url && !seen.has(url)) {
@@ -127,7 +139,16 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
     } finally {
       setLoading(false);
     }
-  }, [query, loading, disabled, isConverting, stopAudio, searchSites, searchLimit, defaultSearchSite]);
+  }, [
+    query,
+    loading,
+    disabled,
+    isConverting,
+    stopAudio,
+    searchSites,
+    searchLimit,
+    defaultSearchSite,
+  ]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -240,7 +261,7 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
             label="Search site(s)"
             onChange={(e) => {
               const v = e.target.value;
-              const arr = Array.isArray(v) ? v : (typeof v === 'string' ? [v] : [defaultSearchSite]);
+              const arr = Array.isArray(v) ? v : typeof v === 'string' ? [v] : [defaultSearchSite];
               setSearchSites(arr.length > 0 ? arr : [defaultSearchSite]);
             }}
             disabled={disabled || isConverting}
@@ -267,7 +288,7 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
           </Select>
         </FormControl>
         <TextField
-          placeholder={`Search ${searchSites.length === 1 ? (SEARCH_SITES.find((s) => s.id === searchSites[0])?.label || 'this site') : `${searchSites.length} sites`}...`}
+          placeholder={`Search ${searchSites.length === 1 ? SEARCH_SITES.find((s) => s.id === searchSites[0])?.label || 'this site' : `${searchSites.length} sites`}...`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -313,10 +334,18 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
       {loading && (
         <Paper
           elevation={1}
-          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
+          sx={{
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 1,
+            borderColor: 'divider',
+            overflow: 'hidden',
+          }}
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle2" color="text.secondary">Searching…</Typography>
+            <Typography variant="subtitle2" color="text.secondary">
+              Searching…
+            </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {[0, 1, 2, 3, 4].map((i) => (
@@ -333,7 +362,12 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
                 }}
               >
                 <Skeleton variant="circular" width={28} height={28} sx={{ flexShrink: 0 }} />
-                <Skeleton variant="rectangular" width={80} height={45} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                <Skeleton
+                  variant="rectangular"
+                  width={80}
+                  height={45}
+                  sx={{ borderRadius: 1, flexShrink: 0 }}
+                />
                 <Box sx={{ flexGrow: 1 }}>
                   <Skeleton variant="text" width="70%" height={20} sx={{ mb: 0.5 }} />
                   <Skeleton variant="text" width="40%" height={16} />
@@ -348,7 +382,13 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
       {!loading && results.length > 0 && (
         <Paper
           elevation={1}
-          sx={{ borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'divider', overflow: 'hidden' }}
+          sx={{
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            border: 1,
+            borderColor: 'divider',
+            overflow: 'hidden',
+          }}
         >
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2" color="text.secondary">
@@ -410,7 +450,11 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onAddToQueue({ url: result.webpageUrl, title: result.title, thumbnail: result.thumbnail });
+                              onAddToQueue({
+                                url: result.webpageUrl,
+                                title: result.title,
+                                thumbnail: result.thumbnail,
+                              });
                             }}
                             disabled={disabled || isConverting}
                             sx={{
@@ -454,7 +498,14 @@ function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, de
                           <Typography
                             variant="caption"
                             color="text.secondary"
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.25,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '100%',
+                            }}
                           >
                             <PersonIcon sx={{ fontSize: 14 }} />
                             {result.uploader}

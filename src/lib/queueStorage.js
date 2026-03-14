@@ -6,17 +6,19 @@ export function loadQueueFromStorage() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((item, i) => ({
-      id: `restored-${Date.now()}-${i}`,
-      url: item.url || '',
-      status: 'pending',
-      error: null,
-      isPlaylist: item.isPlaylist || false,
-      playlistInfo: null,
-      playlistMode: item.playlistMode || 'full',
-      title: item.title || null,
-      thumbnail: null,
-    })).filter((item) => item.url);
+    return parsed
+      .map((item, i) => ({
+        id: `restored-${Date.now()}-${i}`,
+        url: item.url || '',
+        status: 'pending',
+        error: null,
+        isPlaylist: item.isPlaylist || false,
+        playlistInfo: null,
+        playlistMode: item.playlistMode || 'full',
+        title: item.title || null,
+        thumbnail: null,
+      }))
+      .filter((item) => item.url);
   } catch {
     return [];
   }

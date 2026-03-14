@@ -104,7 +104,16 @@ function ConversionForm({
 
   // Audio-only file extensions: cannot convert to video (mp3->mp4 invalid)
   const AUDIO_ONLY_EXTENSIONS = new Set([
-    'mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'alac', 'wma', 'ape',
+    'mp3',
+    'm4a',
+    'flac',
+    'wav',
+    'aac',
+    'ogg',
+    'opus',
+    'alac',
+    'wma',
+    'ape',
   ]);
 
   // When local file is audio-only, disable Video mode (can't go mp3->mp4)
@@ -319,13 +328,16 @@ function ConversionForm({
     }
   }, []);
 
-  const handleSearchSelect = useCallback((selectedUrl) => {
-    if (selectedUrl) {
-      setUrl(selectedUrl);
-      validateUrl(selectedUrl);
-      setInputMode('paste');
-    }
-  }, [validateUrl]);
+  const handleSearchSelect = useCallback(
+    (selectedUrl) => {
+      if (selectedUrl) {
+        setUrl(selectedUrl);
+        validateUrl(selectedUrl);
+        setInputMode('paste');
+      }
+    },
+    [validateUrl]
+  );
 
   const handleModeChange = useCallback((newMode) => {
     setMode(newMode);
@@ -560,7 +572,9 @@ function ConversionForm({
           const buf = await file.arrayBuffer();
           const res = await window.api?.saveFileToTemp?.(buf, file.name);
           if (res?.success && res?.filePath) path = res.filePath;
-        } catch (err) { console.error('File path fallback error:', err); }
+        } catch (err) {
+          console.error('File path fallback error:', err);
+        }
       }
       if (path) setLocalFilePath(path);
     }
@@ -664,12 +678,7 @@ function ConversionForm({
       )}
 
       {inputMode === 'paste' && (
-        <Box
-          id="tabpanel-paste"
-          role="tabpanel"
-          aria-labelledby="tab-paste"
-          sx={{ mt: 1 }}
-        >
+        <Box id="tabpanel-paste" role="tabpanel" aria-labelledby="tab-paste" sx={{ mt: 1 }}>
           <TextField
             fullWidth
             label="Video or Audio URL"
@@ -710,12 +719,7 @@ function ConversionForm({
       )}
 
       {inputMode === 'local' && (
-        <Box
-          id="tabpanel-local"
-          role="tabpanel"
-          aria-labelledby="tab-local"
-          sx={{ mt: 1, mb: 2 }}
-        >
+        <Box id="tabpanel-local" role="tabpanel" aria-labelledby="tab-local" sx={{ mt: 1, mb: 2 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -723,14 +727,19 @@ function ConversionForm({
             style={{ display: 'none' }}
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (!file) { e.target.value = ''; return; }
+              if (!file) {
+                e.target.value = '';
+                return;
+              }
               let path = file.path || window.api?.getPathForFile?.(file) || '';
               if (!path) {
                 try {
                   const buf = await file.arrayBuffer();
                   const res = await window.api?.saveFileToTemp?.(buf, file.name);
                   if (res?.success && res?.filePath) path = res.filePath;
-                } catch (err) { console.error('File path fallback error:', err); }
+                } catch (err) {
+                  console.error('File path fallback error:', err);
+                }
               }
               if (path) setLocalFilePath(path);
               e.target.value = '';
@@ -823,121 +832,121 @@ function ConversionForm({
       {/* Preview, chapters, format etc. - only show when on paste tab */}
       {inputMode === 'paste' && (
         <>
-      {/* Loading Preview Skeleton */}
-      {loadingPreview && (
-        <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Skeleton variant="rectangular" width={160} height={90} sx={{ borderRadius: 1 }} />
-            <Box sx={{ flexGrow: 1 }}>
-              <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
-              <Skeleton variant="text" width="60%" height={20} />
-              <Skeleton variant="text" width="40%" height={20} sx={{ mt: 1 }} />
-            </Box>
-          </Box>
-        </Paper>
-      )}
+          {/* Loading Preview Skeleton */}
+          {loadingPreview && (
+            <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Skeleton variant="rectangular" width={160} height={90} sx={{ borderRadius: 1 }} />
+                <Box sx={{ flexGrow: 1 }}>
+                  <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="60%" height={20} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mt: 1 }} />
+                </Box>
+              </Box>
+            </Paper>
+          )}
 
-      {/* Single Video Preview */}
-      {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
-        <VideoPreviewCard
-          videoInfo={videoInfo}
-          chapterInfo={chapterInfo}
-          customMetadata={customMetadata}
-          onEditMetadata={() => setMetadataEditorOpen(true)}
-          disabled={disabled}
-          isConverting={isConverting}
-        />
-      )}
+          {/* Single Video Preview */}
+          {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
+            <VideoPreviewCard
+              videoInfo={videoInfo}
+              chapterInfo={chapterInfo}
+              customMetadata={customMetadata}
+              onEditMetadata={() => setMetadataEditorOpen(true)}
+              disabled={disabled}
+              isConverting={isConverting}
+            />
+          )}
 
-      {previewError && !loadingPreview && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {previewError}
-        </Alert>
-      )}
+          {previewError && !loadingPreview && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {previewError}
+            </Alert>
+          )}
 
-      {/* Playlist Preview */}
-      {playlistInfo?.isPlaylist && !loadingPreview && (
-        <PlaylistPreviewCard
-          playlistInfo={playlistInfo}
-          playlistMode={playlistMode}
-          onPlaylistModeChange={handlePlaylistModeChange}
-          customMetadata={customMetadata}
-          onEditMetadata={() => setMetadataEditorOpen(true)}
-          disabled={disabled}
-          isConverting={isConverting}
-        />
-      )}
+          {/* Playlist Preview */}
+          {playlistInfo?.isPlaylist && !loadingPreview && (
+            <PlaylistPreviewCard
+              playlistInfo={playlistInfo}
+              playlistMode={playlistMode}
+              onPlaylistModeChange={handlePlaylistModeChange}
+              customMetadata={customMetadata}
+              onEditMetadata={() => setMetadataEditorOpen(true)}
+              disabled={disabled}
+              isConverting={isConverting}
+            />
+          )}
 
-      {/* Playlist Video Selection */}
-      {playlistInfo &&
-        !loadingPreview &&
-        playlistInfo.isPlaylist &&
-        playlistMode === 'selected' &&
-        playlistInfo.videos &&
-        playlistInfo.videos.length > 0 && (
-          <PlaylistVideoSelector
-            videos={playlistInfo.videos}
-            selectedVideos={selectedVideos}
-            onVideoToggle={handleVideoToggle}
-            onSelectAll={() => {
-              const allIndices = playlistInfo.videos.map((v) => v.index);
-              setSelectedVideos(allIndices);
-            }}
-            onDeselectAll={() => setSelectedVideos([])}
-            disabled={disabled}
-            isConverting={isConverting}
-            isAudioOnly={isAudioOnlyExtractor(playlistInfo.extractor)}
-          />
-        )}
+          {/* Playlist Video Selection */}
+          {playlistInfo &&
+            !loadingPreview &&
+            playlistInfo.isPlaylist &&
+            playlistMode === 'selected' &&
+            playlistInfo.videos &&
+            playlistInfo.videos.length > 0 && (
+              <PlaylistVideoSelector
+                videos={playlistInfo.videos}
+                selectedVideos={selectedVideos}
+                onVideoToggle={handleVideoToggle}
+                onSelectAll={() => {
+                  const allIndices = playlistInfo.videos.map((v) => v.index);
+                  setSelectedVideos(allIndices);
+                }}
+                onDeselectAll={() => setSelectedVideos([])}
+                disabled={disabled}
+                isConverting={isConverting}
+                isAudioOnly={isAudioOnlyExtractor(playlistInfo.extractor)}
+              />
+            )}
 
-      {/* Manual Segmentation */}
-      {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
-        <SegmentEditor
-          videoInfo={videoInfo}
-          chapterInfo={chapterInfo}
-          segments={segments}
-          setSegments={setSegments}
-          useSharedArtist={useSharedArtistForSegments}
-          setUseSharedArtist={setUseSharedArtistForSegments}
-          disabled={isConverting}
-          onOpenMetadataEditor={() => setMetadataEditorOpen(true)}
-        />
-      )}
+          {/* Manual Segmentation */}
+          {videoInfo && !loadingPreview && !playlistInfo?.isPlaylist && (
+            <SegmentEditor
+              videoInfo={videoInfo}
+              chapterInfo={chapterInfo}
+              segments={segments}
+              setSegments={setSegments}
+              useSharedArtist={useSharedArtistForSegments}
+              setUseSharedArtist={setUseSharedArtistForSegments}
+              disabled={isConverting}
+              onOpenMetadataEditor={() => setMetadataEditorOpen(true)}
+            />
+          )}
 
-      {/* Chapter Loading Skeleton */}
-      {loadingChapters && !playlistInfo?.isPlaylist && segments.length === 0 && (
-        <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Skeleton variant="circular" width={24} height={24} />
-            <Skeleton variant="text" width="60%" height={24} />
-          </Box>
-          <Box sx={{ mt: 1 }}>
-            <Skeleton variant="text" width="40%" height={20} />
-          </Box>
-        </Paper>
-      )}
+          {/* Chapter Loading Skeleton */}
+          {loadingChapters && !playlistInfo?.isPlaylist && segments.length === 0 && (
+            <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Skeleton variant="circular" width={24} height={24} />
+                <Skeleton variant="text" width="60%" height={24} />
+              </Box>
+              <Box sx={{ mt: 1 }}>
+                <Skeleton variant="text" width="40%" height={20} />
+              </Box>
+            </Paper>
+          )}
 
-      {/* Chapter Selection */}
-      {chapterInfo &&
-        !loadingChapters &&
-        !playlistInfo?.isPlaylist &&
-        chapterInfo.hasChapters &&
-        segments.length === 0 && (
-          <ChapterSelector
-            chapterInfo={chapterInfo}
-            selectedChapters={selectedChapters}
-            onChapterToggle={handleChapterToggle}
-            onSelectAll={handleSelectAllChapters}
-            onDeselectAll={handleDeselectAllChapters}
-            chapterDownloadMode={chapterDownloadMode}
-            onChapterDownloadModeChange={setChapterDownloadMode}
-            editedChapterTitles={editedChapterTitles}
-            onChapterTitleChange={handleChapterTitleChange}
-            onEditMetadata={() => setMetadataEditorOpen(true)}
-            disabled={disabled}
-            isConverting={isConverting}
-          />
-        )}
+          {/* Chapter Selection */}
+          {chapterInfo &&
+            !loadingChapters &&
+            !playlistInfo?.isPlaylist &&
+            chapterInfo.hasChapters &&
+            segments.length === 0 && (
+              <ChapterSelector
+                chapterInfo={chapterInfo}
+                selectedChapters={selectedChapters}
+                onChapterToggle={handleChapterToggle}
+                onSelectAll={handleSelectAllChapters}
+                onDeselectAll={handleDeselectAllChapters}
+                chapterDownloadMode={chapterDownloadMode}
+                onChapterDownloadModeChange={setChapterDownloadMode}
+                editedChapterTitles={editedChapterTitles}
+                onChapterTitleChange={handleChapterTitleChange}
+                onEditMetadata={() => setMetadataEditorOpen(true)}
+                disabled={disabled}
+                isConverting={isConverting}
+              />
+            )}
         </>
       )}
 
@@ -957,7 +966,12 @@ function ConversionForm({
           />
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
             {isConverting ? (
-              <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={onCancel}>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<CancelIcon />}
+                onClick={onCancel}
+              >
                 Cancel
               </Button>
             ) : (
@@ -966,8 +980,7 @@ function ConversionForm({
                 variant="contained"
                 startIcon={<SyncIcon />}
                 disabled={
-                  disabled ||
-                  (inputMode === 'local' ? !localFilePath : !isValid || !url.trim())
+                  disabled || (inputMode === 'local' ? !localFilePath : !isValid || !url.trim())
                 }
               >
                 Convert

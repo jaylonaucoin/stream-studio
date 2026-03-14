@@ -60,7 +60,8 @@ const getComponents = (mode) => ({
   MuiCard: {
     styleOverrides: {
       root: {
-        boxShadow: mode === 'dark' ? '0 2px 8px rgba(220, 38, 38, 0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
+        boxShadow:
+          mode === 'dark' ? '0 2px 8px rgba(220, 38, 38, 0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
         backgroundColor: mode === 'dark' ? '#242424' : '#ffffff',
         transition: 'all 0.2s ease-in-out',
       },

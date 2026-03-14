@@ -58,7 +58,10 @@ function App() {
   const [queue, setQueue] = useState(loadQueueFromStorage);
   const [themeMode, setThemeMode] = useState('dark');
   const [systemPrefersDark, setSystemPrefersDark] = useState(
-    () => (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) ?? true
+    () =>
+      (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) ??
+      true
   );
 
   // Resolve theme: 'system' -> actual 'dark' or 'light' from OS preference
