@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -46,87 +46,159 @@ const isValidUrl = (url) => {
 function QueuePanel({
   open,
   onClose,
+  queue = [],
+  setQueue,
   outputFolder,
   defaultMode,
   defaultFormat,
   defaultQuality,
   onQueueComplete,
+  onRegisterAddToQueue,
 }) {
   const [urls, setUrls] = useState('');
-  const [queue, setQueue] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const stopRequestedRef = useRef(false);
 
-  // Handle adding URLs to queue with playlist detection
-  const handleAddToQueue = useCallback(async () => {
-    const lines = urls.split('\n').filter((line) => line.trim());
-    const validUrls = lines.filter(isValidUrl);
-
+  const addUrlsToQueue = useCallback(async (urlStrings) => {
+    const validUrls = urlStrings.filter((u) => u?.trim()).filter(isValidUrl);
     if (validUrls.length === 0) return;
 
-    setIsChecking(true);
+    const baseIds = validUrls.map((_, i) => Date.now().toString() + i);
+    const initialItems = validUrls.map((url, index) => {
+      const normalizedUrl = normalizeUrl(url.trim());
+      return {
+        id: baseIds[index],
+        url: normalizedUrl,
+        status: 'pending',
+        error: null,
+        isPlaylist: false,
+        playlistInfo: null,
+        playlistMode: 'full',
+        title: null,
+        thumbnail: null,
+      };
+    });
 
-    try {
-      // Check each URL for playlist info
-      const newItems = await Promise.all(
-        validUrls.map(async (url, index) => {
-          const normalizedUrl = normalizeUrl(url.trim());
-          const baseItem = {
-            id: Date.now().toString() + index,
-            url: normalizedUrl,
-            status: 'pending',
-            error: null,
-            isPlaylist: false,
-            playlistInfo: null,
-            playlistMode: 'full', // 'full' or 'single' for playlists
-            title: null,
-            thumbnail: null,
-          };
+    setQueue((prev) => [...prev, ...initialItems]);
 
-          try {
-            // Try to get video info and playlist info in parallel
-            const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
-              window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
-              window.api?.getPlaylistInfo?.(normalizedUrl) ||
-                Promise.resolve({ success: false, isPlaylist: false }),
-            ]);
+    validUrls.forEach(async (url, index) => {
+      const normalizedUrl = normalizeUrl(url.trim());
+      const id = baseIds[index];
+      try {
+        const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
+          window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
+          window.api?.getPlaylistInfo?.(normalizedUrl) ||
+            Promise.resolve({ success: false, isPlaylist: false }),
+        ]);
 
-            // Handle video info
+        setQueue((prev) =>
+          prev.map((item) => {
+            if (item.id !== id) return item;
+            const next = { ...item };
             if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
-              baseItem.title = videoInfoResult.value.title;
-              baseItem.thumbnail = videoInfoResult.value.thumbnail;
-              baseItem.extractor = videoInfoResult.value.extractor || null;
+              next.title = videoInfoResult.value.title;
+              next.thumbnail = videoInfoResult.value.thumbnail;
+              next.extractor = videoInfoResult.value.extractor || null;
             }
-
-            // Handle playlist info
             if (
               playlistInfoResult.status === 'fulfilled' &&
               playlistInfoResult.value.success &&
               playlistInfoResult.value.isPlaylist
             ) {
-              baseItem.isPlaylist = true;
-              baseItem.playlistInfo = playlistInfoResult.value;
-              baseItem.title = playlistInfoResult.value.playlistTitle;
-              baseItem.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
-              baseItem.extractor = playlistInfoResult.value.extractor || baseItem.extractor;
+              next.isPlaylist = true;
+              next.playlistInfo = playlistInfoResult.value;
+              next.title = playlistInfoResult.value.playlistTitle;
+              next.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
+              next.extractor = playlistInfoResult.value.extractor || next.extractor;
             }
-          } catch (error) {
-            console.error('Error checking URL:', error);
-            // Continue with basic item if check fails
-          }
+            return next;
+          })
+        );
+      } catch (error) {
+        console.error('Error enriching URL:', error);
+      }
+    });
+  }, [setQueue]);
 
-          return baseItem;
-        })
-      );
+  const handleAddToQueue = useCallback(async () => {
+    const lines = urls.split('\n').filter((line) => line.trim());
+    if (lines.filter(isValidUrl).length === 0) return;
 
-      setQueue((prev) => [...prev, ...newItems]);
+    setIsChecking(true);
+    try {
+      await addUrlsToQueue(lines);
       setUrls('');
     } finally {
       setIsChecking(false);
     }
-  }, [urls]);
+  }, [urls, addUrlsToQueue]);
+
+  const addSingleToQueue = useCallback(
+    (urlOrItem) => {
+      if (typeof urlOrItem === 'string') {
+        addUrlsToQueue([urlOrItem]);
+        return;
+      }
+      if (urlOrItem?.url) {
+        const normalizedUrl = normalizeUrl(urlOrItem.url.trim());
+        if (!isValidUrl(normalizedUrl)) return;
+        const item = {
+          id: Date.now().toString(),
+          url: normalizedUrl,
+          status: 'pending',
+          error: null,
+          isPlaylist: false,
+          playlistInfo: null,
+          playlistMode: 'full',
+          title: urlOrItem.title ?? null,
+          thumbnail: Array.isArray(urlOrItem.thumbnail) ? urlOrItem.thumbnail[0] : urlOrItem.thumbnail ?? null,
+        };
+        setQueue((prev) => [...prev, item]);
+        (async () => {
+          try {
+            const [videoInfoResult, playlistInfoResult] = await Promise.allSettled([
+              window.api?.getVideoInfo?.(normalizedUrl) || Promise.resolve({ success: false }),
+              window.api?.getPlaylistInfo?.(normalizedUrl) ||
+                Promise.resolve({ success: false, isPlaylist: false }),
+            ]);
+            setQueue((prev) =>
+              prev.map((q) => {
+                if (q.id !== item.id) return q;
+                const next = { ...q };
+                if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
+                  next.title = videoInfoResult.value.title;
+                  next.thumbnail = videoInfoResult.value.thumbnail;
+                  next.extractor = videoInfoResult.value.extractor || null;
+                }
+                if (
+                  playlistInfoResult.status === 'fulfilled' &&
+                  playlistInfoResult.value.success &&
+                  playlistInfoResult.value.isPlaylist
+                ) {
+                  next.isPlaylist = true;
+                  next.playlistInfo = playlistInfoResult.value;
+                  next.title = playlistInfoResult.value.playlistTitle;
+                  next.thumbnail = playlistInfoResult.value.videos?.[0]?.thumbnail || null;
+                  next.extractor = playlistInfoResult.value.extractor || next.extractor;
+                }
+                return next;
+              })
+            );
+          } catch (error) {
+            console.error('Error enriching URL:', error);
+          }
+        })();
+      }
+    },
+    [addUrlsToQueue, setQueue]
+  );
+
+  useEffect(() => {
+    onRegisterAddToQueue?.(addSingleToQueue);
+    return () => onRegisterAddToQueue?.(null);
+  }, [addSingleToQueue, onRegisterAddToQueue]);
 
   // Expand playlist into individual video items
   const handleExpandPlaylist = useCallback((item) => {
@@ -378,6 +450,7 @@ function QueuePanel({
       anchor="right"
       open={open}
       onClose={isProcessing ? undefined : onClose}
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: { width: { xs: '100%', sm: 480 }, bgcolor: 'background.default' },
       }}

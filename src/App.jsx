@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import {
   Box,
@@ -24,6 +24,7 @@ import SettingsDialog from './components/SettingsDialog';
 import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
+import { loadQueueFromStorage, saveQueueToStorage } from './lib/queueStorage';
 import logo from '../assets/icon.png';
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
@@ -53,6 +54,8 @@ function App() {
     defaultSearchSite: 'youtube',
     defaultSearchLimit: 15,
   });
+  const addToQueueRef = useRef(null);
+  const [queue, setQueue] = useState(loadQueueFromStorage);
   const [themeMode, setThemeMode] = useState('dark');
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () => (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) ?? true
@@ -60,6 +63,10 @@ function App() {
 
   // Resolve theme: 'system' -> actual 'dark' or 'light' from OS preference
   const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
+
+  useEffect(() => {
+    saveQueueToStorage(queue);
+  }, [queue]);
 
   // Listen for system preference changes when theme is 'system'
   useEffect(() => {
@@ -466,6 +473,14 @@ function App() {
     setError(null);
   }, []);
 
+  const registerAddToQueue = useCallback((fn) => {
+    addToQueueRef.current = fn;
+  }, []);
+
+  const handleAddToQueue = useCallback((urlOrItem) => {
+    addToQueueRef.current?.(urlOrItem);
+  }, []);
+
   return (
     <ThemeProvider theme={getTheme(resolvedTheme)}>
       <CssBaseline />
@@ -495,7 +510,9 @@ function App() {
                 sx={{ mr: 1 }}
                 aria-label="Open batch queue"
               >
-                <QueueIcon />
+                <Badge badgeContent={queue.length || null} color="primary" max={99}>
+                  <QueueIcon />
+                </Badge>
               </IconButton>
             </Tooltip>
             <Tooltip title={`Conversion History (Ctrl+H) - ${historyCount} items`}>
@@ -534,6 +551,7 @@ function App() {
             defaultQuality={defaultSettings.defaultQuality}
             defaultSearchSite={defaultSettings.defaultSearchSite}
             defaultSearchLimit={defaultSettings.defaultSearchLimit}
+            onAddToQueue={handleAddToQueue}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -614,6 +632,9 @@ function App() {
         <QueuePanel
           open={queueOpen}
           onClose={() => setQueueOpen(false)}
+          queue={queue}
+          setQueue={setQueue}
+          onRegisterAddToQueue={registerAddToQueue}
           outputFolder={outputFolder}
           defaultMode={defaultSettings.defaultMode}
           defaultFormat={

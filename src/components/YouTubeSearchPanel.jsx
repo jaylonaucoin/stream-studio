@@ -27,10 +27,11 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 import { SEARCH_SITES } from '../constants';
 
-function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
+function YouTubeSearchPanel({ onSelect, onAddToQueue, disabled, isConverting, defaultSearchSite = 'youtube', defaultSearchLimit = 15 }) {
   const [query, setQuery] = useState('');
   const [searchSites, setSearchSites] = useState([defaultSearchSite]);
   const [searchLimit, setSearchLimit] = useState(defaultSearchLimit);
@@ -401,6 +402,29 @@ function YouTubeSearchPanel({ onSelect, disabled, isConverting, defaultSearchSit
                         </IconButton>
                       </span>
                     </Tooltip>
+
+                    {onAddToQueue && result.webpageUrl && (
+                      <Tooltip title="Add to batch queue" placement="top">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddToQueue({ url: result.webpageUrl, title: result.title, thumbnail: result.thumbnail });
+                            }}
+                            disabled={disabled || isConverting}
+                            sx={{
+                              mr: 1,
+                              flexShrink: 0,
+                              color: 'text.secondary',
+                              '&:hover': { color: 'primary.main' },
+                            }}
+                          >
+                            <PlaylistAddIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
 
                     <ThumbnailWithFallback
                       thumbnail={result.thumbnail}

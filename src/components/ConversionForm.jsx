@@ -50,6 +50,7 @@ function ConversionForm({
   defaultQuality = 'best',
   defaultSearchSite = 'youtube',
   defaultSearchLimit = 15,
+  onAddToQueue,
 }) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
@@ -653,6 +654,7 @@ function ConversionForm({
         >
           <YouTubeSearchPanel
             onSelect={handleSearchSelect}
+            onAddToQueue={onAddToQueue}
             disabled={disabled}
             isConverting={isConverting}
             defaultSearchSite={defaultSearchSite}
