@@ -1,5 +1,8 @@
 # Stream Studio
 
+![License](https://img.shields.io/github/license/jaylonaucoin/stream-studio)
+![GitHub release](https://img.shields.io/github/v/release/jaylonaucoin/stream-studio)
+
 A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. Search, download, edit metadata, split by chapters or custom segments, and convert local files. For personal use only.
 
 ## Demo
