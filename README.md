@@ -1,10 +1,10 @@
-# Media Converter
+# Stream Studio
 
 A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. Search, download, edit metadata, split by chapters or custom segments, and convert local files. For personal use only.
 
 ## Demo
 
-<img src="https://github.com/jaylonaucoin/youtube-to-mp3/blob/main/assets/demo.gif" width="100%"></img>
+<img src="https://github.com/jaylonaucoin/stream-studio/blob/main/assets/demo.gif" width="100%"></img>
 
 ## Supported Sites
 
@@ -180,7 +180,7 @@ Built installers will be in the `dist/` folder.
 
 ### Pre-built Releases
 
-Pre-built installers are available in the [Releases](https://github.com/jaylonaucoin/youtube-to-mp3/releases) section. The app is **unsigned** (no code signing certificate), so you may need to allow it to run—see below.
+Pre-built installers are available in the [Releases](https://github.com/jaylonaucoin/stream-studio/releases) section. The app is **unsigned** (no code signing certificate), so you may need to allow it to run—see below.
 
 ## Running Pre-built Installers (Unsigned Builds)
 
@@ -208,7 +208,7 @@ No extra steps needed. AppImages and `.deb` packages generally run without secur
 ## Project Structure
 
 ```
-youtube-to-mp3/
+stream-studio/
 ├── main.js                    # Electron entry (delegates to main/)
 ├── preload.js                 # contextBridge API
 ├── index.html

@@ -1,6 +1,6 @@
 {
-  "name": "media-converter",
-  "version": "1.6.0",
+  "name": "stream-studio",
+  "version": "1.8.0",
   "description": "A desktop app to download and convert online videos/audio from 1000+ sites (YouTube, Vimeo, TikTok, Twitter, etc.) to various formats using yt-dlp and ffmpeg",
   "main": "main.js",
   "author": "",
@@ -50,8 +50,8 @@
     "react-imask": "^7.6.1"
   },
   "build": {
-    "appId": "com.media-converter.app",
-    "productName": "Media Converter",
+    "appId": "com.stream-studio.app",
+    "productName": "Stream Studio",
     "copyright": "Copyright © 2025",
     "directories": {
       "output": "dist",
@@ -139,7 +139,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Media Converter"
+      "shortcutName": "Stream Studio"
     },
     "dmg": {
       "title": "${productName} ${version}",

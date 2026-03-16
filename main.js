@@ -1,6 +1,6 @@
 /**
  * Main process entry point
- * Media Converter - Electron Application
+ * Stream Studio - Electron Application
  * 
  * This file serves as the entry point and delegates to the modular structure in /main/
  */

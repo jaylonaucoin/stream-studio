@@ -492,11 +492,11 @@ function App() {
           <Toolbar>
             <img
               src={logo}
-              alt="Media Converter"
+              alt="Stream Studio"
               style={{ width: 32, height: 32, marginRight: 8 }}
             />
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Media Converter
+              Stream Studio
             </Typography>
             {appVersion && (
               <Chip

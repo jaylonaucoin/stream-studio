@@ -1,6 +1,6 @@
 /**
  * Main process entry point
- * Media Converter - Electron Application
+ * Stream Studio - Electron Application
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { createWindow, getMainWindow } = require('./window');

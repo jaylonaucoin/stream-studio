@@ -264,7 +264,7 @@ function registerHandlers(ipcMain) {
       if (!buffer || !filename) return { success: false, error: 'Missing buffer or filename' };
       const ext = path.extname(filename) || '';
       const base = path.basename(filename, ext) || 'media';
-      const tempPath = path.join(os.tmpdir(), `media-converter-${Date.now()}-${base}${ext}`);
+      const tempPath = path.join(os.tmpdir(), `stream-studio-${Date.now()}-${base}${ext}`);
       const nodeBuffer = Buffer.from(buffer);
       fs.writeFileSync(tempPath, nodeBuffer);
       return { success: true, filePath: tempPath };
@@ -305,7 +305,7 @@ function registerHandlers(ipcMain) {
   ipcMain.handle('saveQueueFile', async (event, data) => {
     try {
       const result = await dialog.showSaveDialog({
-        defaultPath: 'media-converter-queue.json',
+        defaultPath: 'stream-studio-queue.json',
         filters: [{ name: 'JSON', extensions: ['json'] }],
         title: 'Export Queue',
       });

@@ -1,8 +1,17 @@
-const STORAGE_KEY = 'media-converter-queue';
+const STORAGE_KEY = 'stream-studio-queue';
+const OLD_STORAGE_KEY = 'media-converter-queue';
 
 export function loadQueueFromStorage() {
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+    let raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+    if (!raw && typeof window !== 'undefined') {
+      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+      if (oldRaw) {
+        localStorage.setItem(STORAGE_KEY, oldRaw);
+        localStorage.removeItem(OLD_STORAGE_KEY);
+        raw = oldRaw;
+      }
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
