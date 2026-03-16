@@ -1,6 +1,10 @@
 # Media Converter
 
-A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. For personal use only.
+A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. Search, download, edit metadata, split by chapters or custom segments, and convert local files. For personal use only.
+
+## Demo
+
+![Demo Video](assets/demo.mp4)
 
 ## Supported Sites
 
@@ -64,32 +68,32 @@ For a complete list of supported sites, see the [yt-dlp supported sites](https:/
 
 ## Features
 
-- **Universal Video Downloads**: Convert videos from 1000+ websites
-- **Robust URL Handling**: Accepts URLs with or without `https://` prefix
-- **Multiple Format Support**:
-  - Audio: MP3, M4A, FLAC, WAV, AAC, Opus, Vorbis, ALAC
-  - Video: MP4, MKV, WebM, MOV, AVI, FLV, GIF
-- **Modern Dark UI**: Beautiful Material-UI interface with dark theme
-- **Real-time Progress**: Live conversion progress with detailed logs
-- **Batch Queue**: Process multiple URLs at once
-- **Conversion History**: Track all your past conversions
-- **System Notifications**: Get notified when conversions complete
-- **Drag & Drop Support**: Simply drag URLs into the app
-- **Custom Output Folder**: Choose where to save converted files
-- **Persistent Settings**: Your preferences are saved between sessions
-- **Window State Persistence**: App remembers its size and position
-- **Cross-platform**: Works on Windows, macOS, and Linux
+### Input & Discovery
+- **YouTube / multi-site search** — Search YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, and 10+ other sites with audio preview
+- **Paste URL** — Accepts URLs with or without `https://` prefix
+- **Local file conversion** — Convert existing media files (MP3, MP4, M4A, etc.)
+- **Drag & drop** — URLs and local files
 
-## Screenshots
+### Conversion
+- **Audio formats**: MP3, M4A, FLAC, WAV, AAC, Opus, Vorbis, ALAC (plus Best quality option)
+- **Video formats**: MP4, MKV, WebM, MOV, AVI, FLV, GIF
+- **Quality presets**: Best, High (1080p / 192kbps), Medium (720p / 128kbps), Low (480p / 96kbps)
+- **Clip/trim** — Start and end time for URL or local file
 
-The app features a sleek dark interface with red accents, providing:
-- Easy URL input with paste button (accepts any video URL)
-- Mode toggle (Audio/Video)
-- Format selection dropdown
-- Progress indicator with percentage
-- Expandable conversion logs
-- Quick access to conversion history
-- Batch queue for multiple conversions
+### Advanced
+- **Playlist support** — Download full playlist or select specific videos
+- **Chapter support** — Split by chapters into separate files or download full video
+- **Manual segments** — Define custom time ranges to split into separate files
+- **Custom metadata** — Title, artist, album, thumbnail cropping (ID3 / MP4 tags)
+- **Batch queue** — Multiple URLs with drag-and-drop reordering, persisted across sessions
+
+### UI & UX
+- **Dark / light / system theme**
+- **Keyboard shortcuts** — Ctrl+K shortcuts, Ctrl+H history, Ctrl+B queue, Ctrl+, settings
+- **Real-time progress** — Speed, ETA, file size
+- **Conversion history** — View, open locations, copy URLs
+- **System notifications** — When conversions complete
+- **Cross-platform** — Windows, macOS (x64 + arm64), Linux
 
 ## Requirements
 
@@ -134,9 +138,9 @@ sudo apt install ffmpeg
 sudo dnf install ffmpeg
 ```
 
-### 3. Add App Icon
+### 3. App Icon
 
-Place an app icon at `assets/icon.png` (256x256 pixels or larger recommended).
+An app icon is included at `assets/icon.png` (256x256 or larger recommended).
 
 ## Development
 
@@ -154,30 +158,21 @@ npm start      # In another terminal
 ### Linting and Formatting
 
 ```bash
-# Check for linting errors
 npm run lint
-
-# Fix linting errors
 npm run lint:fix
-
-# Check formatting
 npm run format:check
-
-# Fix formatting
 npm run format
 ```
 
 ### Build for Production
 
-Build for current platform:
 ```bash
+# Build for current platform
 npm run build
-```
 
-Build for specific platforms:
-```bash
+# Build for specific platforms
 npm run build:win    # Windows
-npm run build:mac    # macOS
+npm run build:mac    # macOS (x64 + arm64)
 npm run build:linux  # Linux
 ```
 
@@ -185,11 +180,9 @@ Built installers will be in the `dist/` folder.
 
 ### Pre-built Releases
 
-Pre-built installers are available in the [Releases](https://github.com/jaylonaucoin/youtube-to-mp3/releases) section. Downloads are provided for convenience. The app is **unsigned** (no code signing certificate), so you may need to allow it to run—see below.
+Pre-built installers are available in the [Releases](https://github.com/jaylonaucoin/youtube-to-mp3/releases) section. The app is **unsigned** (no code signing certificate), so you may need to allow it to run—see below.
 
 ## Running Pre-built Installers (Unsigned Builds)
-
-The app is distributed without code signing. All platforms can run it, but you may need to bypass security prompts:
 
 ### macOS
 
@@ -215,65 +208,95 @@ No extra steps needed. AppImages and `.deb` packages generally run without secur
 ## Project Structure
 
 ```
-media-converter/
-├── main.js                 # Electron main process
-├── preload.js              # Preload script (contextBridge API)
-├── index.html              # HTML entry point
-├── package.json            # Project configuration
-├── vite.config.js          # Vite build configuration
-├── .eslintrc.json          # ESLint configuration
-├── .prettierrc             # Prettier configuration
-├── assets/                 # App icons and assets
-│   └── icon.png
-├── bin/                    # Binary dependencies (auto-downloaded)
-│   ├── yt-dlp              # (Mac/Linux)
-│   ├── yt-dlp.exe          # (Windows)
-│   ├── ffmpeg              # (Mac/Linux, from ffmpeg-static)
-│   └── ffmpeg.exe          # (Windows, from ffmpeg-static)
-├── scripts/                # Utility scripts
-│   └── download-binaries.js
-├── src/                    # React source files
-│   ├── App.jsx             # Main app component
-│   ├── index.jsx           # React entry point
-│   ├── components/         # React components
+youtube-to-mp3/
+├── main.js                    # Electron entry (delegates to main/)
+├── preload.js                 # contextBridge API
+├── index.html
+├── package.json
+├── vite.config.js
+├── main/                      # Main process (modular)
+│   ├── index.js
+│   ├── window.js
+│   ├── store.js
+│   ├── ipc/                   # IPC handlers
+│   │   ├── index.js
+│   │   └── handlers/
+│   │       ├── basic.js
+│   │       ├── conversion.js
+│   │       └── videoInfo.js
+│   ├── services/              # Conversion, metadata, history, etc.
+│   │   ├── conversion.js
+│   │   ├── ffmpeg.js
+│   │   ├── metadata.js
+│   │   ├── videoInfo.js
+│   │   └── ...
+│   └── utils/
+├── src/
+│   ├── App.jsx
+│   ├── index.jsx
+│   ├── components/
 │   │   ├── ConversionForm.jsx
-│   │   ├── ErrorDialog.jsx
-│   │   ├── HistoryPanel.jsx
-│   │   ├── LogViewer.jsx
-│   │   ├── OutputFolderSelector.jsx
-│   │   ├── ProgressIndicator.jsx
-│   │   ├── QueuePanel.jsx
-│   │   └── SettingsDialog.jsx
+│   │   ├── conversion/        # VideoPreviewCard, ChapterSelector, etc.
+│   │   ├── metadata/          # ThumbnailSection, ChapterMetadataForm, etc.
+│   │   ├── MetadataEditor.jsx
+│   │   ├── SegmentEditor.jsx
+│   │   ├── YouTubeSearchPanel.jsx
+│   │   └── ...
+│   ├── constants/
+│   ├── hooks/
+│   ├── lib/
+│   ├── utils/
 │   └── styles/
-│       └── theme.js        # MUI theme configuration
-├── styles.css              # Legacy styles (unused)
-└── dist/                   # Build output (generated)
+├── assets/
+│   ├── icon.png
+│   └── demo.mp4
+├── bin/                       # yt-dlp, ffmpeg (auto-downloaded)
+├── scripts/
+│   └── download-binaries.js
+└── dist/                      # Built installers
 ```
 
 ## Usage
 
-1. Launch the application
-2. Paste any video URL into the input field (or drag and drop)
-   - YouTube, Vimeo, Twitter, TikTok, etc.
-   - URL protocol (`https://`) is optional - it will be added automatically
-3. Select mode: **Audio** or **Video**
-4. Choose your desired output format
+### Input Modes
+
+1. **Search** — Enter a query, select site(s) (YouTube, SoundCloud, etc.), choose a result, then convert or add to queue. Audio preview available.
+2. **URL** — Paste any video URL (with or without `https://`).
+3. **Local file** — Click or drag a local media file to convert.
+
+### Basic Conversion
+
+1. Enter URL, search result, or select local file
+2. Select mode: **Audio** or **Video**
+3. Choose format and quality
+4. (Optional) Set start/end time to clip
 5. Click **Convert**
-6. Wait for conversion to complete
-7. Click **Open Location** to find your file
+6. Click **Open Location** when done
 
-### Batch Conversion
+### Playlist
 
-1. Click the Queue icon in the top-right corner
-2. Paste multiple URLs (one per line)
-3. Click "Add to Queue"
-4. Click "Start" to process all URLs
+- For playlist URLs, choose **Full playlist** or **Select videos**
+- Optionally split by **chapters** into separate files or download full video
+
+### Manual Segments
+
+- Add time ranges (e.g. 0:00–1:30, 2:00–4:00) to split into separate files
+- Optionally use a shared artist for filenames
+
+### Metadata
+
+- Click the edit icon to set title, artist, album, and crop thumbnail (ID3/MP4 tags)
+
+### Batch Queue
+
+1. Click the Queue icon (or **Ctrl+B / Cmd+B**)
+2. Paste multiple URLs (one per line) or add from search
+3. Drag to reorder
+4. Click **Start** to process all
 
 ### URL Formats Accepted
 
-The app accepts URLs in various formats:
 - Full URL: `https://www.youtube.com/watch?v=VIDEO_ID`
-- Without www: `https://youtube.com/watch?v=VIDEO_ID`
 - Without protocol: `youtube.com/watch?v=VIDEO_ID`
 - Short URLs: `youtu.be/VIDEO_ID`
 - Mobile URLs: `m.youtube.com/watch?v=VIDEO_ID`
@@ -283,18 +306,23 @@ The app accepts URLs in various formats:
 - **Enter** — Start conversion
 - **Escape** — Cancel conversion
 - **Ctrl+V / Cmd+V** — Paste URL from clipboard
+- **Ctrl+K / Cmd+K** — Show keyboard shortcuts
+- **Ctrl+H / Cmd+H** — Open history
+- **Ctrl+B / Cmd+B** — Open batch queue
+- **Ctrl+, / Cmd+,** — Open settings
 
 ### Settings
 
-Access settings via the gear icon in the top-right corner:
-- Enable/disable system notifications
-- Set default conversion mode and formats
-- Configure history size
+Access via the gear icon:
+- Theme (dark / light / system)
+- Default mode, formats, quality
+- Default search site and limit
+- History size, notifications
 
 ### History
 
-Access conversion history via the clock icon in the top-right corner:
-- View all past conversions
+Access via the clock icon:
+- View past conversions
 - Open file locations
 - Copy original URLs
 - Clear history
@@ -304,7 +332,8 @@ Access conversion history via the clock icon in the top-right corner:
 - Uses `contextBridge` for secure IPC communication
 - No `nodeIntegration` in renderer process
 - Input sanitization before passing to child processes
-- Uses `spawn` with args array (no shell injection vulnerabilities)
+- Uses `spawn` with args array (no shell injection)
+- All IPC handlers (`convert`, `convertLocalFile`, `getVideoInfo`, `getChapterInfo`, `searchMultiSite`, etc.) go through preload API
 
 ## Troubleshooting
 
@@ -324,10 +353,15 @@ Access conversion history via the clock icon in the top-right corner:
 - Check that the content is not private or age-restricted
 - Some sites may have DRM protection that prevents downloading
 
+### Playlist / Chapter / Segment Fails
+- Ensure at least one video or segment is selected
+- For chapters, some videos may not have chapter data
+- For segments, verify time ranges are valid (start < end)
+
 ### "Unsupported URL" Error
 - The site may not be supported by yt-dlp
 - Check the [supported sites list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-- The site's structure may have changed - try updating yt-dlp
+- The site's structure may have changed — try updating yt-dlp
 
 ### Permission Errors
 - Ensure you have write permissions to the output folder
@@ -339,14 +373,11 @@ Access conversion history via the clock icon in the top-right corner:
 
 ## Updating yt-dlp
 
-To get the latest site support and bug fixes, you can update yt-dlp:
-
 ```bash
-# Re-download binaries
 npm run download-binaries
 ```
 
-Or manually download the latest version from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
+Or manually download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
 
 ## Publishing & Legal
 
