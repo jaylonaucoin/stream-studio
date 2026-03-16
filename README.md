@@ -4,7 +4,9 @@ A modern desktop application built with Electron and React that converts online 
 
 ## Demo
 
-![Demo Video](assets/demo.mp4)
+<video src="https://raw.githubusercontent.com/jaylonaucoin/youtube-to-mp3/main/assets/demo.mp4" width="640" controls></video>
+
+*If the video doesn't play inline, [download it](https://raw.githubusercontent.com/jaylonaucoin/youtube-to-mp3/main/assets/demo.mp4) or view it in the repo.*
 
 ## Supported Sites
 
