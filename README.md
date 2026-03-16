@@ -4,7 +4,7 @@ A modern desktop application built with Electron and React that converts online 
 
 ## Demo
 
-<video src="./assets/demo.mp4" width="640" controls autoplay loop muted></video>
+<img src="https://github.com/jaylonaucoin/youtube-to-mp3/blob/main/assets/demo.gif" width="100%"></img>
 
 ## Supported Sites
 
