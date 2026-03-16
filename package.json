@@ -3,7 +3,13 @@
   "version": "1.8.0",
   "description": "A desktop app to download and convert online videos/audio from 1000+ sites (YouTube, Vimeo, TikTok, Twitter, etc.) to various formats using yt-dlp and ffmpeg",
   "main": "main.js",
-  "author": "",
+  "homepage": "https://github.com/jaylonaucoin/stream-studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaylonaucoin/stream-studio.git"
+  },
+  "author": "Jaylon AuCoin",
+  "email": "jaylonaucoin2013@hotmail.com",
   "license": "MIT",
   "scripts": {
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
