@@ -183,6 +183,35 @@ npm run build:linux  # Linux
 
 Built installers will be in the `dist/` folder.
 
+### Pre-built Releases
+
+Pre-built installers are available in the [Releases](https://github.com/jaylonaucoin/youtube-to-mp3/releases) section. Downloads are provided for convenience. The app is **unsigned** (no code signing certificate), so you may need to allow it to run—see below.
+
+## Running Pre-built Installers (Unsigned Builds)
+
+The app is distributed without code signing. All platforms can run it, but you may need to bypass security prompts:
+
+### macOS
+
+macOS Gatekeeper may block the app on first open:
+
+1. **Right-click** (or Control+click) the app
+2. Select **Open**
+3. Click **Open** in the confirmation dialog
+
+Alternatively: **System Settings → Privacy & Security → Security** → choose "Open Anyway" for the blocked app.
+
+### Windows
+
+Windows SmartScreen may warn "Windows protected your PC":
+
+1. Click **More info**
+2. Click **Run anyway**
+
+### Linux
+
+No extra steps needed. AppImages and `.deb` packages generally run without security prompts.
+
 ## Project Structure
 
 ```
@@ -319,10 +348,19 @@ npm run download-binaries
 
 Or manually download the latest version from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
 
+## Publishing & Legal
+
+This project is open source and safe to use and redistribute. It does not include API keys, secrets, or copyrighted sample content. The app wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) and FFmpeg—tools that are widely published and have been upheld as non-DRM-circumventing by platform providers. Responsibility for complying with platform Terms of Service (e.g., YouTube, TikTok) and copyright law lies with the user, not the tool.
+
 ## License
 
-MIT
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+### Third-Party Dependencies
+
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — Unlicense (public domain)
+- **[FFmpeg](https://ffmpeg.org/)** — LGPL/GPL (via ffmpeg-static)
 
 ## Disclaimer
 
-This software is provided for personal use only. Users are responsible for ensuring their use of this software complies with the Terms of Service of the websites they download from and applicable copyright laws. Do not use this software to download copyrighted content without permission.
+This software is provided for personal use only. Users are responsible for ensuring their use of this software complies with the Terms of Service of the websites they download from and applicable copyright laws. Downloading copyrighted content without permission may violate platform ToS and copyright law. The developers do not condone such use.
