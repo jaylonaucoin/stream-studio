@@ -301,6 +301,54 @@ function registerHandlers(ipcMain) {
     }
   });
 
+  ipcMain.handle('selectLocalFiles', async () => {
+    try {
+      const win = getMainWindow();
+      const result = await dialog.showOpenDialog(win || undefined, {
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: 'Audio & Video',
+            extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv'],
+          },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+        title: 'Select Files',
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const existing = result.filePaths.filter((p) => fs.existsSync(p));
+        return { success: true, filePaths: existing };
+      }
+      return { success: false, cancelled: true, filePaths: [] };
+    } catch (error) {
+      console.error('Select local files error:', error);
+      return { success: false, error: error.message, filePaths: [] };
+    }
+  });
+
+  ipcMain.handle('selectLocalFolder', async () => {
+    try {
+      const win = getMainWindow();
+      const result = await dialog.showOpenDialog(win || undefined, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Select Folder',
+      });
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const folderPath = result.filePaths[0];
+        if (fs.existsSync(folderPath)) {
+          return { success: true, folderPath };
+        }
+        return { success: false, error: 'Folder not found' };
+      }
+      return { success: false, cancelled: true };
+    } catch (error) {
+      console.error('Select local folder error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Save queue to file (export)
   ipcMain.handle('saveQueueFile', async (event, data) => {
     try {

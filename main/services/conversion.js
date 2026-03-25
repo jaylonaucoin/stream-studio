@@ -821,20 +821,46 @@ async function convertLocalFile(filePath, options = {}) {
 
   currentConversionProcess = null;
 
+  let effectiveFilePath = outputPath;
+
+  if (options.customMetadata && options.customMetadata.metadata) {
+    await applyMetadataToFile(
+      outputPath,
+      options.customMetadata.metadata,
+      options.customMetadata.thumbnail ?? null
+    );
+  }
+
+  const customTitle = options.customMetadata?.metadata?.title;
+  if (customTitle && typeof customTitle === 'string') {
+    const sanitizedCustomTitle = sanitizeFileName(customTitle);
+    if (sanitizedCustomTitle) {
+      const ext = path.extname(outputPath);
+      const currentBaseName = path.basename(outputPath, ext);
+      if (sanitizedCustomTitle !== currentBaseName) {
+        const newFilePath = getUniqueFilename(
+          path.join(outputFolder, `${sanitizedCustomTitle}${ext}`)
+        );
+        fs.renameSync(outputPath, newFilePath);
+        effectiveFilePath = newFilePath;
+      }
+    }
+  }
+
   addToHistory({
     url: `file://${filePath}`,
-    fileName: path.basename(outputPath),
-    filePath: outputPath,
+    fileName: path.basename(effectiveFilePath),
+    filePath: effectiveFilePath,
     format,
     mode,
   });
 
-  showNotification('Conversion Complete', `Saved to ${path.basename(outputPath)}`);
+  showNotification('Conversion Complete', `Saved to ${path.basename(effectiveFilePath)}`);
 
   return {
     success: true,
-    fileName: path.basename(outputPath),
-    filePath: outputPath,
+    fileName: path.basename(effectiveFilePath),
+    filePath: effectiveFilePath,
   };
 }
 

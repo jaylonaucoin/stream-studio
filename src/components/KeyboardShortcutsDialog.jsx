@@ -29,7 +29,8 @@ const SHORTCUTS = [
     category: 'Navigation',
     items: [
       { keys: ['Ctrl', 'H'], description: 'Open history panel' },
-      { keys: ['Ctrl', 'B'], description: 'Open batch queue panel' },
+      { keys: ['Ctrl', 'B'], description: 'Open URL batch queue panel' },
+      { keys: ['Ctrl', 'Shift', 'B'], description: 'Open local files batch panel' },
       { keys: ['Ctrl', ','], description: 'Open settings' },
     ],
   },

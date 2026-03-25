@@ -74,7 +74,21 @@ contextBridge.exposeInMainWorld('api', {
 
   // Local file conversion
   selectLocalFile: () => ipcRenderer.invoke('selectLocalFile'),
+  selectLocalFiles: () => ipcRenderer.invoke('selectLocalFiles'),
+  selectLocalFolder: () => ipcRenderer.invoke('selectLocalFolder'),
   convertLocalFile: (filePath, options) => ipcRenderer.invoke('convertLocalFile', filePath, options),
+  enumerateLocalMedia: (paths, options) => ipcRenderer.invoke('enumerateLocalMedia', paths, options),
+  readMetadataBatch: (paths) => ipcRenderer.invoke('readMetadataBatch', paths),
+  applyMetadataBatch: (payload) => ipcRenderer.invoke('applyMetadataBatch', payload),
+  dryRunLocalBatch: (paths) => ipcRenderer.invoke('dryRunLocalBatch', paths),
+  cancelBatchJob: () => ipcRenderer.invoke('cancelBatchJob'),
+  convertLocalBatch: (payload) => ipcRenderer.invoke('convertLocalBatch', payload),
+  onBatchJobProgress: (callback) => {
+    ipcRenderer.on('batch-job-progress', (event, data) => callback(data));
+  },
+  offBatchJobProgress: () => {
+    ipcRenderer.removeAllListeners('batch-job-progress');
+  },
   // Get filesystem path from File object (for drag-drop; file.path is undefined in sandboxed renderer)
   getPathForFile: (file) => getPathForFile(file),
   // Fallback: save file buffer to temp when getPathForFile returns empty
