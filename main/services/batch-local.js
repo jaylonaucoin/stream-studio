@@ -4,7 +4,6 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const mm = require('music-metadata');
 const { getMainWindow } = require('../window');
 const { applyMetadataToFile } = require('./metadata');
 const conversionService = require('./conversion');
@@ -48,6 +47,15 @@ const METADATA_KEYS = [
 ];
 
 let batchJobCancelled = false;
+
+/** music-metadata is ESM-only; load via dynamic import from this CJS file */
+let musicMetadataLoadPromise = null;
+function loadMusicMetadata() {
+  if (!musicMetadataLoadPromise) {
+    musicMetadataLoadPromise = import('music-metadata');
+  }
+  return musicMetadataLoadPromise;
+}
 
 function resetBatchCancel() {
   batchJobCancelled = false;
@@ -141,6 +149,7 @@ function joinArtists(val) {
 }
 
 async function readAudioMetadata(filePath) {
+  const mm = await loadMusicMetadata();
   const meta = await mm.parseFile(filePath, { duration: false });
   const c = meta.common || {};
   let pictureDataUrl = null;
