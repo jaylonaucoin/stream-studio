@@ -14,12 +14,20 @@ export function MetadataFormFields({
   onChange,
   errors = {},
   showTrackNumbers = false,
+  showTotalTracksOnly = false,
   totalTracksDisplay = null,
   hideTitle = false,
+  hideArtist = false,
+  /** When set, render only a subsection for batch library UI */
+  renderSection = 'full',
 }) {
+  const albumCore =
+    renderSection === 'full' || renderSection === 'albumCore';
+  const advanced = renderSection === 'full' || renderSection === 'advanced';
+
   return (
     <>
-      {!hideTitle && (
+      {!hideTitle && albumCore && (
         <TextField
           fullWidth
           label="Title"
@@ -30,87 +38,106 @@ export function MetadataFormFields({
           helperText={errors.title}
         />
       )}
-      <TextField
-        fullWidth
-        label="Artist"
-        value={metadata.artist || ''}
-        onChange={(e) => onChange('artist', e.target.value)}
-        margin="normal"
-        error={!!errors.artist}
-        helperText={errors.artist}
-      />
-      <TextField
-        fullWidth
-        label="Album"
-        value={metadata.album || ''}
-        onChange={(e) => onChange('album', e.target.value)}
-        margin="normal"
-        error={!!errors.album}
-        helperText={errors.album}
-      />
-      <TextField
-        fullWidth
-        label="Album Artist"
-        value={metadata.albumArtist || ''}
-        onChange={(e) => onChange('albumArtist', e.target.value)}
-        margin="normal"
-        error={!!errors.albumArtist}
-        helperText={errors.albumArtist}
-      />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <FormControl fullWidth>
-          <InputLabel>Genre</InputLabel>
-          <Select
-            value={metadata.genre || ''}
-            label="Genre"
-            onChange={(e) => onChange('genre', e.target.value)}
-            error={!!errors.genre}
-          >
-            <MenuItem value="">None</MenuItem>
-            {GENRES.map((genre) => (
-              <MenuItem key={genre} value={genre}>
-                {genre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      {!hideArtist && albumCore && (
         <TextField
           fullWidth
-          label="Year"
-          value={metadata.year || ''}
-          onChange={(e) => onChange('year', e.target.value)}
-          type="number"
-          error={!!errors.year}
-          helperText={errors.year}
+          label="Artist"
+          value={metadata.artist || ''}
+          onChange={(e) => onChange('artist', e.target.value)}
+          margin="normal"
+          error={!!errors.artist}
+          helperText={errors.artist}
         />
-      </Box>
-      {showTrackNumbers && (
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+      )}
+      {albumCore && (
+        <>
           <TextField
             fullWidth
-            label="Track Number"
-            value={metadata.trackNumber || ''}
-            onChange={(e) => onChange('trackNumber', e.target.value)}
-            type="number"
-            error={!!errors.trackNumber}
-            helperText={errors.trackNumber}
+            label="Album"
+            value={metadata.album || ''}
+            onChange={(e) => onChange('album', e.target.value)}
+            margin="normal"
+            error={!!errors.album}
+            helperText={errors.album}
           />
           <TextField
             fullWidth
-            label="Total Tracks"
-            value={metadata.totalTracks || ''}
-            onChange={(e) => onChange('totalTracks', e.target.value)}
-            type="number"
+            label="Album Artist"
+            value={metadata.albumArtist || ''}
+            onChange={(e) => onChange('albumArtist', e.target.value)}
+            margin="normal"
+            error={!!errors.albumArtist}
+            helperText={errors.albumArtist}
           />
-        </Box>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Genre</InputLabel>
+              <Select
+                value={metadata.genre || ''}
+                label="Genre"
+                onChange={(e) => onChange('genre', e.target.value)}
+                error={!!errors.genre}
+              >
+                <MenuItem value="">None</MenuItem>
+                {GENRES.map((genre) => (
+                  <MenuItem key={genre} value={genre}>
+                    {genre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Year"
+              value={metadata.year || ''}
+              onChange={(e) => onChange('year', e.target.value)}
+              type="number"
+              error={!!errors.year}
+              helperText={errors.year}
+            />
+          </Box>
+          {showTotalTracksOnly && (
+            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Total Tracks (album)"
+                value={metadata.totalTracks || ''}
+                onChange={(e) => onChange('totalTracks', e.target.value)}
+                type="number"
+              />
+            </Box>
+          )}
+          {showTrackNumbers && !showTotalTracksOnly && (
+            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Track Number"
+                value={metadata.trackNumber || ''}
+                onChange={(e) => onChange('trackNumber', e.target.value)}
+                type="number"
+                error={!!errors.trackNumber}
+                helperText={errors.trackNumber}
+              />
+              <TextField
+                fullWidth
+                label="Total Tracks"
+                value={metadata.totalTracks || ''}
+                onChange={(e) => onChange('totalTracks', e.target.value)}
+                type="number"
+              />
+            </Box>
+          )}
+          {totalTracksDisplay !== null && (
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Track numbers will auto-increment. Total tracks: {totalTracksDisplay} (automatic)
+              </Typography>
+            </Box>
+          )}
+        </>
       )}
-      {totalTracksDisplay !== null && (
-        <Box sx={{ mt: 2, mb: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Track numbers will auto-increment. Total tracks: {totalTracksDisplay} (automatic)
-          </Typography>
-        </Box>
-      )}
+      {advanced && (
+        <>
       <TextField
         fullWidth
         label="Composer"
@@ -179,6 +206,8 @@ export function MetadataFormFields({
         error={!!errors.copyright}
         helperText={errors.copyright}
       />
+        </>
+      )}
     </>
   );
 }

@@ -25,8 +25,10 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import TimeInput from './TimeInput';
 import MetadataEditor from './MetadataEditor';
+import LocalLibraryBatchView from './LocalLibraryBatchView';
 import SegmentEditor from './SegmentEditor';
 import YouTubeSearchPanel from './YouTubeSearchPanel';
 import {
@@ -51,6 +53,10 @@ function ConversionForm({
   defaultSearchSite = 'youtube',
   defaultSearchLimit = 15,
   onAddToQueue,
+  inputMode: inputModeProp,
+  onInputModeChange,
+  outputFolder = '',
+  onLocalBatchComplete,
 }) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
@@ -92,8 +98,10 @@ function ConversionForm({
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
   const [customMetadata, setCustomMetadata] = useState(null);
 
-  // Input mode: 'search', 'paste' (URL), or 'local'
-  const [inputMode, setInputMode] = useState('search');
+  const [inputModeInternal, setInputModeInternal] = useState('search');
+  const inputModeControlled = typeof onInputModeChange === 'function';
+  const inputMode = inputModeControlled ? (inputModeProp ?? 'search') : inputModeInternal;
+  const setInputMode = inputModeControlled ? onInputModeChange : setInputModeInternal;
 
   // Local file state
   const [localFilePath, setLocalFilePath] = useState('');
@@ -315,7 +323,7 @@ function ConversionForm({
     } catch (err) {
       console.error('Failed to read clipboard:', err);
     }
-  }, [validateUrl]);
+  }, [validateUrl, setInputMode]);
 
   const handleSearchSelect = useCallback(
     (selectedUrl) => {
@@ -325,7 +333,7 @@ function ConversionForm({
         setInputMode('paste');
       }
     },
-    [validateUrl]
+    [validateUrl, setInputMode]
   );
 
   const handleModeChange = useCallback((newMode) => {
@@ -545,7 +553,7 @@ function ConversionForm({
         if (isLikelyUrl(trimmed)) setInputMode('paste');
       }
     },
-    [validateUrl]
+    [validateUrl, setInputMode]
   );
 
   const handleLocalFileDrop = useCallback(async (e) => {
@@ -646,6 +654,14 @@ function ConversionForm({
           aria-controls="tabpanel-local"
           id="tab-local"
         />
+        <Tab
+          value="batch-local"
+          label="Library"
+          icon={<LibraryMusicIcon fontSize="small" />}
+          iconPosition="start"
+          aria-controls="tabpanel-batch-local"
+          id="tab-batch-local"
+        />
       </Tabs>
 
       {inputMode === 'search' && (
@@ -703,6 +719,25 @@ function ConversionForm({
               'aria-label': 'Video or audio URL input',
             }}
             sx={{ mb: 2 }}
+          />
+        </Box>
+      )}
+
+      {inputMode === 'batch-local' && (
+        <Box
+          id="tabpanel-batch-local"
+          role="tabpanel"
+          aria-labelledby="tab-batch-local"
+          sx={{ mt: 1, mb: 2 }}
+        >
+          <LocalLibraryBatchView
+            outputFolder={outputFolder}
+            defaultMode={defaultMode}
+            defaultAudioFormat={defaultAudioFormat}
+            defaultVideoFormat={defaultVideoFormat}
+            defaultQuality={defaultQuality}
+            disabled={disabled}
+            onBatchComplete={onLocalBatchComplete}
           />
         </Box>
       )}

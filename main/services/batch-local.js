@@ -211,6 +211,17 @@ function buildMergedMetadata(existing, patch, strategy) {
   return out;
 }
 
+function overlayPerFileFields(baseMeta, partial) {
+  if (!partial || typeof partial !== 'object') return baseMeta;
+  const out = { ...baseMeta };
+  for (const k of Object.keys(partial)) {
+    if (METADATA_KEYS.includes(k) && Object.prototype.hasOwnProperty.call(partial, k)) {
+      out[k] = partial[k];
+    }
+  }
+  return out;
+}
+
 async function readMetadataBatch(paths) {
   const results = [];
   for (const p of paths) {
@@ -238,11 +249,15 @@ async function readMetadataBatch(paths) {
   return { results };
 }
 
-async function applyMetadataBatch({ paths, patch, thumbnailDataUrl, strategy }) {
+async function applyMetadataBatch({ paths, patch, perFilePatches, thumbnailDataUrl, strategy }) {
   resetBatchCancel();
   const results = [];
   const total = paths.length;
   const strat = strategy === 'replace' ? 'replace' : 'merge';
+  const perFileMap =
+    perFilePatches && typeof perFilePatches === 'object' && !Array.isArray(perFilePatches)
+      ? perFilePatches
+      : {};
 
   sendBatchProgress({
     type: 'batch-progress',
@@ -278,7 +293,23 @@ async function applyMetadataBatch({ paths, patch, thumbnailDataUrl, strategy }) 
           existing = {};
         }
       }
-      const metaForWrite = buildMergedMetadata(existing, patch || {}, strat);
+      const sharedPatch = patch || {};
+      const hasSharedKeys = Object.keys(sharedPatch).length > 0;
+      let metaForWrite;
+      if (strat === 'replace' && !hasSharedKeys) {
+        try {
+          const r = await readAudioMetadata(p);
+          metaForWrite = r.success ? { ...r.metadata } : {};
+        } catch {
+          metaForWrite = {};
+        }
+      } else {
+        metaForWrite = buildMergedMetadata(existing, sharedPatch, strat);
+      }
+      const pf = perFileMap[p];
+      if (pf && typeof pf === 'object') {
+        metaForWrite = overlayPerFileFields(metaForWrite, pf);
+      }
       const thumb =
         thumbnailDataUrl === undefined || thumbnailDataUrl === ''
           ? null
@@ -348,6 +379,7 @@ async function convertLocalBatch(filePaths, options = {}) {
     format,
     quality,
     metadataPatch,
+    perFilePatches,
     thumbnailDataUrl,
     metadataStrategy,
     startTime,
@@ -355,7 +387,20 @@ async function convertLocalBatch(filePaths, options = {}) {
   } = options;
 
   const strat = metadataStrategy === 'replace' ? 'replace' : 'merge';
-  const applyTags = metadataPatch && typeof metadataPatch === 'object';
+  const perFileMap =
+    perFilePatches && typeof perFilePatches === 'object' && !Array.isArray(perFilePatches)
+      ? perFilePatches
+      : {};
+  const hasThumb =
+    thumbnailDataUrl != null &&
+    String(thumbnailDataUrl).trim() !== '' &&
+    thumbnailDataUrl !== undefined;
+  const applyTags =
+    (metadataPatch &&
+      typeof metadataPatch === 'object' &&
+      Object.keys(metadataPatch).length > 0) ||
+    Object.keys(perFileMap).length > 0 ||
+    hasThumb;
 
   for (let i = 0; i < filePaths.length; i++) {
     if (isBatchCancelled()) break;
@@ -385,16 +430,27 @@ async function convertLocalBatch(filePaths, options = {}) {
       const r = await conversionService.convertLocalFile(filePath, convertOptions);
 
       if (applyTags) {
-        let existing = {};
-        if (strat === 'merge') {
-          try {
-            const readRes = await readAudioMetadata(filePath);
-            if (readRes.success) existing = readRes.metadata;
-          } catch {
-            existing = {};
-          }
+        let sourceMeta = {};
+        try {
+          const readRes = await readAudioMetadata(filePath);
+          if (readRes.success) sourceMeta = readRes.metadata;
+        } catch {
+          sourceMeta = {};
         }
-        const metaForWrite = buildMergedMetadata(existing, metadataPatch, strat);
+        const sharedOnly = metadataPatch && typeof metadataPatch === 'object' ? metadataPatch : {};
+        const hasSharedKeys = Object.keys(sharedOnly).length > 0;
+        let metaForWrite;
+        if (strat === 'merge') {
+          metaForWrite = buildMergedMetadata(sourceMeta, sharedOnly, 'merge');
+        } else if (!hasSharedKeys) {
+          metaForWrite = { ...sourceMeta };
+        } else {
+          metaForWrite = buildMergedMetadata({}, sharedOnly, 'replace');
+        }
+        const pf = perFileMap[filePath];
+        if (pf && typeof pf === 'object') {
+          metaForWrite = overlayPerFileFields(metaForWrite, pf);
+        }
         const thumb =
           thumbnailDataUrl === undefined || thumbnailDataUrl === ''
             ? null

@@ -27,11 +27,12 @@ function registerHandlers(ipcMain) {
 
   ipcMain.handle('applyMetadataBatch', async (event, payload) => {
     try {
-      const { paths, patch, thumbnailDataUrl, strategy } = payload || {};
+      const { paths, patch, perFilePatches, thumbnailDataUrl, strategy } = payload || {};
       const list = Array.isArray(paths) ? paths : [];
       return await batchLocal.applyMetadataBatch({
         paths: list,
         patch: patch || {},
+        perFilePatches,
         thumbnailDataUrl,
         strategy: strategy || 'merge',
       });
@@ -66,6 +67,7 @@ function registerHandlers(ipcMain) {
         format,
         quality,
         metadataPatch,
+        perFilePatches,
         thumbnailDataUrl,
         metadataStrategy,
         startTime,
@@ -78,6 +80,7 @@ function registerHandlers(ipcMain) {
         format,
         quality,
         metadataPatch,
+        perFilePatches,
         thumbnailDataUrl,
         metadataStrategy,
         startTime,

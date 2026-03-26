@@ -30,7 +30,7 @@ const SHORTCUTS = [
     items: [
       { keys: ['Ctrl', 'H'], description: 'Open history panel' },
       { keys: ['Ctrl', 'B'], description: 'Open URL batch queue panel' },
-      { keys: ['Ctrl', 'Shift', 'B'], description: 'Open local files batch panel' },
+      { keys: ['Ctrl', 'Shift', 'B'], description: 'Switch to Library tab (local files & tags)' },
       { keys: ['Ctrl', ','], description: 'Open settings' },
     ],
   },

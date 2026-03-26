@@ -14,7 +14,6 @@ import {
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
 import QueueIcon from '@mui/icons-material/Queue';
-import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { getTheme } from './styles/theme';
 import ConversionForm from './components/ConversionForm';
 import ProgressIndicator from './components/ProgressIndicator';
@@ -24,7 +23,6 @@ import OutputFolderSelector from './components/OutputFolderSelector';
 import SettingsDialog from './components/SettingsDialog';
 import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
-import BatchLocalPanel from './components/BatchLocalPanel';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import { loadQueueFromStorage, saveQueueToStorage } from './lib/queueStorage';
 import logo from '../assets/icon.png';
@@ -45,7 +43,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [batchLocalOpen, setBatchLocalOpen] = useState(false);
+  const [conversionInputMode, setConversionInputMode] = useState('search');
   const [historyCount, setHistoryCount] = useState(0);
   const [appVersion, setAppVersion] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -104,7 +102,7 @@ function App() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'b' && e.shiftKey) {
         e.preventDefault();
-        setBatchLocalOpen(true);
+        setConversionInputMode('batch-local');
       }
       // Ctrl+, or Cmd+, to open settings
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
@@ -509,16 +507,6 @@ function App() {
                 sx={{ mr: 2, opacity: 0.7, borderColor: 'rgba(255,255,255,0.3)', color: 'inherit' }}
               />
             )}
-            <Tooltip title="Local batch metadata & convert (Ctrl+Shift+B)">
-              <IconButton
-                color="inherit"
-                onClick={() => setBatchLocalOpen(true)}
-                sx={{ mr: 1 }}
-                aria-label="Open local batch panel"
-              >
-                <LibraryMusicIcon />
-              </IconButton>
-            </Tooltip>
             <Tooltip title="Batch Queue (Ctrl+B)">
               <IconButton
                 color="inherit"
@@ -555,7 +543,10 @@ function App() {
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="md" sx={{ flexGrow: 1, py: 4 }}>
+        <Container
+          maxWidth={conversionInputMode === 'batch-local' ? 'lg' : 'md'}
+          sx={{ flexGrow: 1, py: 4 }}
+        >
           <ConversionForm
             onConvert={handleConvert}
             onCancel={handleCancel}
@@ -568,6 +559,16 @@ function App() {
             defaultSearchSite={defaultSettings.defaultSearchSite}
             defaultSearchLimit={defaultSettings.defaultSearchLimit}
             onAddToQueue={handleAddToQueue}
+            inputMode={conversionInputMode}
+            onInputModeChange={setConversionInputMode}
+            outputFolder={outputFolder}
+            onLocalBatchComplete={() => {
+              if (window.api && window.api.getHistory) {
+                window.api.getHistory().then((history) => {
+                  setHistoryCount(history?.length || 0);
+                });
+              }
+            }}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -637,24 +638,6 @@ function App() {
           onClose={() => {
             setHistoryOpen(false);
             // Refresh history count
-            if (window.api && window.api.getHistory) {
-              window.api.getHistory().then((history) => {
-                setHistoryCount(history?.length || 0);
-              });
-            }
-          }}
-        />
-
-        <BatchLocalPanel
-          open={batchLocalOpen}
-          onClose={() => setBatchLocalOpen(false)}
-          outputFolder={outputFolder}
-          defaultMode={defaultSettings.defaultMode}
-          defaultAudioFormat={defaultSettings.defaultAudioFormat}
-          defaultVideoFormat={defaultSettings.defaultVideoFormat}
-          defaultQuality={defaultSettings.defaultQuality}
-          disabled={!ffmpegAvailable}
-          onBatchComplete={() => {
             if (window.api && window.api.getHistory) {
               window.api.getHistory().then((history) => {
                 setHistoryCount(history?.length || 0);
