@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -29,6 +29,12 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -40,6 +46,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SortIcon from '@mui/icons-material/Sort';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
+import { validateMetadata } from '../utils';
 
 export const emptySharedMetadata = () => ({
   title: '',
@@ -84,10 +91,34 @@ function patchSharedOnly(metadata, strategy) {
   return patchForStrategy(rest, strategy);
 }
 
-function buildPerFilePatchesMap(rows, targetPaths, strategy) {
+function mergeBatchJobIntoRows(prev, targetPathSet, results, cancelled, ipcError, phase) {
+  const map = new Map((results || []).map((r) => [r.path, r]));
+  const workingStatus = phase === 'convert' ? 'converting' : 'working';
+  const successStatus = phase === 'convert' ? 'converted' : 'done';
+  return prev.map((row) => {
+    if (!targetPathSet.has(row.path) || row.status !== workingStatus) return row;
+    const r = map.get(row.path);
+    if (r) {
+      return {
+        ...row,
+        status: r.success ? successStatus : 'error',
+        error: r.success ? null : r.error || null,
+      };
+    }
+    if (ipcError) {
+      return { ...row, status: 'error', error: ipcError };
+    }
+    if (cancelled) {
+      return { ...row, status: 'cancelled', error: 'Stopped before this file was processed' };
+    }
+    return { ...row, status: 'error', error: 'No result returned' };
+  });
+}
+
+function buildPerFilePatchesMap(rows, targetPathSet, strategy) {
   const map = {};
   for (const row of rows) {
-    if (!targetPaths.includes(row.path)) continue;
+    if (!targetPathSet.has(row.path)) continue;
     const t = row.title != null ? String(row.title) : '';
     const a = row.artist != null ? String(row.artist) : '';
     const tr = row.trackNumber != null ? String(row.trackNumber) : '';
@@ -128,6 +159,15 @@ function LocalLibraryBatchView({
   const [batchPhase, setBatchPhase] = useState(null);
   const [progress, setProgress] = useState({ done: 0, total: 0, currentPath: null });
   const [thumbError, setThumbError] = useState(null);
+  const [batchReadError, setBatchReadError] = useState(null);
+  const [coverTooLargeHint, setCoverTooLargeHint] = useState(false);
+  const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
+  const [batchSnackbar, setBatchSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+  const pendingReplaceActionRef = useRef(null);
   const [convertMode, setConvertMode] = useState(defaultMode);
   const [convertFormat, setConvertFormat] = useState(
     defaultMode === 'audio' ? defaultAudioFormat : defaultVideoFormat
@@ -167,6 +207,24 @@ function LocalLibraryBatchView({
     return selectedPaths;
   }, [applyScope, rows, selectedPaths]);
 
+  const targetPathSet = useMemo(() => new Set(targetPaths), [targetPaths]);
+
+  const metadataValidationErrors = useMemo(() => {
+    const err = { ...validateMetadata(metadata) };
+    const totalNum = parseInt(String(metadata.totalTracks || '').trim(), 10);
+    if (!Number.isNaN(totalNum) && totalNum > 0) {
+      const over = rows.some((row) => {
+        const t = parseInt(String(row.trackNumber || '').trim(), 10);
+        return !Number.isNaN(t) && t > totalNum;
+      });
+      if (over) {
+        err.totalTracks =
+          err.totalTracks || `A file track number exceeds album total (${totalNum})`;
+      }
+    }
+    return err;
+  }, [metadata, rows]);
+
   const allSelected = rows.length > 0 && rows.every((r) => r.selected);
   const someSelected = rows.some((r) => r.selected);
 
@@ -182,28 +240,41 @@ function LocalLibraryBatchView({
   }, []);
 
   const enrichRowsWithMetadata = useCallback(async (paths) => {
-    if (!paths.length || !window.api?.readMetadataBatch) return;
-    const { results } = await window.api.readMetadataBatch(paths);
-    const byPath = new Map(results.map((r) => [r.path, r]));
-    setRows((prev) =>
-      prev.map((row) => {
-        const r = byPath.get(row.path);
-        if (!r) return row;
-        if (!r.success) {
-          return { ...row, status: 'read error', error: r.error || 'read failed' };
-        }
-        const m = r.metadata || {};
-        return {
-          ...row,
-          title: m.title || '',
-          artist: m.artist || '',
-          album: m.album || '',
-          trackNumber: m.trackNumber || '',
-          status: '',
-          error: null,
-        };
-      })
-    );
+    if (!paths.length || !window.api?.readMetadataBatch) return { ok: true };
+    try {
+      const res = await window.api.readMetadataBatch(paths);
+      if (res?.error) {
+        setBatchReadError(res.error);
+        return { ok: false, error: res.error };
+      }
+      const results = res.results || [];
+      setBatchReadError(null);
+      const byPath = new Map(results.map((r) => [r.path, r]));
+      setRows((prev) =>
+        prev.map((row) => {
+          const r = byPath.get(row.path);
+          if (!r) return row;
+          if (!r.success) {
+            return { ...row, status: 'read error', error: r.error || 'read failed' };
+          }
+          const m = r.metadata || {};
+          return {
+            ...row,
+            title: m.title || '',
+            artist: m.artist || '',
+            album: m.album || '',
+            trackNumber: m.trackNumber || '',
+            status: '',
+            error: null,
+          };
+        })
+      );
+      return { ok: true };
+    } catch (e) {
+      const msg = e?.message || 'Failed to read metadata';
+      setBatchReadError(msg);
+      return { ok: false, error: msg };
+    }
   }, []);
 
   const ingestPaths = useCallback(
@@ -235,7 +306,9 @@ function LocalLibraryBatchView({
         }
         return [...prev, ...added];
       });
-      if (expanded.length) await enrichRowsWithMetadata(expanded);
+      if (expanded.length) {
+        await enrichRowsWithMetadata(expanded);
+      }
     },
     [enrichRowsWithMetadata]
   );
@@ -287,10 +360,22 @@ function LocalLibraryBatchView({
     if (sel.length !== 1 || !window.api?.readMetadataBatch) return;
     const p = sel[0].path;
     setBusy(true);
+    setCoverTooLargeHint(false);
     try {
-      const { results } = await window.api.readMetadataBatch([p]);
-      const r = results[0];
-      if (!r?.success || !r.metadata) return;
+      const res = await window.api.readMetadataBatch([p]);
+      if (res?.error) {
+        setBatchSnackbar({ open: true, message: res.error, severity: 'error' });
+        return;
+      }
+      const r = (res.results || [])[0];
+      if (!r?.success || !r.metadata) {
+        setBatchSnackbar({
+          open: true,
+          message: r?.error || 'Could not read metadata for selection',
+          severity: 'error',
+        });
+        return;
+      }
       const m = r.metadata;
       setRows((prev) =>
         prev.map((row) =>
@@ -323,7 +408,16 @@ function LocalLibraryBatchView({
       if (r.pictureDataUrl) {
         setThumbnailUrl(r.pictureDataUrl);
         setCoverTouched(false);
+        setCoverTooLargeHint(false);
+      } else if (r.hasPicture) {
+        setCoverTooLargeHint(true);
       }
+    } catch (e) {
+      setBatchSnackbar({
+        open: true,
+        message: e?.message || 'Failed to read selection',
+        severity: 'error',
+      });
     } finally {
       setBusy(false);
     }
@@ -363,11 +457,16 @@ function LocalLibraryBatchView({
     if (!targetPaths.length || !window.api?.dryRunLocalBatch) return;
     setBusy(true);
     try {
-      const { results } = await window.api.dryRunLocalBatch(targetPaths);
+      const res = await window.api.dryRunLocalBatch(targetPaths);
+      if (res?.error) {
+        setBatchSnackbar({ open: true, message: res.error, severity: 'error' });
+        return;
+      }
+      const results = res.results || [];
       const map = new Map(results.map((r) => [r.path, r]));
       setRows((prev) =>
         prev.map((row) => {
-          if (!targetPaths.includes(row.path)) return row;
+          if (!targetPathSet.has(row.path)) return row;
           const r = map.get(row.path);
           if (!r?.ok) return { ...row, status: 'blocked', error: r?.error || 'not writable' };
           return { ...row, status: 'ok', error: null };
@@ -376,11 +475,11 @@ function LocalLibraryBatchView({
     } finally {
       setBusy(false);
     }
-  }, [targetPaths]);
+  }, [targetPaths, targetPathSet]);
 
   const perFileMapForTargets = useMemo(
-    () => buildPerFilePatchesMap(rows, targetPaths, strategy),
-    [rows, targetPaths, strategy]
+    () => buildPerFilePatchesMap(rows, targetPathSet, strategy),
+    [rows, targetPathSet, strategy]
   );
 
   const sharedPatchKeys = useMemo(
@@ -396,37 +495,50 @@ function LocalLibraryBatchView({
     return false;
   }, [targetPaths.length, sharedPatchKeys, coverTouched, thumbnailUrl, perFileMapForTargets]);
 
-  const handleApplyMetadata = useCallback(async () => {
+  const executeApplyMetadata = useCallback(async () => {
     if (!targetPaths.length || !window.api?.applyMetadataBatch || !canApplyMetadata) return;
     setBusy(true);
     setRows((prev) =>
       prev.map((r) =>
-        targetPaths.includes(r.path) ? { ...r, status: 'working', error: null } : r
+        targetPathSet.has(r.path) ? { ...r, status: 'working', error: null } : r
       )
     );
     try {
       const sharedPatch = patchSharedOnly(metadata, strategy);
-      const perFilePatches = buildPerFilePatchesMap(rows, targetPaths, strategy);
-      const { results, cancelled } = await window.api.applyMetadataBatch({
+      const perFilePatches = buildPerFilePatchesMap(rows, targetPathSet, strategy);
+      const res = await window.api.applyMetadataBatch({
         paths: targetPaths,
         patch: sharedPatch,
         perFilePatches,
         thumbnailDataUrl: coverTouched && thumbnailUrl ? thumbnailUrl : undefined,
         strategy,
       });
-      const map = new Map(results.map((r) => [r.path, r]));
+      const ipcError = res?.error || null;
+      const list = res?.results || [];
+      const cancelled = !!res?.cancelled;
       setRows((prev) =>
-        prev.map((row) => {
-          const r = map.get(row.path);
-          if (!r) return row;
-          return {
-            ...row,
-            status: r.success ? 'done' : 'error',
-            error: r.error || null,
-          };
-        })
+        mergeBatchJobIntoRows(prev, targetPathSet, list, cancelled, ipcError, 'metadata')
       );
-      if (!cancelled) await enrichRowsWithMetadata(targetPaths);
+      if (ipcError) {
+        setBatchSnackbar({ open: true, message: ipcError, severity: 'error' });
+      } else {
+        const ok = list.filter((x) => x.success).length;
+        const bad = list.filter((x) => !x.success).length;
+        if (cancelled) {
+          setBatchSnackbar({
+            open: true,
+            message: 'Tag write stopped; some files may be unchanged.',
+            severity: 'warning',
+          });
+        } else {
+          setBatchSnackbar({
+            open: true,
+            message: `Tags written: ${ok} succeeded${bad ? `, ${bad} failed` : ''}.`,
+            severity: bad ? 'warning' : 'success',
+          });
+        }
+      }
+      if (!cancelled && !ipcError) await enrichRowsWithMetadata(targetPaths);
     } finally {
       setBusy(false);
       setProgress({ done: 0, total: 0, currentPath: null });
@@ -434,6 +546,7 @@ function LocalLibraryBatchView({
     }
   }, [
     targetPaths,
+    targetPathSet,
     rows,
     metadata,
     strategy,
@@ -443,18 +556,42 @@ function LocalLibraryBatchView({
     canApplyMetadata,
   ]);
 
-  const handleConvert = useCallback(async () => {
+  const handleApplyMetadataClick = useCallback(() => {
+    if (!targetPaths.length || !canApplyMetadata) return;
+    if (Object.keys(metadataValidationErrors).length > 0) {
+      setBatchSnackbar({
+        open: true,
+        message: 'Fix validation errors in shared fields before writing tags.',
+        severity: 'error',
+      });
+      return;
+    }
+    if (strategy === 'replace') {
+      pendingReplaceActionRef.current = 'apply';
+      setReplaceConfirmOpen(true);
+      return;
+    }
+    executeApplyMetadata();
+  }, [
+    targetPaths.length,
+    canApplyMetadata,
+    metadataValidationErrors,
+    strategy,
+    executeApplyMetadata,
+  ]);
+
+  const executeConvert = useCallback(async () => {
     if (!targetPaths.length || !window.api?.convertLocalBatch) return;
     setBusy(true);
     setRows((prev) =>
       prev.map((r) =>
-        targetPaths.includes(r.path) ? { ...r, status: 'converting', error: null } : r
+        targetPathSet.has(r.path) ? { ...r, status: 'converting', error: null } : r
       )
     );
     try {
       const sharedPatch = patchSharedOnly(metadata, strategy);
-      const perFilePatches = buildPerFilePatchesMap(rows, targetPaths, strategy);
-      const { results, cancelled } = await window.api.convertLocalBatch({
+      const perFilePatches = buildPerFilePatchesMap(rows, targetPathSet, strategy);
+      const res = await window.api.convertLocalBatch({
         paths: targetPaths,
         outputFolder,
         mode: convertMode,
@@ -466,19 +603,32 @@ function LocalLibraryBatchView({
           coverTouched && thumbnailUrl ? thumbnailUrl : undefined,
         metadataStrategy: strategy,
       });
-      const map = new Map(results.map((r) => [r.path, r]));
+      const ipcError = res?.error || null;
+      const list = res?.results || [];
+      const cancelled = !!res?.cancelled;
       setRows((prev) =>
-        prev.map((row) => {
-          const r = map.get(row.path);
-          if (!r) return row;
-          return {
-            ...row,
-            status: r.success ? 'converted' : 'error',
-            error: r.error || null,
-          };
-        })
+        mergeBatchJobIntoRows(prev, targetPathSet, list, cancelled, ipcError, 'convert')
       );
-      if (!cancelled) onBatchComplete?.();
+      if (ipcError) {
+        setBatchSnackbar({ open: true, message: ipcError, severity: 'error' });
+      } else {
+        const ok = list.filter((x) => x.success).length;
+        const bad = list.filter((x) => !x.success).length;
+        if (cancelled) {
+          setBatchSnackbar({
+            open: true,
+            message: 'Conversion stopped; some files may be unfinished.',
+            severity: 'warning',
+          });
+        } else {
+          setBatchSnackbar({
+            open: true,
+            message: `Converted: ${ok} succeeded${bad ? `, ${bad} failed` : ''}.`,
+            severity: bad ? 'warning' : 'success',
+          });
+        }
+      }
+      if (!cancelled && !ipcError) onBatchComplete?.();
     } finally {
       setBusy(false);
       setProgress({ done: 0, total: 0, currentPath: null });
@@ -486,6 +636,7 @@ function LocalLibraryBatchView({
     }
   }, [
     targetPaths,
+    targetPathSet,
     rows,
     outputFolder,
     convertMode,
@@ -497,6 +648,43 @@ function LocalLibraryBatchView({
     thumbnailUrl,
     onBatchComplete,
   ]);
+
+  const handleConvertClick = useCallback(() => {
+    if (!targetPaths.length || disabled) return;
+    if (Object.keys(metadataValidationErrors).length > 0) {
+      setBatchSnackbar({
+        open: true,
+        message: 'Fix validation errors in shared fields before converting.',
+        severity: 'error',
+      });
+      return;
+    }
+    if (strategy === 'replace') {
+      pendingReplaceActionRef.current = 'convert';
+      setReplaceConfirmOpen(true);
+      return;
+    }
+    executeConvert();
+  }, [
+    targetPaths.length,
+    disabled,
+    metadataValidationErrors,
+    strategy,
+    executeConvert,
+  ]);
+
+  const handleReplaceConfirm = useCallback(() => {
+    const action = pendingReplaceActionRef.current;
+    setReplaceConfirmOpen(false);
+    pendingReplaceActionRef.current = null;
+    if (action === 'apply') executeApplyMetadata();
+    else if (action === 'convert') executeConvert();
+  }, [executeApplyMetadata, executeConvert]);
+
+  const handleReplaceConfirmCancel = useCallback(() => {
+    setReplaceConfirmOpen(false);
+    pendingReplaceActionRef.current = null;
+  }, []);
 
   const handleStop = useCallback(async () => {
     await window.api?.cancelBatchJob?.();
@@ -528,6 +716,12 @@ function LocalLibraryBatchView({
         <Alert severity="info" sx={{ mb: 2 }} onClose={() => setTruncatedHint(false)}>
           File list was truncated at the maximum allowed count. Add more files in a second batch if
           needed.
+        </Alert>
+      )}
+
+      {batchReadError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBatchReadError(null)}>
+          {batchReadError}
         </Alert>
       )}
 
@@ -683,6 +877,7 @@ function LocalLibraryBatchView({
                       onChange={(e) => updateRowField(row.id, 'artist', e.target.value)}
                       disabled={busy}
                       placeholder="Artist"
+                      inputProps={{ 'aria-label': `Artist for ${row.path}` }}
                     />
                   </TableCell>
                   <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>
@@ -693,7 +888,7 @@ function LocalLibraryBatchView({
                       onChange={(e) => updateRowField(row.id, 'trackNumber', e.target.value)}
                       disabled={busy}
                       placeholder="#"
-                      type="number"
+                      inputProps={{ 'aria-label': `Track number for ${row.path}` }}
                     />
                   </TableCell>
                   <TableCell>
@@ -752,6 +947,14 @@ function LocalLibraryBatchView({
         </RadioGroup>
       </FormControl>
 
+      {strategy === 'replace' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Replace clears every shared tag you leave empty (album, genre, year, advanced fields) on
+          all targets. Title, artist, and track in the table still apply per file. Confirm before
+          write or convert.
+        </Alert>
+      )}
+
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Button size="small" variant="outlined" onClick={handleClearSharedForm} disabled={busy}>
           Clear shared form
@@ -766,6 +969,7 @@ function LocalLibraryBatchView({
           <MetadataFormFields
             metadata={metadata}
             onChange={handleMetadataChange}
+            errors={metadataValidationErrors}
             renderSection="albumCore"
             hideTitle
             hideArtist
@@ -782,6 +986,7 @@ function LocalLibraryBatchView({
           <MetadataFormFields
             metadata={metadata}
             onChange={handleMetadataChange}
+            errors={metadataValidationErrors}
             renderSection="advanced"
             hideTitle
             hideArtist
@@ -804,6 +1009,12 @@ function LocalLibraryBatchView({
         {thumbError && (
           <Alert severity="error" sx={{ mt: 1 }}>
             {thumbError}
+          </Alert>
+        )}
+        {coverTooLargeHint && (
+          <Alert severity="info" sx={{ mt: 1 }} onClose={() => setCoverTooLargeHint(false)}>
+            This file has embedded art that is too large to preview here. You can still set a new
+            cover below; it will be written on apply.
           </Alert>
         )}
       </Box>
@@ -882,7 +1093,7 @@ function LocalLibraryBatchView({
         <Button
           variant="contained"
           color="primary"
-          onClick={handleApplyMetadata}
+          onClick={handleApplyMetadataClick}
           disabled={busy || !targetPaths.length || !canApplyMetadata}
         >
           Write tags (no re-encode)
@@ -891,7 +1102,7 @@ function LocalLibraryBatchView({
           variant="contained"
           color="secondary"
           startIcon={<PlayArrowIcon />}
-          onClick={handleConvert}
+          onClick={handleConvertClick}
           disabled={busy || !targetPaths.length || disabled}
         >
           Convert files
@@ -906,6 +1117,38 @@ function LocalLibraryBatchView({
           Stop
         </Button>
       </Box>
+
+      <Dialog open={replaceConfirmOpen} onClose={handleReplaceConfirmCancel}>
+        <DialogTitle>Confirm replace mode</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Replace mode clears shared tags you left empty on every target file. Per-file title,
+            artist, and track from the table are still applied. Continue?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleReplaceConfirmCancel}>Cancel</Button>
+          <Button onClick={handleReplaceConfirm} variant="contained" autoFocus>
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={batchSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setBatchSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setBatchSnackbar((s) => ({ ...s, open: false }))}
+          severity={batchSnackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {batchSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

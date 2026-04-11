@@ -27,6 +27,7 @@ const MEDIA_EXTENSIONS = new Set([
 const DEFAULT_MAX_FILES = 3000;
 const DEFAULT_MAX_DEPTH = 32;
 const MAX_ART_PREVIEW_BYTES = 200000;
+const READ_METADATA_CONCURRENCY = 6;
 
 const METADATA_KEYS = [
   'title',
@@ -222,29 +223,34 @@ function overlayPerFileFields(baseMeta, partial) {
   return out;
 }
 
+async function readOneMetadataForBatch(p) {
+  if (!p || typeof p !== 'string') {
+    return { path: p, success: false, error: 'Invalid path' };
+  }
+  if (!fs.existsSync(p)) {
+    return { path: p, success: false, error: 'File not found' };
+  }
+  try {
+    const data = await readAudioMetadata(p);
+    return {
+      path: p,
+      success: true,
+      metadata: data.metadata,
+      pictureDataUrl: data.pictureDataUrl,
+      hasPicture: data.hasPicture,
+    };
+  } catch (e) {
+    return { path: p, success: false, error: e.message || 'Read failed' };
+  }
+}
+
 async function readMetadataBatch(paths) {
+  const list = Array.isArray(paths) ? paths : [];
   const results = [];
-  for (const p of paths) {
-    if (!p || typeof p !== 'string') {
-      results.push({ path: p, success: false, error: 'Invalid path' });
-      continue;
-    }
-    if (!fs.existsSync(p)) {
-      results.push({ path: p, success: false, error: 'File not found' });
-      continue;
-    }
-    try {
-      const data = await readAudioMetadata(p);
-      results.push({
-        path: p,
-        success: true,
-        metadata: data.metadata,
-        pictureDataUrl: data.pictureDataUrl,
-        hasPicture: data.hasPicture,
-      });
-    } catch (e) {
-      results.push({ path: p, success: false, error: e.message || 'Read failed' });
-    }
+  for (let i = 0; i < list.length; i += READ_METADATA_CONCURRENCY) {
+    const chunk = list.slice(i, i + READ_METADATA_CONCURRENCY);
+    const chunkResults = await Promise.all(chunk.map((p) => readOneMetadataForBatch(p)));
+    results.push(...chunkResults);
   }
   return { results };
 }
