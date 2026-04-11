@@ -36,6 +36,7 @@ import {
   DialogActions,
   Snackbar,
   Stack,
+  Switch,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -47,7 +48,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SortIcon from '@mui/icons-material/Sort';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
-import CatalogLinkSection from './metadata/CatalogLinkSection';
+import CatalogLinkSection, { pickAlbumSharedFields } from './metadata/CatalogLinkSection';
 import { validateMetadata, fileStemFromPath, normalizeTagDisplay } from '../utils';
 
 export const emptySharedMetadata = () => ({
@@ -103,6 +104,7 @@ function mergeBatchJobIntoRows(prev, targetPathSet, results, cancelled, ipcError
     if (r) {
       return {
         ...row,
+        ...(r.success && r.newPath ? { path: r.newPath } : {}),
         status: r.success ? successStatus : 'error',
         error: r.success ? null : r.error || null,
       };
@@ -164,6 +166,7 @@ function LocalLibraryBatchView({
   const [batchReadError, setBatchReadError] = useState(null);
   const [coverTooLargeHint, setCoverTooLargeHint] = useState(false);
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
+  const [renameFilesToTrackTitle, setRenameFilesToTrackTitle] = useState(true);
   const [batchSnackbar, setBatchSnackbar] = useState({
     open: false,
     message: '',
@@ -240,6 +243,57 @@ function LocalLibraryBatchView({
     setCoverTouched(false);
     setThumbError(null);
   }, []);
+
+  const handleCatalogTracklistLoaded = useCallback(
+    (tracks, catalogMetaFull = {}) => {
+      if (!tracks?.length) return;
+      const albumPatch = pickAlbumSharedFields(catalogMetaFull);
+      const m = tracks.length;
+      const pathSetEarly =
+        applyScope === 'all'
+          ? new Set(rows.map((r) => r.path))
+          : new Set(rows.filter((r) => r.selected).map((r) => r.path));
+      const nEarly = rows.filter((r) => pathSetEarly.has(r.path)).length;
+      const kEarly = Math.min(nEarly, m);
+      if (nEarly !== m) {
+        setBatchSnackbar({
+          open: true,
+          message: `Catalog has ${m} tracks; ${nEarly} file(s) in scope. Updated the first ${kEarly} row(s) to match.`,
+          severity: 'info',
+        });
+      }
+      setMetadata((prev) => ({
+        ...prev,
+        ...albumPatch,
+        totalTracks: m > 0 ? String(m) : prev.totalTracks,
+      }));
+      setRows((prevRows) => {
+        const pathSet =
+          applyScope === 'all'
+            ? new Set(prevRows.map((r) => r.path))
+            : new Set(prevRows.filter((r) => r.selected).map((r) => r.path));
+        const ordered = prevRows.filter((r) => pathSet.has(r.path));
+        const n = ordered.length;
+        const k = Math.min(n, m);
+        const pathToUpdates = new Map();
+        for (let i = 0; i < k; i++) {
+          const row = ordered[i];
+          const t = tracks[i];
+          const title = (t.title || '').trim();
+          const next = { ...row };
+          if (title) next.title = title;
+          if (t.trackNumber != null && String(t.trackNumber).trim() !== '') {
+            next.trackNumber = String(t.trackNumber);
+          }
+          const art = t.artist != null ? String(t.artist).trim() : '';
+          if (art) next.artist = art;
+          pathToUpdates.set(row.path, next);
+        }
+        return prevRows.map((r) => (pathToUpdates.has(r.path) ? pathToUpdates.get(r.path) : r));
+      });
+    },
+    [applyScope, rows]
+  );
 
   const enrichRowsWithMetadata = useCallback(async (paths) => {
     if (!paths.length || !window.api?.readMetadataBatch) return { ok: true };
@@ -520,6 +574,7 @@ function LocalLibraryBatchView({
         perFilePatches,
         thumbnailDataUrl: coverTouched && thumbnailUrl ? thumbnailUrl : undefined,
         strategy,
+        renameToTrackTitle: renameFilesToTrackTitle,
       });
       const ipcError = res?.error || null;
       const list = res?.results || [];
@@ -539,14 +594,21 @@ function LocalLibraryBatchView({
             severity: 'warning',
           });
         } else {
+          const renameNote =
+            renameFilesToTrackTitle && ok > 0 ? ' Files renamed when titles differed from names.' : '';
           setBatchSnackbar({
             open: true,
-            message: `Tags written: ${ok} succeeded${bad ? `, ${bad} failed` : ''}.`,
+            message: `Tags written: ${ok} succeeded${bad ? `, ${bad} failed` : ''}.${renameNote}`,
             severity: bad ? 'warning' : 'success',
           });
         }
       }
-      if (!cancelled && !ipcError) await enrichRowsWithMetadata(targetPaths);
+      if (!cancelled && !ipcError) {
+        const refreshedPaths = list
+          .filter((x) => x.success)
+          .map((x) => x.newPath || x.path);
+        if (refreshedPaths.length) await enrichRowsWithMetadata(refreshedPaths);
+      }
     } finally {
       setBusy(false);
       setProgress({ done: 0, total: 0, currentPath: null });
@@ -562,6 +624,7 @@ function LocalLibraryBatchView({
     thumbnailUrl,
     enrichRowsWithMetadata,
     canApplyMetadata,
+    renameFilesToTrackTitle,
   ]);
 
   const handleApplyMetadataClick = useCallback(() => {
@@ -709,8 +772,8 @@ function LocalLibraryBatchView({
         Add one file or many (folders expand to all supported media). Use the table for
         per-file <strong>title</strong>, <strong>artist</strong>, and <strong>track</strong>; use the
         sections below for shared album info and artwork. <strong>Write tags</strong> updates files
-        in place without re-encoding. <strong>Convert</strong> writes new files to your output
-        folder, then applies tags.
+        in place without re-encoding; you can optionally rename each file to its written track title.
+        <strong>Convert</strong> writes new files to your output folder, then applies tags.
       </Typography>
 
       {disabled && (
@@ -977,6 +1040,7 @@ function LocalLibraryBatchView({
             variant="albumShared"
             disabled={busy}
             onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+            onTracklistLoaded={handleCatalogTracklistLoaded}
             onCoverLoaded={(dataUrl) => {
               if (dataUrl) {
                 setThumbnailUrl(dataUrl);
@@ -1105,6 +1169,18 @@ function LocalLibraryBatchView({
           </Select>
         </FormControl>
         </Box>
+
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={renameFilesToTrackTitle}
+              onChange={(e) => setRenameFilesToTrackTitle(e.target.checked)}
+              disabled={busy}
+            />
+          }
+          label="Rename files to match track title after writing tags"
+        />
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <Button

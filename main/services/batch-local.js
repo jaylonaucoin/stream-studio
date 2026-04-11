@@ -4,6 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getUniqueFilename, sanitizeFileName } = require('../utils/filename');
 const { getMainWindow } = require('../window');
 const { applyMetadataToFile } = require('./metadata');
 const conversionService = require('./conversion');
@@ -242,7 +243,14 @@ async function readMetadataBatch(paths) {
   return { results };
 }
 
-async function applyMetadataBatch({ paths, patch, perFilePatches, thumbnailDataUrl, strategy }) {
+async function applyMetadataBatch({
+  paths,
+  patch,
+  perFilePatches,
+  thumbnailDataUrl,
+  strategy,
+  renameToTrackTitle = false,
+}) {
   resetBatchCancel();
   const results = [];
   const total = paths.length;
@@ -308,10 +316,43 @@ async function applyMetadataBatch({ paths, patch, perFilePatches, thumbnailDataU
           ? null
           : thumbnailDataUrl;
       const res = await applyMetadataToFile(p, metaForWrite, thumb);
+      if (!res.success) {
+        results.push({
+          path: p,
+          success: false,
+          error: res.error,
+        });
+        continue;
+      }
+
+      let newPath;
+      if (renameToTrackTitle) {
+        const titleRaw = metaForWrite.title != null ? String(metaForWrite.title) : '';
+        const sanitized = sanitizeFileName(titleRaw.trim());
+        const ext = path.extname(p);
+        const currentBase = path.basename(p, ext);
+        if (sanitized && sanitized !== currentBase) {
+          const desired = path.join(path.dirname(p), `${sanitized}${ext}`);
+          try {
+            newPath = getUniqueFilename(desired);
+            if (newPath !== p) {
+              fs.renameSync(p, newPath);
+            }
+          } catch (renameErr) {
+            results.push({
+              path: p,
+              success: false,
+              error: renameErr.message || 'Rename failed',
+            });
+            continue;
+          }
+        }
+      }
+
       results.push({
         path: p,
-        success: res.success,
-        error: res.error,
+        success: true,
+        ...(newPath && newPath !== p ? { newPath } : {}),
       });
     } catch (e) {
       results.push({

@@ -27,7 +27,8 @@ function registerHandlers(ipcMain) {
 
   ipcMain.handle('applyMetadataBatch', async (event, payload) => {
     try {
-      const { paths, patch, perFilePatches, thumbnailDataUrl, strategy } = payload || {};
+      const { paths, patch, perFilePatches, thumbnailDataUrl, strategy, renameToTrackTitle } =
+        payload || {};
       const list = Array.isArray(paths) ? paths : [];
       return await batchLocal.applyMetadataBatch({
         paths: list,
@@ -35,6 +36,7 @@ function registerHandlers(ipcMain) {
         perFilePatches,
         thumbnailDataUrl,
         strategy: strategy || 'merge',
+        renameToTrackTitle: !!renameToTrackTitle,
       });
     } catch (error) {
       console.error('applyMetadataBatch error:', error);
