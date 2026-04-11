@@ -13,6 +13,7 @@ const { checkFfmpegAvailable } = require('../../services/ffmpeg');
 const settingsService = require('../../services/settings');
 const historyService = require('../../services/history');
 const { AppError, ErrorCodes, errorResponse } = require('../../utils/errors');
+const { allMedia: MEDIA_INPUT_EXTENSIONS } = require('../../../shared/media-input-extensions.json');
 
 /**
  * Register basic IPC handlers
@@ -299,7 +300,7 @@ function registerHandlers(ipcMain) {
       const result = await dialog.showOpenDialog(win || undefined, {
         properties: ['openFile'],
         filters: [
-          { name: 'Audio & Video', extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv'] },
+          { name: 'Audio & Video', extensions: [...MEDIA_INPUT_EXTENSIONS] },
           { name: 'All Files', extensions: ['*'] },
         ],
         title: 'Select File to Convert',
@@ -327,7 +328,7 @@ function registerHandlers(ipcMain) {
         filters: [
           {
             name: 'Audio & Video',
-            extensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg', 'opus', 'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv'],
+            extensions: [...MEDIA_INPUT_EXTENSIONS],
           },
           { name: 'All Files', extensions: ['*'] },
         ],

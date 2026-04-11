@@ -74,7 +74,7 @@ For a complete list of supported sites, see the [yt-dlp supported sites](https:/
 ### Input & Discovery
 - **YouTube / multi-site search** — Search YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, and 10+ other sites with audio preview
 - **Paste URL** — Accepts URLs with or without `https://` prefix
-- **Local file conversion** — Convert existing media files (MP3, MP4, M4A, etc.)
+- **Local file conversion** — Convert existing audio/video files (broad container support: MP3, MP4, WMA, WMV, MKV, TS, and more)
 - **Drag & drop** — URLs and local files
 
 ### Conversion

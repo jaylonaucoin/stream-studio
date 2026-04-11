@@ -66,6 +66,7 @@
     "files": [
       "main.js",
       "main/**/*",
+      "shared/**/*",
       "preload.js",
       "dist-renderer/**/*",
       "assets/**/*",

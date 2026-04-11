@@ -40,6 +40,10 @@ import {
 } from './conversion';
 import { SUPPORTED_SITES, isAudioOnlyExtractor, isAudioOnlyUrl } from '../constants';
 import { normalizeUrl, isValidUrl, isLikelyUrl } from '../utils';
+import mediaInputExtensions from '../../shared/media-input-extensions.json';
+
+const LOCAL_FILE_ACCEPT = `audio/*,video/*,${mediaInputExtensions.allMedia.map((e) => `.${e}`).join(',')}`;
+const AUDIO_ONLY_EXTENSIONS = new Set(mediaInputExtensions.audioOnly);
 
 function ConversionForm({
   onConvert,
@@ -109,20 +113,6 @@ function ConversionForm({
   // Clip/trim state (for URL or local file)
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-
-  // Audio-only file extensions: cannot convert to video (mp3->mp4 invalid)
-  const AUDIO_ONLY_EXTENSIONS = new Set([
-    'mp3',
-    'm4a',
-    'flac',
-    'wav',
-    'aac',
-    'ogg',
-    'opus',
-    'alac',
-    'wma',
-    'ape',
-  ]);
 
   // When local file is audio-only, disable Video mode (can't go mp3->mp4)
   const isLocalFileAudioOnly =
@@ -747,7 +737,7 @@ function ConversionForm({
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/*,video/*,.mp3,.m4a,.flac,.wav,.aac,.ogg,.opus,.mp4,.mkv,.webm,.avi,.mov"
+            accept={LOCAL_FILE_ACCEPT}
             style={{ display: 'none' }}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -808,7 +798,7 @@ function ConversionForm({
                 : 'Drop audio or video file here, or click to browse'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Supports MP3, M4A, FLAC, WAV, MP4, MKV, WebM, and more
+              Common audio and video files
             </Typography>
           </Paper>
         </Box>

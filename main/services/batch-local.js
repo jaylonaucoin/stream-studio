@@ -8,21 +8,8 @@ const { getMainWindow } = require('../window');
 const { applyMetadataToFile } = require('./metadata');
 const conversionService = require('./conversion');
 
-const MEDIA_EXTENSIONS = new Set([
-  '.mp3',
-  '.m4a',
-  '.flac',
-  '.wav',
-  '.aac',
-  '.ogg',
-  '.opus',
-  '.mp4',
-  '.mkv',
-  '.webm',
-  '.avi',
-  '.mov',
-  '.flv',
-]);
+const { allMedia: MEDIA_INPUT_EXTENSIONS } = require('../../shared/media-input-extensions.json');
+const MEDIA_EXTENSIONS = new Set(MEDIA_INPUT_EXTENSIONS.map((ext) => `.${ext}`));
 
 const DEFAULT_MAX_FILES = 3000;
 const DEFAULT_MAX_DEPTH = 32;
