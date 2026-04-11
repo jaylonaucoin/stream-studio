@@ -170,7 +170,7 @@ async function readAudioMetadata(filePath) {
 
   const metadata = {
     title: c.title || '',
-    artist: joinArtists(c.artist),
+    artist: joinArtists(c.artist) || joinArtists(c.artists),
     album: c.album || '',
     albumArtist: joinArtists(c.albumartist),
     genre: joinArtists(c.genre),

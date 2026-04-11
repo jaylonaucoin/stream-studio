@@ -47,7 +47,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SortIcon from '@mui/icons-material/Sort';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
-import { validateMetadata, fileStemFromPath } from '../utils';
+import { validateMetadata, fileStemFromPath, normalizeTagDisplay } from '../utils';
 
 export const emptySharedMetadata = () => ({
   title: '',
@@ -259,13 +259,15 @@ function LocalLibraryBatchView({
             return { ...row, status: 'read error', error: r.error || 'read failed' };
           }
           const m = r.metadata || {};
-          const tagTitle = m.title != null ? String(m.title).trim() : '';
+          const tagTitle = normalizeTagDisplay(m.title);
+          const tagArtist = normalizeTagDisplay(m.artist);
+          const tagTrack = normalizeTagDisplay(m.trackNumber);
           return {
             ...row,
             title: tagTitle !== '' ? tagTitle : fileStemFromPath(row.path),
-            artist: m.artist || '',
+            artist: tagArtist,
             album: m.album || '',
-            trackNumber: m.trackNumber || '',
+            trackNumber: tagTrack,
             status: '',
             error: null,
           };
@@ -379,16 +381,18 @@ function LocalLibraryBatchView({
         return;
       }
       const m = r.metadata;
-      const tagTitle = m.title != null ? String(m.title).trim() : '';
+      const tagTitle = normalizeTagDisplay(m.title);
+      const tagArtist = normalizeTagDisplay(m.artist);
+      const tagTrack = normalizeTagDisplay(m.trackNumber);
       setRows((prev) =>
         prev.map((row) =>
           row.path === p
             ? {
                 ...row,
                 title: tagTitle !== '' ? tagTitle : fileStemFromPath(p),
-                artist: m.artist || '',
+                artist: tagArtist,
                 album: m.album || '',
-                trackNumber: m.trackNumber || '',
+                trackNumber: tagTrack,
               }
             : row
         )
