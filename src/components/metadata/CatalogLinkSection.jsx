@@ -73,7 +73,7 @@ function CatalogLinkSection({
         }
       }
       if (Array.isArray(res.tracks) && res.tracks.length > 0 && typeof onTracklistLoaded === 'function') {
-        onTracklistLoaded(res.tracks);
+        onTracklistLoaded(res.tracks, res.metadata || {});
       }
     } catch (e) {
       const msg = e?.message || 'Lookup failed';
