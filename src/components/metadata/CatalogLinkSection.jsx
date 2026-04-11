@@ -30,6 +30,7 @@ export function pickAlbumSharedFields(full) {
 function CatalogLinkSection({
   onMetadataLoaded,
   onCoverLoaded,
+  onTracklistLoaded,
   onError,
   disabled = false,
   sx = {},
@@ -71,6 +72,9 @@ function CatalogLinkSection({
           onCoverLoaded(imgRes.dataUrl);
         }
       }
+      if (Array.isArray(res.tracks) && res.tracks.length > 0 && typeof onTracklistLoaded === 'function') {
+        onTracklistLoaded(res.tracks);
+      }
     } catch (e) {
       const msg = e?.message || 'Lookup failed';
       setLocalError(msg);
@@ -78,7 +82,7 @@ function CatalogLinkSection({
     } finally {
       setLoading(false);
     }
-  }, [catalogUrl, onMetadataLoaded, onCoverLoaded, onError, variant]);
+  }, [catalogUrl, onMetadataLoaded, onCoverLoaded, onTracklistLoaded, onError, variant]);
 
   return (
     <Box sx={{ mb: 2, ...sx }}>

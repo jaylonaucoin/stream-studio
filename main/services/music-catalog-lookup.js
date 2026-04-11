@@ -122,6 +122,72 @@ function topTagName(tags, limit = 1) {
 }
 
 /**
+ * Ordered track rows from a MusicBrainz release (all media, disc order).
+ * @param {object} release
+ * @returns {Array<{ title: string, trackNumber: string, artist?: string }>}
+ */
+function extractMusicBrainzReleaseTracks(release) {
+  const albumArtist = formatArtistCredit(release['artist-credit']);
+  const media = [...(release.media || [])].sort((a, b) => {
+    const pa = parseInt(String(a.position || 0), 10);
+    const pb = parseInt(String(b.position || 0), 10);
+    if (!Number.isNaN(pa) && !Number.isNaN(pb) && pa !== pb) return pa - pb;
+    return 0;
+  });
+  const out = [];
+  let seq = 0;
+  for (const medium of media) {
+    const trackList = medium.track || medium.tracks;
+    if (!Array.isArray(trackList)) continue;
+    for (const tr of trackList) {
+      seq += 1;
+      const title = (tr.title || tr.recording?.title || '').trim();
+      const recCredit = formatArtistCredit(tr.recording?.['artist-credit']);
+      const entry = {
+        title,
+        trackNumber: String(seq),
+      };
+      if (recCredit && albumArtist && recCredit !== albumArtist) {
+        entry.artist = recCredit;
+      } else if (recCredit && !albumArtist) {
+        entry.artist = recCredit;
+      }
+      out.push(entry);
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {object} discogsRelease
+ * @returns {Array<{ title: string, trackNumber: string }>}
+ */
+function extractDiscogsTracks(discogsRelease) {
+  const tracklist = discogsRelease.tracklist || [];
+  const tracks = tracklist.filter((t) => t.type_ === 'track' || !t.type_);
+  return tracks.map((t, index) => {
+    const pos = t.position != null ? String(t.position) : String(index + 1);
+    const digits = pos.replace(/\D/g, '');
+    return {
+      title: (t.title || '').trim(),
+      trackNumber: digits || String(index + 1),
+    };
+  });
+}
+
+/**
+ * @param {object} recording
+ * @returns {Array<{ title: string, trackNumber: string, artist?: string }>}
+ */
+function extractMusicBrainzRecordingTracks(recording) {
+  const title = (recording.title || '').trim();
+  const artist = formatArtistCredit(recording['artist-credit']);
+  const entry = { title, trackNumber: '1' };
+  if (artist) entry.artist = artist;
+  return title || artist ? [entry] : [];
+}
+
+/**
  * @param {object} release
  * @returns {object}
  */
@@ -259,7 +325,7 @@ function discogsCoverUrl(discogsRelease) {
 /**
  * @param {string} url
  * @param {{ discogsToken?: string }} options
- * @returns {Promise<{ success: true, metadata: object, coverUrl: string|null } | { success: false, error: string }>}
+ * @returns {Promise<{ success: true, metadata: object, coverUrl: string|null, tracks?: Array<{ title: string, trackNumber: string, artist?: string }> } | { success: false, error: string }>}
  */
 async function fetchCatalogMetadataFromUrl(url, options = {}) {
   const parsed = parseCatalogUrl(url);
@@ -271,6 +337,8 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
     if (parsed.provider === 'musicbrainz') {
       let metadata = emptyMetadata();
       let coverMbid = null;
+      /** @type {Array<{ title: string, trackNumber: string, artist?: string }>} */
+      let tracks = [];
 
       if (parsed.entityType === 'release') {
         const release = await musicBrainzGet(
@@ -278,6 +346,7 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
         );
         metadata = mapMusicBrainzRelease(release);
         coverMbid = parsed.id;
+        tracks = extractMusicBrainzReleaseTracks(release);
       } else if (parsed.entityType === 'recording') {
         const recording = await musicBrainzGet(
           `recording/${parsed.id}?fmt=json&inc=artist-credits+releases+tags`
@@ -285,6 +354,7 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
         metadata = mapMusicBrainzRecording(recording);
         const rels = recording.releases || [];
         coverMbid = rels[0]?.id && MBID_RE.test(rels[0].id) ? rels[0].id : null;
+        tracks = extractMusicBrainzRecordingTracks(recording);
       } else if (parsed.entityType === 'release-group') {
         const rg = await musicBrainzGet(
           `release-group/${parsed.id}?fmt=json&inc=artist-credits+releases+tags`
@@ -292,11 +362,17 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
         const mapped = mapMusicBrainzReleaseGroup(rg);
         metadata = mapped.metadata;
         coverMbid = mapped.releaseMbidForCover;
+        if (mapped.releaseMbidForCover) {
+          const fullRelease = await musicBrainzGet(
+            `release/${mapped.releaseMbidForCover}?fmt=json&inc=artist-credits+recordings+labels+release-groups+tags+media`
+          );
+          tracks = extractMusicBrainzReleaseTracks(fullRelease);
+        }
       }
 
       const coverUrl = coverMbid ? getCoverArtFrontUrl(coverMbid) : null;
 
-      return { success: true, metadata, coverUrl };
+      return { success: true, metadata, coverUrl, tracks };
     }
 
     if (parsed.provider === 'discogs') {
@@ -327,7 +403,8 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
       const body = await res.json();
       const metadata = mapDiscogsRelease(body);
       const coverUrl = discogsCoverUrl(body);
-      return { success: true, metadata, coverUrl };
+      const tracks = extractDiscogsTracks(body);
+      return { success: true, metadata, coverUrl, tracks };
     }
   } catch (e) {
     const msg = e.message || 'Request failed';

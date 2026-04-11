@@ -62,6 +62,7 @@ function MetadataEditor({
   const [errorMessage, setErrorMessage] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [playlistPage, setPlaylistPage] = useState(0);
+  const [catalogTracklistNotice, setCatalogTracklistNotice] = useState(null);
 
   // Track previous mode and open state to detect changes
   const prevModeRef = useRef(mode);
@@ -100,6 +101,7 @@ function MetadataEditor({
       setPlaylistPage(0);
       setValidationErrors({});
       setErrorMessage(null);
+      setCatalogTracklistNotice(null);
     }
 
     // Reset state when mode changes
@@ -110,6 +112,7 @@ function MetadataEditor({
       setChapterMetadata({ ...DEFAULT_CHAPTER_METADATA });
       setSegmentMetadata({ ...DEFAULT_SEGMENT_METADATA });
       setValidationErrors({});
+      setCatalogTracklistNotice(null);
     }
 
     prevModeRef.current = mode;
@@ -388,6 +391,43 @@ function MetadataEditor({
     setPlaylistSharedMetadata((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  const handlePlaylistCatalogTracklistLoaded = useCallback((tracks) => {
+    if (!tracks?.length) return;
+    let noticeUpdate = false;
+    setPerFileMetadata((prev) => {
+      const n = prev.length;
+      const m = tracks.length;
+      const k = Math.min(n, m);
+      noticeUpdate = m !== n ? { k, m, n } : false;
+      return prev.map((row, i) => {
+        if (i >= k) return { ...row };
+        const t = tracks[i];
+        const title = (t.title || '').trim();
+        const nextRow = { ...row };
+        if (t.trackNumber != null && String(t.trackNumber).trim() !== '') {
+          nextRow.trackNumber = String(t.trackNumber);
+        }
+        if (title) {
+          nextRow.title = title;
+        }
+        if (!useSharedArtist && (t.artist || '').trim()) {
+          nextRow.artist = (t.artist || '').trim();
+        }
+        return nextRow;
+      });
+    });
+    queueMicrotask(() => {
+      if (noticeUpdate === false) {
+        setCatalogTracklistNotice(null);
+      } else {
+        const { k, m, n } = noticeUpdate;
+        setCatalogTracklistNotice(
+          `Applied first ${k} tracks. Catalog has ${m} tracks; playlist has ${n}.`
+        );
+      }
+    });
+  }, [useSharedArtist]);
+
   const handleThumbnailChange = useCallback((newUrl) => {
     setThumbnailUrl(newUrl);
     setCustomThumbnail(newUrl);
@@ -647,8 +687,14 @@ function MetadataEditor({
               setCustomThumbnail(dataUrl);
             }
           }}
+          onTracklistLoaded={handlePlaylistCatalogTracklistLoaded}
           onError={(msg) => msg && setErrorMessage(msg)}
         />
+        {catalogTracklistNotice && (
+          <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCatalogTracklistNotice(null)}>
+            {catalogTracklistNotice}
+          </Alert>
+        )}
 
         <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <FormControlLabel
