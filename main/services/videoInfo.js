@@ -18,7 +18,8 @@ const AUDIO_STREAM_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (stream URLs expire
 // Shared timeout for all yt-dlp fetches - 40s allows for slow networks, YouTube throttling, complex videos
 const YT_DLP_FETCH_TIMEOUT_MS = 40000;
 const VIDEO_INFO_TIMEOUT_MS = YT_DLP_FETCH_TIMEOUT_MS;
-const VIDEO_INFO_TIMEOUT_ERROR = 'Video info extraction timed out. The URL may be invalid or the video may be unavailable.';
+const VIDEO_INFO_TIMEOUT_ERROR =
+  'Video info extraction timed out. The URL may be invalid or the video may be unavailable.';
 
 /**
  * Format duration from seconds to human readable string
@@ -47,12 +48,16 @@ function formatDuration(seconds) {
  */
 function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
   // For YouTube, construct high-quality thumbnail URL array
-  if (platform === 'youtube' || videoUrl?.includes('youtube.com') || videoUrl?.includes('youtu.be')) {
+  if (
+    platform === 'youtube' ||
+    videoUrl?.includes('youtube.com') ||
+    videoUrl?.includes('youtu.be')
+  ) {
     // YouTube thumbnail URL patterns (in order of quality - highest to lowest)
     const thumbnailUrls = [
-      `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,  // Highest quality (1280x720 or 1920x1080)
-      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,      // High quality (480x360)
-      `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,      // Medium quality (320x180)
+      `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, // Highest quality (1280x720 or 1920x1080)
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, // High quality (480x360)
+      `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`, // Medium quality (320x180)
     ];
     // Return array of URLs for frontend to try in sequence
     return thumbnailUrls;
@@ -71,10 +76,10 @@ function getHighQualityThumbnail(videoId, videoUrl, platform = 'youtube') {
 function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
   const ytDlpPath = getYtDlpPath();
   const args = [
-    '--dump-json',      // Output JSON metadata
-    '--no-playlist',    // Don't download playlists
-    '--no-warnings',    // Suppress warnings
-    sanitizedUrl
+    '--dump-json', // Output JSON metadata
+    '--no-playlist', // Don't download playlists
+    '--no-warnings', // Suppress warnings
+    sanitizedUrl,
   ];
 
   return new Promise((resolve, reject) => {
@@ -104,16 +109,17 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      
+
       if (code === 0 && stdout) {
         try {
           const info = JSON.parse(stdout);
-          
+
           // Extract relevant information
           // For music, prefer 'artist' field over 'uploader'/'channel' (which may be "Release - Topic")
-          const artist = info.artist || info.artists?.[0] || info.creator || info.creators?.[0] || null;
+          const artist =
+            info.artist || info.artists?.[0] || info.creator || info.creators?.[0] || null;
           const uploader = info.uploader || info.channel || null;
-          
+
           const videoInfo = {
             title: info.title || 'Unknown Title',
             thumbnail: info.thumbnail || info.thumbnails?.[0]?.url || null,
@@ -127,19 +133,19 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
             extractor: info.extractor || null, // yt-dlp extractor (e.g. youtube, soundcloud)
             _type: info._type || null, // yt-dlp type (video, playlist, etc.)
           };
-          
+
           // Format duration
           if (videoInfo.duration) {
             videoInfo.durationFormatted = formatDuration(videoInfo.duration);
           }
-          
+
           // Cache the result
           const result = { success: true, ...videoInfo };
           videoInfoCache.set(cacheKey, {
             data: result,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           });
-          
+
           resolve(result);
         } catch (parseError) {
           reject(new Error(`Failed to parse video info: ${parseError.message}`));
@@ -148,7 +154,7 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
         // Parse error from stderr
         const errorLower = stderr.toLowerCase();
         let errorMsg = 'Failed to get video info. ';
-        
+
         if (errorLower.includes('private') || errorLower.includes('unavailable')) {
           errorMsg += 'Video is private or unavailable.';
         } else if (errorLower.includes('sign in') || errorLower.includes('login')) {
@@ -160,7 +166,7 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
         } else {
           errorMsg += 'Please check the URL and try again.';
         }
-        
+
         reject(new Error(errorMsg));
       }
     });
@@ -170,7 +176,7 @@ function fetchVideoInfoOnce(sanitizedUrl, cacheKey) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      
+
       if (error.code === 'ENOENT') {
         reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
       } else {
@@ -213,23 +219,23 @@ async function getVideoInfo(url) {
 async function getPlaylistInfo(url) {
   // Sanitize URL
   const sanitizedUrl = sanitizeUrl(url);
-  
+
   // Check cache first
   const cacheKey = sanitizedUrl;
   const cached = playlistInfoCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < PLAYLIST_CACHE_TTL) {
     return cached.data;
   }
-  
+
   const ytDlpPath = getYtDlpPath();
-  
+
   // First, try to get info with --yes-playlist to check if it's a playlist
   const playlistArgs = [
-    '--flat-playlist',   // Don't download, just list items
-    '--dump-json',       // Output JSON metadata
-    '--yes-playlist',    // Force playlist mode
-    '--no-warnings',     // Suppress warnings
-    sanitizedUrl
+    '--flat-playlist', // Don't download, just list items
+    '--dump-json', // Output JSON metadata
+    '--yes-playlist', // Force playlist mode
+    '--no-warnings', // Suppress warnings
+    sanitizedUrl,
   ];
 
   return new Promise((resolve, reject) => {
@@ -240,7 +246,7 @@ async function getPlaylistInfo(url) {
     let stdout = '';
     let stderr = '';
     let timeoutId = null;
-    
+
     timeoutId = setTimeout(() => {
       playlistProcess.kill();
       reject(new Error('Playlist info extraction timed out.'));
@@ -259,54 +265,56 @@ async function getPlaylistInfo(url) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      
+
       if (code === 0 && stdout) {
         try {
           // Parse all JSON lines (one per video in playlist)
-          const lines = stdout.trim().split('\n').filter(line => line.trim());
-          
+          const lines = stdout
+            .trim()
+            .split('\n')
+            .filter((line) => line.trim());
+
           if (lines.length === 0) {
             // Not a playlist or empty
             const result = { success: true, isPlaylist: false };
             playlistInfoCache.set(cacheKey, {
               data: result,
-              timestamp: Date.now()
+              timestamp: Date.now(),
             });
             resolve(result);
             return;
           }
-          
+
           // Parse first entry to get playlist metadata
           const firstEntry = JSON.parse(lines[0]);
-          
+
           // Check if this is actually a playlist or just a single video
           // Be strict: only consider it a playlist if:
           // 1. There are multiple videos (lines.length > 1), OR
           // 2. There's a meaningful playlist title (not empty, not "Untitled Playlist")
           const playlistTitle = firstEntry.playlist || firstEntry.playlist_title || '';
-          const hasValidPlaylistTitle = playlistTitle && 
-            playlistTitle !== 'Untitled Playlist' && 
-            playlistTitle.trim() !== '';
+          const hasValidPlaylistTitle =
+            playlistTitle && playlistTitle !== 'Untitled Playlist' && playlistTitle.trim() !== '';
           const isPlaylist = lines.length > 1 || hasValidPlaylistTitle;
-          
+
           if (!isPlaylist) {
             const result = { success: true, isPlaylist: false };
             playlistInfoCache.set(cacheKey, {
               data: result,
-              timestamp: Date.now()
+              timestamp: Date.now(),
             });
             resolve(result);
             return;
           }
-          
+
           // Parse all videos and calculate total duration
           let totalDuration = 0;
           const videos = [];
-          
+
           lines.forEach((line, lineIndex) => {
             try {
               const entry = JSON.parse(line);
-              
+
               // Extract video details
               const videoId = entry.id || entry.url?.split('/').pop() || null;
               const videoTitle = entry.title || `Video ${lineIndex + 1}`;
@@ -315,10 +323,12 @@ async function getPlaylistInfo(url) {
               const videoThumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
               // playlist_index from yt-dlp is already 1-based, use it directly
               // If not present, use lineIndex (which is 0-based) + 1
-              const playlistIndex = entry.playlist_index !== undefined ? entry.playlist_index : lineIndex + 1;
+              const playlistIndex =
+                entry.playlist_index !== undefined ? entry.playlist_index : lineIndex + 1;
               // Extract artist if available (for music playlists)
-              const videoArtist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
-              
+              const videoArtist =
+                entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+
               videos.push({
                 id: videoId,
                 title: videoTitle,
@@ -329,7 +339,7 @@ async function getPlaylistInfo(url) {
                 thumbnail: videoThumbnail,
                 artist: videoArtist, // Actual artist name (if available)
               });
-              
+
               if (entry.duration) {
                 totalDuration += entry.duration;
               }
@@ -338,22 +348,29 @@ async function getPlaylistInfo(url) {
               console.warn('Failed to parse playlist entry:', e);
             }
           });
-          
+
           // Get high-quality thumbnail for first video (used as playlist thumbnail)
           if (videos.length > 0 && videos[0].id) {
             try {
               const firstVideo = videos[0];
               const originalThumbnail = firstVideo.thumbnail; // Preserve original thumbnail as fallback
-              const platform = sanitizedUrl.includes('youtube.com') || sanitizedUrl.includes('youtu.be') ? 'youtube' : 'other';
-              const highQualityThumbnails = getHighQualityThumbnail(firstVideo.id, firstVideo.url, platform);
-              
+              const platform =
+                sanitizedUrl.includes('youtube.com') || sanitizedUrl.includes('youtu.be')
+                  ? 'youtube'
+                  : 'other';
+              const highQualityThumbnails = getHighQualityThumbnail(
+                firstVideo.id,
+                firstVideo.url,
+                platform
+              );
+
               if (highQualityThumbnails && Array.isArray(highQualityThumbnails)) {
-                // Put yt-dlp provided URL FIRST (guaranteed to exist by YouTube), 
+                // Put yt-dlp provided URL FIRST (guaranteed to exist by YouTube),
                 // then try higher quality alternatives as fallbacks
                 // This fixes the issue where maxresdefault.jpg returns a gray placeholder
                 // for videos that don't have high-res thumbnails
-                const thumbnailUrls = originalThumbnail 
-                  ? [originalThumbnail, ...highQualityThumbnails] 
+                const thumbnailUrls = originalThumbnail
+                  ? [originalThumbnail, ...highQualityThumbnails]
                   : [...highQualityThumbnails];
                 // Store as array - frontend will try URLs in sequence
                 firstVideo.thumbnail = thumbnailUrls;
@@ -363,10 +380,10 @@ async function getPlaylistInfo(url) {
               console.warn('Failed to get high-quality thumbnail:', thumbnailError);
             }
           }
-          
+
           // Format total duration
           const totalDurationFormatted = formatDuration(totalDuration);
-          
+
           const result = {
             success: true,
             isPlaylist: true,
@@ -378,13 +395,13 @@ async function getPlaylistInfo(url) {
             extractor: firstEntry.extractor || null, // For audio-only playlist labeling
             videos,
           };
-          
+
           // Cache the result
           playlistInfoCache.set(cacheKey, {
             data: result,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           });
-          
+
           resolve(result);
         } catch (parseError) {
           reject(new Error(`Failed to parse playlist info: ${parseError.message}`));
@@ -394,7 +411,7 @@ async function getPlaylistInfo(url) {
         const result = { success: true, isPlaylist: false };
         playlistInfoCache.set(cacheKey, {
           data: result,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         resolve(result);
       }
@@ -405,7 +422,7 @@ async function getPlaylistInfo(url) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      
+
       if (error.code === 'ENOENT') {
         reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
       } else {
@@ -423,7 +440,7 @@ async function getPlaylistInfo(url) {
 async function getChapterInfo(url) {
   // Sanitize URL
   const sanitizedUrl = sanitizeUrl(url);
-  
+
   // Check cache first
   const cacheKey = sanitizedUrl;
   const cached = chapterInfoCache.get(cacheKey);
@@ -432,12 +449,7 @@ async function getChapterInfo(url) {
   }
 
   const ytDlpPath = getYtDlpPath();
-  const args = [
-    '--dump-json',
-    '--no-playlist',
-    '--no-warnings',
-    sanitizedUrl,
-  ];
+  const args = ['--dump-json', '--no-playlist', '--no-warnings', sanitizedUrl];
 
   return new Promise((resolve, reject) => {
     const process = spawn(ytDlpPath, args, {
@@ -446,7 +458,7 @@ async function getChapterInfo(url) {
 
     let stdout = '';
     let timeoutId = null;
-    
+
     timeoutId = setTimeout(() => {
       process.kill();
       reject(new Error('Chapter info fetch timed out'));
@@ -461,18 +473,18 @@ async function getChapterInfo(url) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      
+
       if (code === 0 && stdout) {
         try {
           const info = JSON.parse(stdout);
           const chapters = info.chapters || [];
-          
+
           if (chapters.length > 0) {
             const formattedChapters = chapters.map((chapter, index) => {
               const startTime = chapter.start_time || 0;
-              const endTime = chapter.end_time || (info.duration || 0);
+              const endTime = chapter.end_time || info.duration || 0;
               const duration = endTime - startTime;
-              
+
               return {
                 index,
                 title: chapter.title || `Chapter ${index + 1}`,
@@ -490,7 +502,7 @@ async function getChapterInfo(url) {
               totalChapters: formattedChapters.length,
               chapters: formattedChapters,
             };
-            
+
             // Cache the result
             chapterInfoCache.set(cacheKey, { data: result, timestamp: Date.now() });
             resolve(result);
@@ -529,8 +541,7 @@ function parseSearchEntry(entry) {
 
   if (!webpageUrl) return null;
 
-  const artist =
-    entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
+  const artist = entry.artist || entry.artists?.[0] || entry.creator || entry.creators?.[0] || null;
   const uploader = entry.uploader || entry.channel || null;
   const duration = entry.duration ?? null;
   let thumbnail = entry.thumbnail || entry.thumbnails?.[0]?.url || null;
@@ -568,6 +579,7 @@ const SEARCH_SITE_PREFIXES = {
   niconico: 'niconico:search',
   rumble: 'rumble:search',
   odysée: 'odyssee:search',
+  odyssee: 'odyssee:search',
   twitch: 'twitch:search',
   twitter: 'twitter:search',
   tiktok: 'tiktok:search',
@@ -612,13 +624,7 @@ async function searchYouTube(query, limit = 15) {
  */
 function runSearch(searchArg) {
   const ytDlpPath = getYtDlpPath();
-  const args = [
-    '--dump-json',
-    '--flat-playlist',
-    '--no-warnings',
-    '--no-playlist',
-    searchArg,
-  ];
+  const args = ['--dump-json', '--flat-playlist', '--no-warnings', '--no-playlist', searchArg];
 
   return new Promise((resolve, reject) => {
     const searchProcess = spawn(ytDlpPath, args, {
@@ -688,118 +694,6 @@ function runSearch(searchArg) {
   });
 }
 
-// Search prefix per site (matches SEARCH_SITES in frontend) - used by getAudioStreamUrl fallback
-const SEARCH_PREFIX_MAP = {
-  youtube: 'ytsearch',
-  soundcloud: 'scsearch',
-  bandcamp: 'bandcamp:search',
-  vimeo: 'vimsearch',
-  dailymotion: 'dmsearch',
-  peertube: 'peertube:search',
-  media_cc: 'media_cc:search',
-  naver: 'naver:search',
-  niconico: 'niconico:search',
-  rumble: 'rumble:search',
-  odysée: 'odyssee:search',
-  odyssee: 'odyssee:search',
-  twitch: 'twitch:search',
-  twitter: 'twitter:search',
-  tiktok: 'tiktok:search',
-  bilibili: 'bilibili:search',
-};
-
-/**
- * Search a specific site by query
- * @param {string} siteId - Site identifier (youtube, soundcloud, etc.)
- * @param {string} query - Search query
- * @param {number} [limit=15] - Max results
- * @returns {Promise<Object>} { success, results, error? }
- */
-async function searchMultiSite(siteId, query, limit = 15) {
-  const trimmed = (query || '').toString().trim();
-  if (!trimmed) {
-    return { success: false, results: [], error: 'Search query cannot be empty' };
-  }
-
-  const prefix = SEARCH_PREFIX_MAP[siteId] || 'ytsearch';
-  const cappedLimit = Math.min(Math.max(limit, 1), 50);
-  const searchArg = `${prefix}${cappedLimit}:${trimmed}`;
-
-  const ytDlpPath = getYtDlpPath();
-  const args = [
-    '--dump-json',
-    '--flat-playlist',
-    '--no-warnings',
-    '--no-playlist',
-    searchArg,
-  ];
-
-  return new Promise((resolve, reject) => {
-    const searchProcess = spawn(ytDlpPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-    let timeoutId = null;
-
-    timeoutId = setTimeout(() => {
-      searchProcess.kill();
-      reject(new Error('Search timed out. Please try again.'));
-    }, YT_DLP_FETCH_TIMEOUT_MS);
-
-    searchProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    searchProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    searchProcess.on('close', (code) => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-
-      if (code === 0 && stdout) {
-        const results = [];
-        for (const line of stdout.split('\n')) {
-          if (!line.trim()) continue;
-          try {
-            const result = parseSearchEntry(JSON.parse(line));
-            if (result) results.push(result);
-          } catch (e) {
-            console.warn('Failed to parse search result line:', e);
-          }
-        }
-        resolve({ success: true, results });
-      } else {
-        const errorLower = (stderr || '').toLowerCase();
-        let errorMsg = 'Search failed. ';
-        if (errorLower.includes('enoent') || errorLower.includes('not found')) {
-          errorMsg += 'yt-dlp binary not found.';
-        } else {
-          errorMsg += 'Please check your connection and try again.';
-        }
-        reject(new Error(errorMsg));
-      }
-    });
-
-    searchProcess.on('error', (error) => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      if (error.code === 'ENOENT') {
-        reject(new Error('yt-dlp binary not found. Please ensure yt-dlp is installed.'));
-      } else {
-        reject(new Error(`Search failed: ${error.message}`));
-      }
-    });
-  });
-}
-
 const AUDIO_STREAM_TIMEOUT_ERROR = 'Timed out fetching audio stream URL.';
 
 /**
@@ -811,7 +705,8 @@ const AUDIO_STREAM_TIMEOUT_ERROR = 'Timed out fetching audio stream URL.';
 function fetchAudioStreamUrlOnce(videoUrl, cacheKey) {
   const ytDlpPath = getYtDlpPath();
   const args = [
-    '-f', 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+    '-f',
+    'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
     '--get-url',
     '--no-playlist',
     '--no-warnings',

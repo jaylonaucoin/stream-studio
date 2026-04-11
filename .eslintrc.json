@@ -30,5 +30,17 @@
     "react-hooks/exhaustive-deps": "warn",
     "no-console": ["warn", { "allow": ["warn", "error"] }]
   },
-  "ignorePatterns": ["dist/", "dist-renderer/", "node_modules/", "bin/"]
+  "ignorePatterns": ["dist/", "dist-renderer/", "node_modules/", "bin/"],
+  "overrides": [
+    {
+      "files": ["main.js", "preload.js", "main/**/*.js"],
+      "env": { "node": true, "browser": false },
+      "extends": ["eslint:recommended"],
+      "parserOptions": { "ecmaVersion": "latest", "sourceType": "script" },
+      "rules": {
+        "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+        "no-console": ["warn", { "allow": ["warn", "error"] }]
+      }
+    }
+  ]
 }

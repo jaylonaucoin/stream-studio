@@ -14,6 +14,24 @@ const settingsService = require('../../services/settings');
 const historyService = require('../../services/history');
 const { AppError, ErrorCodes, errorResponse } = require('../../utils/errors');
 const { allMedia: MEDIA_INPUT_EXTENSIONS } = require('../../../shared/media-input-extensions.json');
+const { normalizeQueueImportData } = require('../../utils/queue-import');
+
+const MAX_IMAGE_FETCH_BYTES = 12 * 1024 * 1024;
+const MAX_TEMP_FILE_BYTES = 50 * 1024 * 1024;
+
+const ALLOWED_IMAGE_CONTENT_TYPES =
+  /^image\/(jpeg|jpg|png|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)$/i;
+
+function isAllowedImageContentType(header) {
+  if (!header || typeof header !== 'string') {
+    return false;
+  }
+  const base = header.split(';')[0].trim();
+  if (base.toLowerCase() === 'image/svg+xml') {
+    return false;
+  }
+  return ALLOWED_IMAGE_CONTENT_TYPES.test(base) || base.toLowerCase().startsWith('image/');
+}
 
 /**
  * Register basic IPC handlers
@@ -59,7 +77,10 @@ function registerHandlers(ipcMain) {
       return settingsService.saveSettings(settings);
     } catch (error) {
       console.error('Save settings error:', error);
-      return errorResponse(error.message || 'Failed to save settings', error.code || ErrorCodes.UNKNOWN_ERROR);
+      return errorResponse(
+        error.message || 'Failed to save settings',
+        error.code || ErrorCodes.UNKNOWN_ERROR
+      );
     }
   });
 
@@ -100,11 +121,11 @@ function registerHandlers(ipcMain) {
       if (!url || typeof url !== 'string') {
         throw new AppError('URL is required', ErrorCodes.VALIDATION_ERROR);
       }
-      
+
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         throw new AppError('Only HTTP/HTTPS URLs are allowed', ErrorCodes.INVALID_URL);
       }
-      
+
       await shell.openExternal(url);
       return { success: true };
     } catch (error) {
@@ -151,11 +172,11 @@ function registerHandlers(ipcMain) {
       if (!filePath || typeof filePath !== 'string') {
         throw new AppError('File path is required', ErrorCodes.VALIDATION_ERROR);
       }
-      
+
       if (!fs.existsSync(filePath)) {
         throw new AppError('File not found', ErrorCodes.FILE_NOT_FOUND);
       }
-      
+
       await shell.showItemInFolder(filePath);
       return { success: true };
     } catch (error) {
@@ -175,11 +196,11 @@ function registerHandlers(ipcMain) {
 
       if (!result.canceled && result.filePaths.length > 0) {
         const filePath = result.filePaths[0];
-        
+
         if (!fs.existsSync(filePath)) {
           throw new AppError('Selected file not found', ErrorCodes.FILE_NOT_FOUND);
         }
-        
+
         const ext = path.extname(filePath).toLowerCase();
         const mimeTypes = {
           '.jpg': 'image/jpeg',
@@ -189,7 +210,7 @@ function registerHandlers(ipcMain) {
           '.gif': 'image/gif',
         };
         const mimeType = mimeTypes[ext] || 'image/jpeg';
-        
+
         const imageBuffer = fs.readFileSync(filePath);
         const base64 = imageBuffer.toString('base64');
         return { success: true, dataUrl: `data:${mimeType};base64,${base64}` };
@@ -248,16 +269,46 @@ function registerHandlers(ipcMain) {
               return;
             }
 
+            const rawCt = res.headers['content-type'];
+            if (!isAllowedImageContentType(rawCt)) {
+              res.resume();
+              resolve({ success: false, error: 'URL did not return an allowed image type' });
+              return;
+            }
+
+            let bodySettled = false;
+            const bodyDone = (payload) => {
+              if (bodySettled) return;
+              bodySettled = true;
+              resolve(payload);
+            };
+
             const chunks = [];
-            res.on('data', (chunk) => chunks.push(chunk));
+            let total = 0;
+            res.on('data', (chunk) => {
+              total += chunk.length;
+              if (total > MAX_IMAGE_FETCH_BYTES) {
+                res.destroy();
+                bodyDone({ success: false, error: 'Image is too large' });
+                return;
+              }
+              chunks.push(chunk);
+            });
             res.on('end', () => {
+              if (bodySettled) {
+                return;
+              }
+              if (total > MAX_IMAGE_FETCH_BYTES) {
+                bodyDone({ success: false, error: 'Image is too large' });
+                return;
+              }
               const buffer = Buffer.concat(chunks);
-              const contentType = res.headers['content-type'] || 'image/jpeg';
+              const contentType = (rawCt || 'image/jpeg').split(';')[0].trim();
               const base64 = buffer.toString('base64');
-              resolve({ success: true, dataUrl: `data:${contentType};base64,${base64}` });
+              bodyDone({ success: true, dataUrl: `data:${contentType};base64,${base64}` });
             });
             res.on('error', (err) => {
-              resolve({ success: false, error: err.message });
+              bodyDone({ success: false, error: err.message });
             });
           });
 
@@ -281,10 +332,13 @@ function registerHandlers(ipcMain) {
   ipcMain.handle('saveFileToTemp', async (event, { buffer, filename }) => {
     try {
       if (!buffer || !filename) return { success: false, error: 'Missing buffer or filename' };
+      const nodeBuffer = Buffer.from(buffer);
+      if (nodeBuffer.length > MAX_TEMP_FILE_BYTES) {
+        return { success: false, error: 'File is too large' };
+      }
       const ext = path.extname(filename) || '';
       const base = path.basename(filename, ext) || 'media';
       const tempPath = path.join(os.tmpdir(), `stream-studio-${Date.now()}-${base}${ext}`);
-      const nodeBuffer = Buffer.from(buffer);
       fs.writeFileSync(tempPath, nodeBuffer);
       return { success: true, filePath: tempPath };
     } catch (error) {
@@ -400,7 +454,11 @@ function registerHandlers(ipcMain) {
       if (!result.canceled && result.filePaths.length > 0) {
         const content = fs.readFileSync(result.filePaths[0], 'utf8');
         const data = JSON.parse(content);
-        return { success: true, data };
+        const normalized = normalizeQueueImportData(data);
+        if (!normalized.ok) {
+          return { success: false, error: normalized.error };
+        }
+        return { success: true, data: normalized.items };
       }
       return { success: false, cancelled: true };
     } catch (error) {

@@ -289,7 +289,9 @@ function MetadataEditor({
           album: playlistInfo.playlistTitle || '',
           albumArtist: sharedArtist,
           genre: '',
-          year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
+          year: videoInfo?.uploadDate
+            ? videoInfo.uploadDate.substring(0, 4)
+            : currentYear.toString(),
           composer: '',
           publisher: '',
           comment: '',
@@ -465,13 +467,7 @@ function MetadataEditor({
         }
       });
     },
-    [
-      mode,
-      playlistInfo,
-      selectedVideos,
-      videoInfo,
-      useSharedArtist,
-    ]
+    [mode, playlistInfo, selectedVideos, videoInfo, useSharedArtist]
   );
 
   const handleThumbnailChange = useCallback((newUrl) => {
@@ -725,9 +721,7 @@ function MetadataEditor({
 
         <CatalogLinkSection
           variant="albumShared"
-          onMetadataLoaded={(m) =>
-            setPlaylistSharedMetadata((prev) => ({ ...prev, ...m }))
-          }
+          onMetadataLoaded={(m) => setPlaylistSharedMetadata((prev) => ({ ...prev, ...m }))}
           onCoverLoaded={(dataUrl) => {
             if (dataUrl) {
               setThumbnailUrl(dataUrl);

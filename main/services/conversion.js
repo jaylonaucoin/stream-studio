@@ -7,8 +7,19 @@ const fs = require('fs');
 const os = require('os');
 const { getYtDlpPath, getFfmpegPath } = require('../utils/paths');
 const { sanitizeUrl } = require('../utils/url');
-const { getFormatExtension, getUniqueFilename, sanitizeFolderName, sanitizeFileName } = require('../utils/filename');
-const { checkFfmpegAvailable, getFfmpegUnavailableError, splitAudioByTime, buildMetadataArgs, convertLocalFile: ffmpegConvertLocalFile } = require('./ffmpeg');
+const {
+  getFormatExtension,
+  getUniqueFilename,
+  sanitizeFolderName,
+  sanitizeFileName,
+} = require('../utils/filename');
+const {
+  checkFfmpegAvailable,
+  getFfmpegUnavailableError,
+  splitAudioByTime,
+  buildMetadataArgs,
+  convertLocalFile: ffmpegConvertLocalFile,
+} = require('./ffmpeg');
 const { applyMetadataToFile } = require('./metadata');
 const { addToHistory } = require('./history');
 const { showNotification } = require('./notifications');
@@ -151,16 +162,24 @@ function parseProgressInfo(message, playlistMode, currentPlaylistProgress) {
  * @returns {string[]} Arguments array
  */
 function buildYtDlpArgs(options) {
-  const { outputTemplate, mode, format, quality, playlistMode, selectedVideos, ffmpegPath } = options;
+  const { outputTemplate, mode, format, quality, playlistMode, selectedVideos, ffmpegPath } =
+    options;
 
   const args = [
     '--embed-metadata',
-    '--ffmpeg-location', path.dirname(ffmpegPath),
-    '--output', outputTemplate,
+    '--ffmpeg-location',
+    path.dirname(ffmpegPath),
+    '--output',
+    outputTemplate,
   ];
 
   // Clip/trim: download only a portion of the video
-  if (options.startTime != null && options.startTime !== '' && options.endTime != null && options.endTime !== '') {
+  if (
+    options.startTime != null &&
+    options.startTime !== '' &&
+    options.endTime != null &&
+    options.endTime !== ''
+  ) {
     const startFormatted = formatTimeForYtDlp(options.startTime);
     const endFormatted = formatTimeForYtDlp(options.endTime);
     if (startFormatted != null && endFormatted != null) {
@@ -304,7 +323,9 @@ async function convert(url, options = {}) {
     if (folderError.message.includes('permission')) {
       throw folderError;
     }
-    throw new Error(`Failed to access output folder: ${folderError.message}\n\nPlease choose a different folder.`);
+    throw new Error(
+      `Failed to access output folder: ${folderError.message}\n\nPlease choose a different folder.`
+    );
   }
 
   const fileExtension = getFormatExtension(format, mode);
@@ -312,7 +333,8 @@ async function convert(url, options = {}) {
   const ytDlpPath = getYtDlpPath();
 
   // Determine if this is a manual segment download
-  const isManualSegmentDownload = manualSegments && Array.isArray(manualSegments) && manualSegments.length > 0;
+  const isManualSegmentDownload =
+    manualSegments && Array.isArray(manualSegments) && manualSegments.length > 0;
 
   // Build output template
   let outputTemplate;
@@ -390,12 +412,16 @@ async function convert(url, options = {}) {
               : total;
           const completedVideos = current - 1;
           const overallProgress =
-            (completedVideos / effectiveTotal) * 100 + (progressPercent / 100 / effectiveTotal) * 100;
+            (completedVideos / effectiveTotal) * 100 +
+            (progressPercent / 100 / effectiveTotal) * 100;
           finalPercent = Math.min(overallProgress, 100);
         }
 
         sendProgress({
-          type: playlistMode === 'full' || playlistMode === 'selected' ? 'playlist-progress' : 'progress',
+          type:
+            playlistMode === 'full' || playlistMode === 'selected'
+              ? 'playlist-progress'
+              : 'progress',
           percent: finalPercent,
           videoPercent: progressPercent,
           speed: progressInfo.speed,
@@ -454,7 +480,11 @@ async function convert(url, options = {}) {
 
   // Set timeout
   const CONVERSION_TIMEOUT =
-    playlistMode === 'full' ? 120 * 60 * 1000 : isManualSegmentDownload ? 60 * 60 * 1000 : 30 * 60 * 1000;
+    playlistMode === 'full'
+      ? 120 * 60 * 1000
+      : isManualSegmentDownload
+        ? 60 * 60 * 1000
+        : 30 * 60 * 1000;
 
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
@@ -546,7 +576,9 @@ async function handleManualSegments(
   const tempFilePath = path.join(outputFolder, tempFile);
   const videoTitle = tempFile.replace(/\.full-temp\.[^.]+$/, '');
   const albumName =
-    customMetadata?.segmentMetadata?.albumMetadata?.album || customMetadata?.metadata?.album || videoTitle;
+    customMetadata?.segmentMetadata?.albumMetadata?.album ||
+    customMetadata?.metadata?.album ||
+    videoTitle;
   const sanitizedAlbumName = sanitizeFolderName(albumName);
   const segmentFolder = path.join(outputFolder, sanitizedAlbumName);
 
@@ -564,7 +596,8 @@ async function handleManualSegments(
 
     const segment = segments[i];
     const customTitle = customMetadata?.segmentMetadata?.perSegmentMetadata?.[i]?.title;
-    const segmentTitle = sanitizeFileName(customTitle) || sanitizeFileName(segment.title) || `Track ${i + 1}`;
+    const segmentTitle =
+      sanitizeFileName(customTitle) || sanitizeFileName(segment.title) || `Track ${i + 1}`;
     const sanitizedTitle = sanitizeFolderName(segmentTitle);
     const ext = fileExtension || 'mp3';
     const segmentFilePath = path.join(segmentFolder, `${sanitizedTitle}.${ext}`);
@@ -592,7 +625,13 @@ async function handleManualSegments(
     };
 
     // Split the segment
-    await splitAudioByTime(tempFilePath, segmentFilePath, startSeconds, endSeconds, segmentMetadata);
+    await splitAudioByTime(
+      tempFilePath,
+      segmentFilePath,
+      startSeconds,
+      endSeconds,
+      segmentMetadata
+    );
 
     // Apply full metadata if available
     if (customMetadata?.thumbnail) {
@@ -686,7 +725,9 @@ async function handleSingleFileResult(
       const ext = path.extname(finalFilePath);
       const currentBaseName = path.basename(finalFilePath, ext);
       if (sanitizedCustomTitle !== currentBaseName) {
-        const newFilePath = getUniqueFilename(path.join(outputFolder, `${sanitizedCustomTitle}${ext}`));
+        const newFilePath = getUniqueFilename(
+          path.join(outputFolder, `${sanitizedCustomTitle}${ext}`)
+        );
         fs.renameSync(finalFilePath, newFilePath);
         effectiveFilePath = newFilePath;
       }

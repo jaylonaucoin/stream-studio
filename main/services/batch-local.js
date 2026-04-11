@@ -312,9 +312,7 @@ async function applyMetadataBatch({
         metaForWrite = overlayPerFileFields(metaForWrite, pf);
       }
       const thumb =
-        thumbnailDataUrl === undefined || thumbnailDataUrl === ''
-          ? null
-          : thumbnailDataUrl;
+        thumbnailDataUrl === undefined || thumbnailDataUrl === '' ? null : thumbnailDataUrl;
       const res = await applyMetadataToFile(p, metaForWrite, thumb);
       if (!res.success) {
         results.push({
@@ -430,9 +428,7 @@ async function convertLocalBatch(filePaths, options = {}) {
     String(thumbnailDataUrl).trim() !== '' &&
     thumbnailDataUrl !== undefined;
   const applyTags =
-    (metadataPatch &&
-      typeof metadataPatch === 'object' &&
-      Object.keys(metadataPatch).length > 0) ||
+    (metadataPatch && typeof metadataPatch === 'object' && Object.keys(metadataPatch).length > 0) ||
     Object.keys(perFileMap).length > 0 ||
     hasThumb;
 
@@ -486,9 +482,7 @@ async function convertLocalBatch(filePaths, options = {}) {
           metaForWrite = overlayPerFileFields(metaForWrite, pf);
         }
         const thumb =
-          thumbnailDataUrl === undefined || thumbnailDataUrl === ''
-            ? null
-            : thumbnailDataUrl;
+          thumbnailDataUrl === undefined || thumbnailDataUrl === '' ? null : thumbnailDataUrl;
         const tagRes = await applyMetadataToFile(r.filePath, metaForWrite, thumb);
         if (!tagRes.success) {
           results.push({

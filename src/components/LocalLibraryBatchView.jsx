@@ -202,10 +202,7 @@ function LocalLibraryBatchView({
     };
   }, []);
 
-  const selectedPaths = useMemo(
-    () => rows.filter((r) => r.selected).map((r) => r.path),
-    [rows]
-  );
+  const selectedPaths = useMemo(() => rows.filter((r) => r.selected).map((r) => r.path), [rows]);
 
   const targetPaths = useMemo(() => {
     if (applyScope === 'all') return rows.map((r) => r.path);
@@ -339,7 +336,11 @@ function LocalLibraryBatchView({
   const ingestPaths = useCallback(
     async (rawPaths) => {
       if (!rawPaths.length || !window.api?.enumerateLocalMedia) return;
-      const { paths: expanded, truncated, error } = await window.api.enumerateLocalMedia(rawPaths, {});
+      const {
+        paths: expanded,
+        truncated,
+        error,
+      } = await window.api.enumerateLocalMedia(rawPaths, {});
       if (error) {
         console.error(error);
         return;
@@ -504,15 +505,11 @@ function LocalLibraryBatchView({
   }, []);
 
   const handleToggleRow = useCallback((id) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, selected: !r.selected } : r))
-    );
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, selected: !r.selected } : r)));
   }, []);
 
   const updateRowField = useCallback((id, field, value) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   }, []);
 
   const handleDryRun = useCallback(async () => {
@@ -544,10 +541,7 @@ function LocalLibraryBatchView({
     [rows, targetPathSet, strategy]
   );
 
-  const sharedPatchKeys = useMemo(
-    () => patchSharedOnly(metadata, strategy),
-    [metadata, strategy]
-  );
+  const sharedPatchKeys = useMemo(() => patchSharedOnly(metadata, strategy), [metadata, strategy]);
 
   const canApplyMetadata = useMemo(() => {
     if (!targetPaths.length) return false;
@@ -561,9 +555,7 @@ function LocalLibraryBatchView({
     if (!targetPaths.length || !window.api?.applyMetadataBatch || !canApplyMetadata) return;
     setBusy(true);
     setRows((prev) =>
-      prev.map((r) =>
-        targetPathSet.has(r.path) ? { ...r, status: 'working', error: null } : r
-      )
+      prev.map((r) => (targetPathSet.has(r.path) ? { ...r, status: 'working', error: null } : r))
     );
     try {
       const sharedPatch = patchSharedOnly(metadata, strategy);
@@ -595,7 +587,9 @@ function LocalLibraryBatchView({
           });
         } else {
           const renameNote =
-            renameFilesToTrackTitle && ok > 0 ? ' Files renamed when titles differed from names.' : '';
+            renameFilesToTrackTitle && ok > 0
+              ? ' Files renamed when titles differed from names.'
+              : '';
           setBatchSnackbar({
             open: true,
             message: `Tags written: ${ok} succeeded${bad ? `, ${bad} failed` : ''}.${renameNote}`,
@@ -604,9 +598,7 @@ function LocalLibraryBatchView({
         }
       }
       if (!cancelled && !ipcError) {
-        const refreshedPaths = list
-          .filter((x) => x.success)
-          .map((x) => x.newPath || x.path);
+        const refreshedPaths = list.filter((x) => x.success).map((x) => x.newPath || x.path);
         if (refreshedPaths.length) await enrichRowsWithMetadata(refreshedPaths);
       }
     } finally {
@@ -655,9 +647,7 @@ function LocalLibraryBatchView({
     if (!targetPaths.length || !window.api?.convertLocalBatch) return;
     setBusy(true);
     setRows((prev) =>
-      prev.map((r) =>
-        targetPathSet.has(r.path) ? { ...r, status: 'converting', error: null } : r
-      )
+      prev.map((r) => (targetPathSet.has(r.path) ? { ...r, status: 'converting', error: null } : r))
     );
     try {
       const sharedPatch = patchSharedOnly(metadata, strategy);
@@ -670,8 +660,7 @@ function LocalLibraryBatchView({
         quality: convertQuality,
         metadataPatch: Object.keys(sharedPatch).length > 0 ? sharedPatch : null,
         perFilePatches: Object.keys(perFilePatches).length > 0 ? perFilePatches : undefined,
-        thumbnailDataUrl:
-          coverTouched && thumbnailUrl ? thumbnailUrl : undefined,
+        thumbnailDataUrl: coverTouched && thumbnailUrl ? thumbnailUrl : undefined,
         metadataStrategy: strategy,
       });
       const ipcError = res?.error || null;
@@ -736,13 +725,7 @@ function LocalLibraryBatchView({
       return;
     }
     executeConvert();
-  }, [
-    targetPaths.length,
-    disabled,
-    metadataValidationErrors,
-    strategy,
-    executeConvert,
-  ]);
+  }, [targetPaths.length, disabled, metadataValidationErrors, strategy, executeConvert]);
 
   const handleReplaceConfirm = useCallback(() => {
     const action = pendingReplaceActionRef.current;
@@ -761,18 +744,18 @@ function LocalLibraryBatchView({
     await window.api?.cancelBatchJob?.();
   }, []);
 
-  const progressPct =
-    progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const progressPct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const oneRowSelected = selectedPaths.length === 1;
 
   return (
     <Stack spacing={2} sx={{ mt: 2 }}>
       <Typography variant="body2" color="text.secondary">
-        Add one file or many (folders expand to all supported media). Use the table for
-        per-file <strong>title</strong>, <strong>artist</strong>, and <strong>track</strong>; use the
+        Add one file or many (folders expand to all supported media). Use the table for per-file{' '}
+        <strong>title</strong>, <strong>artist</strong>, and <strong>track</strong>; use the
         sections below for shared album info and artwork. <strong>Write tags</strong> updates files
-        in place without re-encoding; you can optionally rename each file to its written track title.
+        in place without re-encoding; you can optionally rename each file to its written track
+        title.
         <strong>Convert</strong> writes new files to your output folder, then applies tags.
       </Typography>
 
@@ -839,11 +822,7 @@ function LocalLibraryBatchView({
           >
             Refresh tags
           </Button>
-          <Button
-            size="small"
-            onClick={handleLoadFromSelection}
-            disabled={busy || !oneRowSelected}
-          >
+          <Button size="small" onClick={handleLoadFromSelection} disabled={busy || !oneRowSelected}>
             Load from selection
           </Button>
           <Button
@@ -962,7 +941,12 @@ function LocalLibraryBatchView({
                     />
                   </TableCell>
                   <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>
-                    <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 120, display: 'block' }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      noWrap
+                      sx={{ maxWidth: 120, display: 'block' }}
+                    >
                       {row.album}
                     </Typography>
                   </TableCell>
@@ -1000,19 +984,19 @@ function LocalLibraryBatchView({
         )}
 
         <FormControl component="fieldset">
-        <FormLabel component="legend">Tag writing mode</FormLabel>
-        <RadioGroup row value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-          <FormControlLabel
-            value="merge"
-            control={<Radio size="small" />}
-            label="Merge — only non-empty fields overwrite"
-          />
-          <FormControlLabel
-            value="replace"
-            control={<Radio size="small" />}
-            label="Replace — missing shared fields cleared (per-file row still applied)"
-          />
-        </RadioGroup>
+          <FormLabel component="legend">Tag writing mode</FormLabel>
+          <RadioGroup row value={strategy} onChange={(e) => setStrategy(e.target.value)}>
+            <FormControlLabel
+              value="merge"
+              control={<Radio size="small" />}
+              label="Merge — only non-empty fields overwrite"
+            />
+            <FormControlLabel
+              value="replace"
+              control={<Radio size="small" />}
+              label="Replace — missing shared fields cleared (per-file row still applied)"
+            />
+          </RadioGroup>
         </FormControl>
 
         {strategy === 'replace' && (
@@ -1031,53 +1015,70 @@ function LocalLibraryBatchView({
       </Stack>
 
       <Stack spacing={1}>
-        <Accordion defaultExpanded disableGutters sx={{ border: 1, borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">Shared album info &amp; genre</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <CatalogLinkSection
-            variant="albumShared"
-            disabled={busy}
-            onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
-            onTracklistLoaded={handleCatalogTracklistLoaded}
-            onCoverLoaded={(dataUrl) => {
-              if (dataUrl) {
-                setThumbnailUrl(dataUrl);
-                setCoverTouched(true);
-                setThumbError(null);
-              }
-            }}
-            onError={(msg) => msg && setThumbError(msg)}
-          />
-          <MetadataFormFields
-            metadata={metadata}
-            onChange={handleMetadataChange}
-            errors={metadataValidationErrors}
-            renderSection="albumCore"
-            hideTitle
-            hideArtist
-            showTotalTracksOnly
-          />
-        </AccordionDetails>
+        <Accordion
+          defaultExpanded
+          disableGutters
+          sx={{
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 1,
+            '&:before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Shared album info &amp; genre</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <CatalogLinkSection
+              variant="albumShared"
+              disabled={busy}
+              onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+              onTracklistLoaded={handleCatalogTracklistLoaded}
+              onCoverLoaded={(dataUrl) => {
+                if (dataUrl) {
+                  setThumbnailUrl(dataUrl);
+                  setCoverTouched(true);
+                  setThumbError(null);
+                }
+              }}
+              onError={(msg) => msg && setThumbError(msg)}
+            />
+            <MetadataFormFields
+              metadata={metadata}
+              onChange={handleMetadataChange}
+              errors={metadataValidationErrors}
+              renderSection="albumCore"
+              hideTitle
+              hideArtist
+              showTotalTracksOnly
+            />
+          </AccordionDetails>
         </Accordion>
 
-        <Accordion disableGutters sx={{ border: 1, borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">Advanced tags</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <MetadataFormFields
-            metadata={metadata}
-            onChange={handleMetadataChange}
-            errors={metadataValidationErrors}
-            renderSection="advanced"
-            hideTitle
-            hideArtist
-            showTrackNumbers={false}
-            showTotalTracksOnly={false}
-          />
-        </AccordionDetails>
+        <Accordion
+          disableGutters
+          sx={{
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 1,
+            '&:before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Advanced tags</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <MetadataFormFields
+              metadata={metadata}
+              onChange={handleMetadataChange}
+              errors={metadataValidationErrors}
+              renderSection="advanced"
+              hideTitle
+              hideArtist
+              showTrackNumbers={false}
+              showTotalTracksOnly={false}
+            />
+          </AccordionDetails>
         </Accordion>
       </Stack>
 
@@ -1116,58 +1117,58 @@ function LocalLibraryBatchView({
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-        <ToggleButtonGroup
-          value={convertMode}
-          exclusive
-          size="small"
-          onChange={(_, v) => {
-            if (!v) return;
-            setConvertMode(v);
-            setConvertFormat(v === 'audio' ? defaultAudioFormat : defaultVideoFormat);
-          }}
-        >
-          <ToggleButton value="audio">Audio</ToggleButton>
-          <ToggleButton value="video">Video</ToggleButton>
-        </ToggleButtonGroup>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Format</InputLabel>
-          <Select
-            label="Format"
-            value={convertFormat}
-            onChange={(e) => setConvertFormat(e.target.value)}
+          <ToggleButtonGroup
+            value={convertMode}
+            exclusive
+            size="small"
+            onChange={(_, v) => {
+              if (!v) return;
+              setConvertMode(v);
+              setConvertFormat(v === 'audio' ? defaultAudioFormat : defaultVideoFormat);
+            }}
           >
-            {convertMode === 'audio' ? (
-              <>
-                <MenuItem value="mp3">MP3</MenuItem>
-                <MenuItem value="m4a">M4A</MenuItem>
-                <MenuItem value="flac">FLAC</MenuItem>
-                <MenuItem value="wav">WAV</MenuItem>
-                <MenuItem value="opus">Opus</MenuItem>
-                <MenuItem value="vorbis">Vorbis</MenuItem>
-                <MenuItem value="aac">AAC</MenuItem>
-              </>
-            ) : (
-              <>
-                <MenuItem value="mp4">MP4</MenuItem>
-                <MenuItem value="mkv">MKV</MenuItem>
-                <MenuItem value="webm">WebM</MenuItem>
-              </>
-            )}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Quality</InputLabel>
-          <Select
-            label="Quality"
-            value={convertQuality}
-            onChange={(e) => setConvertQuality(e.target.value)}
-          >
-            <MenuItem value="best">Best</MenuItem>
-            <MenuItem value="high">High</MenuItem>
-            <MenuItem value="medium">Medium</MenuItem>
-            <MenuItem value="low">Low</MenuItem>
-          </Select>
-        </FormControl>
+            <ToggleButton value="audio">Audio</ToggleButton>
+            <ToggleButton value="video">Video</ToggleButton>
+          </ToggleButtonGroup>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Format</InputLabel>
+            <Select
+              label="Format"
+              value={convertFormat}
+              onChange={(e) => setConvertFormat(e.target.value)}
+            >
+              {convertMode === 'audio' ? (
+                <>
+                  <MenuItem value="mp3">MP3</MenuItem>
+                  <MenuItem value="m4a">M4A</MenuItem>
+                  <MenuItem value="flac">FLAC</MenuItem>
+                  <MenuItem value="wav">WAV</MenuItem>
+                  <MenuItem value="opus">Opus</MenuItem>
+                  <MenuItem value="vorbis">Vorbis</MenuItem>
+                  <MenuItem value="aac">AAC</MenuItem>
+                </>
+              ) : (
+                <>
+                  <MenuItem value="mp4">MP4</MenuItem>
+                  <MenuItem value="mkv">MKV</MenuItem>
+                  <MenuItem value="webm">WebM</MenuItem>
+                </>
+              )}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Quality</InputLabel>
+            <Select
+              label="Quality"
+              value={convertQuality}
+              onChange={(e) => setConvertQuality(e.target.value)}
+            >
+              <MenuItem value="best">Best</MenuItem>
+              <MenuItem value="high">High</MenuItem>
+              <MenuItem value="medium">Medium</MenuItem>
+              <MenuItem value="low">Low</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
 
         <FormControlLabel
@@ -1183,39 +1184,35 @@ function LocalLibraryBatchView({
         />
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        <Button
-          variant="outlined"
-          onClick={handleDryRun}
-          disabled={busy || !targetPaths.length}
-        >
-          Dry run (writable check)
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleApplyMetadataClick}
-          disabled={busy || !targetPaths.length || !canApplyMetadata}
-        >
-          Write tags (no re-encode)
-        </Button>
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={<PlayArrowIcon />}
-          onClick={handleConvertClick}
-          disabled={busy || !targetPaths.length || disabled}
-        >
-          Convert files
-        </Button>
-        <Button
-          variant="outlined"
-          color="warning"
-          startIcon={<StopIcon />}
-          onClick={handleStop}
-          disabled={!busy}
-        >
-          Stop
-        </Button>
+          <Button variant="outlined" onClick={handleDryRun} disabled={busy || !targetPaths.length}>
+            Dry run (writable check)
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleApplyMetadataClick}
+            disabled={busy || !targetPaths.length || !canApplyMetadata}
+          >
+            Write tags (no re-encode)
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<PlayArrowIcon />}
+            onClick={handleConvertClick}
+            disabled={busy || !targetPaths.length || disabled}
+          >
+            Convert files
+          </Button>
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<StopIcon />}
+            onClick={handleStop}
+            disabled={!busy}
+          >
+            Stop
+          </Button>
         </Box>
       </Stack>
 

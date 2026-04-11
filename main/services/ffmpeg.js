@@ -1,12 +1,43 @@
 /**
  * FFmpeg service - handles FFmpeg operations
  */
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const { getFfmpegPath } = require('../utils/paths');
 const { encodeMetadataValue } = require('../utils/metadata');
+
+/**
+ * Resolve a binary name on PATH to an absolute path (no shell).
+ * @param {string} cmd - e.g. ffmpeg or ffmpeg.exe
+ * @returns {string|null}
+ */
+function resolveBinaryOnPath(cmd) {
+  if (!cmd || cmd.includes(path.sep)) {
+    return null;
+  }
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync('where', [cmd], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+        timeout: 5000,
+      });
+      const line = out.trim().split(/\r?\n/)[0];
+      return line ? line.trim() : null;
+    }
+    const out = execFileSync('which', [cmd], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    });
+    const line = out.trim().split('\n')[0];
+    return line ? line.trim() : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Check if FFmpeg is available
@@ -55,10 +86,15 @@ async function checkFfmpegAvailable() {
         }
       }, 3000);
     } else {
-      // Relative path - try to find in PATH
-      const testProc = spawn(ffmpegPath, ['-version'], {
+      const resolved = resolveBinaryOnPath(ffmpegPath);
+      if (!resolved || !fs.existsSync(path.normalize(resolved))) {
+        resolve(false);
+        return;
+      }
+      const normalizedPath = path.normalize(resolved);
+      const testProc = spawn(normalizedPath, ['-version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+        cwd: path.dirname(normalizedPath),
       });
 
       let hasOutput = false;
@@ -98,13 +134,15 @@ function getFfmpegUnavailableError() {
   let errorMessage = 'FFmpeg is not available. ';
 
   if (platform === 'win32') {
-    errorMessage += 'Please ensure ffmpeg.exe is bundled in the bin/ folder or available in system PATH.\n\n';
+    errorMessage +=
+      'Please ensure ffmpeg.exe is bundled in the bin/ folder or available in system PATH.\n\n';
     errorMessage += 'To install FFmpeg:\n';
     errorMessage += '1. Download from https://ffmpeg.org/download.html\n';
     errorMessage += '2. Extract and place ffmpeg.exe in the bin/ folder\n';
     errorMessage += 'Or add FFmpeg to your system PATH';
   } else {
-    errorMessage += 'Please ensure bin/ffmpeg is present (run npm run postinstall) or install FFmpeg on your system.\n\n';
+    errorMessage +=
+      'Please ensure bin/ffmpeg is present (run npm run postinstall) or install FFmpeg on your system.\n\n';
     errorMessage += 'To install FFmpeg:\n';
     errorMessage += '• macOS: brew install ffmpeg\n';
     errorMessage += '• Ubuntu/Debian: sudo apt install ffmpeg\n';
@@ -152,7 +190,8 @@ function buildMetadataArgs(metadata) {
   if (metadata.title) args.push('-metadata', `title=${encodeMetadataValue(metadata.title)}`);
   if (metadata.artist) args.push('-metadata', `artist=${encodeMetadataValue(metadata.artist)}`);
   if (metadata.album) args.push('-metadata', `album=${encodeMetadataValue(metadata.album)}`);
-  if (metadata.albumArtist) args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
+  if (metadata.albumArtist)
+    args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
   if (metadata.genre) args.push('-metadata', `genre=${encodeMetadataValue(metadata.genre)}`);
   if (metadata.year) args.push('-metadata', `date=${encodeMetadataValue(metadata.year)}`);
   if (metadata.trackNumber) {
@@ -161,13 +200,16 @@ function buildMetadataArgs(metadata) {
       : metadata.trackNumber;
     args.push('-metadata', `track=${encodeMetadataValue(trackMeta)}`);
   }
-  if (metadata.composer) args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
-  if (metadata.publisher) args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
+  if (metadata.composer)
+    args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
+  if (metadata.publisher)
+    args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
   if (metadata.comment || metadata.description) {
     const commentValue = encodeMetadataValue(metadata.comment || metadata.description);
     args.push('-metadata', `comment=${commentValue}`);
   }
-  if (metadata.copyright) args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
+  if (metadata.copyright)
+    args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
   if (metadata.bpm) args.push('-metadata', `TBPM=${encodeMetadataValue(metadata.bpm)}`);
 
   return args;
@@ -185,10 +227,14 @@ function buildMetadataArgs(metadata) {
 async function splitAudioByTime(inputPath, outputPath, startTime, endTime, metadata = null) {
   const ffmpegPath = getFfmpegPath();
   const args = [
-    '-i', inputPath,
-    '-ss', startTime.toString(),
-    '-to', endTime.toString(),
-    '-c', 'copy',
+    '-i',
+    inputPath,
+    '-ss',
+    startTime.toString(),
+    '-to',
+    endTime.toString(),
+    '-c',
+    'copy',
   ];
 
   if (metadata) {
@@ -224,7 +270,14 @@ async function convertLocalFile(inputPath, outputPath, options = {}, onProgress 
   const ffmpegPath = getFfmpegPath();
   const { mode = 'audio', format = 'mp3', quality = 'best', startTime, endTime } = options;
 
-  const bitrate = quality === 'best' ? '192k' : quality === 'high' ? '192k' : quality === 'medium' ? '128k' : '96k';
+  const bitrate =
+    quality === 'best'
+      ? '192k'
+      : quality === 'high'
+        ? '192k'
+        : quality === 'medium'
+          ? '128k'
+          : '96k';
   const args = ['-y', '-i', inputPath];
 
   if (startTime != null) {
@@ -237,7 +290,12 @@ async function convertLocalFile(inputPath, outputPath, options = {}, onProgress 
   if (mode === 'audio') {
     args.push('-vn');
     if (format === 'mp3') {
-      args.push('-acodec', 'libmp3lame', '-q:a', quality === 'best' ? '0' : quality === 'high' ? '2' : quality === 'medium' ? '5' : '9');
+      args.push(
+        '-acodec',
+        'libmp3lame',
+        '-q:a',
+        quality === 'best' ? '0' : quality === 'high' ? '2' : quality === 'medium' ? '5' : '9'
+      );
     } else if (format === 'm4a' || format === 'aac') {
       args.push('-acodec', 'aac', '-b:a', bitrate);
     } else if (format === 'flac') {
@@ -254,7 +312,8 @@ async function convertLocalFile(inputPath, outputPath, options = {}, onProgress 
       args.push('-acodec', 'libmp3lame', '-b:a', bitrate);
     }
   } else {
-    const height = quality === 'best' ? null : quality === 'high' ? 1080 : quality === 'medium' ? 720 : 480;
+    const height =
+      quality === 'best' ? null : quality === 'high' ? 1080 : quality === 'medium' ? 720 : 480;
     args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '23');
     if (height) args.push('-vf', `scale=-2:min(${height},ih)`);
     args.push('-c:a', 'aac', '-b:a', bitrate);

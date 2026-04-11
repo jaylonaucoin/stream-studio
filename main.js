@@ -1,11 +1,10 @@
 /**
  * Main process entry point
  * Stream Studio - Electron Application
- * 
+ *
  * This file serves as the entry point and delegates to the modular structure in /main/
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
 
 // Import modular components
 const { createWindow, getMainWindow } = require('./main/window');

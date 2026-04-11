@@ -72,7 +72,11 @@ function CatalogLinkSection({
           onCoverLoaded(imgRes.dataUrl);
         }
       }
-      if (Array.isArray(res.tracks) && res.tracks.length > 0 && typeof onTracklistLoaded === 'function') {
+      if (
+        Array.isArray(res.tracks) &&
+        res.tracks.length > 0 &&
+        typeof onTracklistLoaded === 'function'
+      ) {
         onTracklistLoaded(res.tracks, res.metadata || {});
       }
     } catch (e) {
@@ -86,7 +90,11 @@ function CatalogLinkSection({
 
   return (
     <Box sx={{ mb: 2, ...sx }}>
-      <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Typography
+        variant="subtitle2"
+        gutterBottom
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+      >
         <LinkIcon fontSize="small" aria-hidden />
         Load from catalog link
       </Typography>

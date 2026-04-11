@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import {
   Box,
@@ -10,6 +10,8 @@ import {
   Tooltip,
   Badge,
   Chip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
@@ -57,7 +59,12 @@ function App() {
     defaultSearchLimit: 15,
   });
   const addToQueueRef = useRef(null);
-  const [queue, setQueue] = useState(loadQueueFromStorage);
+  const queueBootstrap = useMemo(() => loadQueueFromStorage(), []);
+  const [queue, setQueue] = useState(queueBootstrap.items);
+  const [queueStorageSnackbar, setQueueStorageSnackbar] = useState({
+    open: false,
+    message: '',
+  });
   const [themeMode, setThemeMode] = useState('dark');
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () =>
@@ -70,7 +77,18 @@ function App() {
   const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
 
   useEffect(() => {
-    saveQueueToStorage(queue);
+    if (queueBootstrap.loadError) {
+      console.warn('Queue storage:', queueBootstrap.loadError);
+      setQueueStorageSnackbar({ open: true, message: queueBootstrap.loadError });
+    }
+  }, [queueBootstrap.loadError]);
+
+  useEffect(() => {
+    const { success, error } = saveQueueToStorage(queue);
+    if (!success && error) {
+      console.warn('Queue storage:', error);
+      setQueueStorageSnackbar({ open: true, message: error });
+    }
   }, [queue]);
 
   // Listen for system preference changes when theme is 'system'
@@ -679,6 +697,22 @@ function App() {
         />
 
         <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+        <Snackbar
+          open={queueStorageSnackbar.open}
+          autoHideDuration={8000}
+          onClose={() => setQueueStorageSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            severity="warning"
+            variant="filled"
+            onClose={() => setQueueStorageSnackbar((s) => ({ ...s, open: false }))}
+            sx={{ width: '100%' }}
+          >
+            {queueStorageSnackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );

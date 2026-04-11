@@ -6,9 +6,7 @@
 export function normalizeTagDisplay(val) {
   if (val == null) return '';
   if (Array.isArray(val)) {
-    const parts = val
-      .map((x) => (x == null ? '' : String(x).trim()))
-      .filter((s) => s !== '');
+    const parts = val.map((x) => (x == null ? '' : String(x).trim())).filter((s) => s !== '');
     return parts.join('; ');
   }
   return String(val).trim();

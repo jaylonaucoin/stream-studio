@@ -35,7 +35,10 @@ function emptyMetadata() {
  */
 function formatArtistCredit(credit) {
   if (!credit || !Array.isArray(credit)) return '';
-  return credit.map((p) => (p.name || '').trim() + (p.joinphrase || '').trim()).join('').trim();
+  return credit
+    .map((p) => (p.name || '').trim() + (p.joinphrase || '').trim())
+    .join('')
+    .trim();
 }
 
 function yearFromDate(dateStr) {
@@ -117,7 +120,10 @@ function getCoverArtFrontUrl(mbid) {
 function topTagName(tags, limit = 1) {
   if (!tags || !Array.isArray(tags)) return '';
   const sorted = [...tags].sort((a, b) => (b.count || 0) - (a.count || 0));
-  const names = sorted.slice(0, limit).map((t) => t.name).filter(Boolean);
+  const names = sorted
+    .slice(0, limit)
+    .map((t) => t.name)
+    .filter(Boolean);
   return names.join(', ');
 }
 
@@ -220,7 +226,8 @@ function mapMusicBrainzRelease(release) {
   const firstTrack = Array.isArray(firstTrackList) ? firstTrackList[0] : null;
   if (firstTrack) {
     meta.title = firstTrack.title || firstTrack.recording?.title || '';
-    meta.trackNumber = firstTrack.number != null ? String(firstTrack.number).replace(/^0+/, '') || '1' : '1';
+    meta.trackNumber =
+      firstTrack.number != null ? String(firstTrack.number).replace(/^0+/, '') || '1' : '1';
   }
   return meta;
 }
@@ -298,7 +305,9 @@ function mapDiscogsRelease(discogsRelease) {
   meta.artist = artistLine;
   meta.albumArtist = artistLine;
   meta.year = discogsRelease.year ? String(discogsRelease.year) : '';
-  const genres = [...(discogsRelease.genres || []), ...(discogsRelease.styles || [])].filter(Boolean);
+  const genres = [...(discogsRelease.genres || []), ...(discogsRelease.styles || [])].filter(
+    Boolean
+  );
   meta.genre = genres.join(', ');
   meta.publisher = (discogsRelease.labels && discogsRelease.labels[0]?.name) || '';
   const tracklist = discogsRelease.tracklist || [];
@@ -330,7 +339,11 @@ function discogsCoverUrl(discogsRelease) {
 async function fetchCatalogMetadataFromUrl(url, options = {}) {
   const parsed = parseCatalogUrl(url);
   if (!parsed) {
-    return { success: false, error: 'Unsupported or invalid catalog URL. Use MusicBrainz (release, recording, release-group) or Discogs release links.' };
+    return {
+      success: false,
+      error:
+        'Unsupported or invalid catalog URL. Use MusicBrainz (release, recording, release-group) or Discogs release links.',
+    };
   }
 
   try {

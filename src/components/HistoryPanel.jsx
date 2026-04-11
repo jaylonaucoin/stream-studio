@@ -26,7 +26,11 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
-import { historyItemsFromResponse, historyErrorFromResponse, isIpcFailure } from '../utils/ipcResult';
+import {
+  historyItemsFromResponse,
+  historyErrorFromResponse,
+  isIpcFailure,
+} from '../utils/ipcResult';
 
 function HistoryPanel({ open, onClose }) {
   const [history, setHistory] = useState([]);

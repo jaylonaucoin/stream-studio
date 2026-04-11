@@ -134,7 +134,8 @@ async function applyMetadataWithFfmpeg(filePath, metadata, thumbnailBuffer) {
   if (metadata.title) args.push('-metadata', `title=${encodeMetadataValue(metadata.title)}`);
   if (metadata.artist) args.push('-metadata', `artist=${encodeMetadataValue(metadata.artist)}`);
   if (metadata.album) args.push('-metadata', `album=${encodeMetadataValue(metadata.album)}`);
-  if (metadata.albumArtist) args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
+  if (metadata.albumArtist)
+    args.push('-metadata', `album_artist=${encodeMetadataValue(metadata.albumArtist)}`);
   if (metadata.genre) args.push('-metadata', `genre=${encodeMetadataValue(metadata.genre)}`);
   if (metadata.year) args.push('-metadata', `date=${encodeMetadataValue(metadata.year)}`);
   if (metadata.trackNumber) {
@@ -143,13 +144,16 @@ async function applyMetadataWithFfmpeg(filePath, metadata, thumbnailBuffer) {
       : metadata.trackNumber;
     args.push('-metadata', `track=${encodeMetadataValue(trackMeta)}`);
   }
-  if (metadata.composer) args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
-  if (metadata.publisher) args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
+  if (metadata.composer)
+    args.push('-metadata', `composer=${encodeMetadataValue(metadata.composer)}`);
+  if (metadata.publisher)
+    args.push('-metadata', `publisher=${encodeMetadataValue(metadata.publisher)}`);
   if (metadata.comment || metadata.description) {
     const commentValue = encodeMetadataValue(metadata.comment || metadata.description);
     args.push('-metadata', `comment=${commentValue}`);
   }
-  if (metadata.copyright) args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
+  if (metadata.copyright)
+    args.push('-metadata', `copyright=${encodeMetadataValue(metadata.copyright)}`);
   if (metadata.bpm) args.push('-metadata', `TBPM=${encodeMetadataValue(metadata.bpm)}`);
 
   const outputPath = filePath.replace(ext, `.temp${ext}`);
@@ -158,7 +162,20 @@ async function applyMetadataWithFfmpeg(filePath, metadata, thumbnailBuffer) {
   if (thumbnailBuffer) {
     const tempThumbnailPath = path.join(os.tmpdir(), `thumb_${Date.now()}.jpg`);
     fs.writeFileSync(tempThumbnailPath, thumbnailBuffer);
-    args.push('-i', tempThumbnailPath, '-map', '0', '-map', '1', '-c', 'copy', '-c:v:1', 'mjpeg', '-disposition:v:1', 'attached_pic');
+    args.push(
+      '-i',
+      tempThumbnailPath,
+      '-map',
+      '0',
+      '-map',
+      '1',
+      '-c',
+      'copy',
+      '-c:v:1',
+      'mjpeg',
+      '-disposition:v:1',
+      'attached_pic'
+    );
     args.push(outputPath);
 
     await new Promise((resolve, reject) => {

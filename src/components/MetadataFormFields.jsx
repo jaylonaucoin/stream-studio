@@ -21,8 +21,7 @@ export function MetadataFormFields({
   /** When set, render only a subsection for batch library UI */
   renderSection = 'full',
 }) {
-  const albumCore =
-    renderSection === 'full' || renderSection === 'albumCore';
+  const albumCore = renderSection === 'full' || renderSection === 'albumCore';
   const advanced = renderSection === 'full' || renderSection === 'advanced';
 
   return (
@@ -138,74 +137,74 @@ export function MetadataFormFields({
       )}
       {advanced && (
         <>
-      <TextField
-        fullWidth
-        label="Composer"
-        value={metadata.composer || ''}
-        onChange={(e) => onChange('composer', e.target.value)}
-        margin="normal"
-        error={!!errors.composer}
-        helperText={errors.composer}
-      />
-      <TextField
-        fullWidth
-        label="Publisher"
-        value={metadata.publisher || ''}
-        onChange={(e) => onChange('publisher', e.target.value)}
-        margin="normal"
-        error={!!errors.publisher}
-        helperText={errors.publisher}
-      />
-      <TextField
-        fullWidth
-        label="Comment"
-        value={metadata.comment || ''}
-        onChange={(e) => onChange('comment', e.target.value)}
-        margin="normal"
-        multiline
-        rows={2}
-        error={!!errors.comment}
-        helperText={errors.comment}
-      />
-      <TextField
-        fullWidth
-        label="Description"
-        value={metadata.description || ''}
-        onChange={(e) => onChange('description', e.target.value)}
-        margin="normal"
-        multiline
-        rows={3}
-        error={!!errors.description}
-        helperText={errors.description}
-      />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <TextField
-          fullWidth
-          label="Language"
-          value={metadata.language || ''}
-          onChange={(e) => onChange('language', e.target.value)}
-          error={!!errors.language}
-          helperText={errors.language}
-        />
-        <TextField
-          fullWidth
-          label="BPM"
-          value={metadata.bpm || ''}
-          onChange={(e) => onChange('bpm', e.target.value)}
-          type="number"
-          error={!!errors.bpm}
-          helperText={errors.bpm}
-        />
-      </Box>
-      <TextField
-        fullWidth
-        label="Copyright"
-        value={metadata.copyright || ''}
-        onChange={(e) => onChange('copyright', e.target.value)}
-        margin="normal"
-        error={!!errors.copyright}
-        helperText={errors.copyright}
-      />
+          <TextField
+            fullWidth
+            label="Composer"
+            value={metadata.composer || ''}
+            onChange={(e) => onChange('composer', e.target.value)}
+            margin="normal"
+            error={!!errors.composer}
+            helperText={errors.composer}
+          />
+          <TextField
+            fullWidth
+            label="Publisher"
+            value={metadata.publisher || ''}
+            onChange={(e) => onChange('publisher', e.target.value)}
+            margin="normal"
+            error={!!errors.publisher}
+            helperText={errors.publisher}
+          />
+          <TextField
+            fullWidth
+            label="Comment"
+            value={metadata.comment || ''}
+            onChange={(e) => onChange('comment', e.target.value)}
+            margin="normal"
+            multiline
+            rows={2}
+            error={!!errors.comment}
+            helperText={errors.comment}
+          />
+          <TextField
+            fullWidth
+            label="Description"
+            value={metadata.description || ''}
+            onChange={(e) => onChange('description', e.target.value)}
+            margin="normal"
+            multiline
+            rows={3}
+            error={!!errors.description}
+            helperText={errors.description}
+          />
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Language"
+              value={metadata.language || ''}
+              onChange={(e) => onChange('language', e.target.value)}
+              error={!!errors.language}
+              helperText={errors.language}
+            />
+            <TextField
+              fullWidth
+              label="BPM"
+              value={metadata.bpm || ''}
+              onChange={(e) => onChange('bpm', e.target.value)}
+              type="number"
+              error={!!errors.bpm}
+              helperText={errors.bpm}
+            />
+          </Box>
+          <TextField
+            fullWidth
+            label="Copyright"
+            value={metadata.copyright || ''}
+            onChange={(e) => onChange('copyright', e.target.value)}
+            margin="normal"
+            error={!!errors.copyright}
+            helperText={errors.copyright}
+          />
         </>
       )}
     </>
