@@ -19,7 +19,7 @@
     "format": "prettier --write \"src/**/*.{js,jsx,json,css}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,json,css}\"",
     "dev": "vite",
-    "postinstall": "node scripts/download-binaries.js",
+    "postinstall": "node scripts/download-binaries.js && node scripts/patch-music-metadata-id3-priv.js",
     "download-binaries": "node scripts/download-binaries.js",
     "build:renderer": "vite build",
     "start": "electron .",
