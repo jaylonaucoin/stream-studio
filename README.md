@@ -382,6 +382,14 @@ npm run download-binaries
 
 Or manually download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
 
+## Development and testing
+
+- **Unit / integration tests:** `npm test` or `npm run test:coverage`
+- **End-to-end (Playwright + Electron):** `npm run build:renderer && npm run test:e2e`
+- **Mutation testing (Stryker, optional):** `npm run test:mutation` — mutates `src/utils/validation.js` and `src/utils/ipcResult.js` with a scoped config; slower than unit tests
+
+CI sets `STREAM_STUDIO_E2E=1` for E2E runs. The optional variable `STREAM_STUDIO_E2E_MOCK_CONVERT=1` (used together with `STREAM_STUDIO_E2E=1`) makes the `convert` IPC handler return a fake success result so tests can assert the full UI path without running yt-dlp. This is for automated tests only, not for production builds.
+
 ## Publishing & Legal
 
 This project is open source and safe to use and redistribute. It does not include API keys, secrets, or copyrighted sample content. The app wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) and FFmpeg—tools that are widely published and have been upheld as non-DRM-circumventing by platform providers. Responsibility for complying with platform Terms of Service (e.g., YouTube, TikTok) and copyright law lies with the user, not the tool.

@@ -10,6 +10,9 @@ dist-renderer/
 
 # Tests
 coverage/
+reports/
+.stryker-tmp/
+stryker.log
 playwright-report/
 test-results/
 build/

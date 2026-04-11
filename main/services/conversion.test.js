@@ -283,6 +283,30 @@ describe('cancelConversion', () => {
     expect(result.message).toMatch(/no conversion/i)
   })
 
+  it('returns failure when cancelling again after conversion finished', async () => {
+    const fake = createFakeChildProcess()
+    spawnMock.mockReturnValue(fake.process)
+
+    const promise = convert('https://www.youtube.com/watch?v=done', {
+      mode: 'audio',
+      format: 'mp3',
+    })
+    await tick()
+    fake.emitClose(0)
+    await promise
+
+    const second = cancelConversion()
+    expect(second.success).toBe(false)
+    expect(second.message).toMatch(/no conversion/i)
+  })
+
+  it('returns failure on second cancel when nothing is running', () => {
+    const first = cancelConversion()
+    expect(first.success).toBe(false)
+    const second = cancelConversion()
+    expect(second.success).toBe(false)
+  })
+
   it('kills the process and returns success during active conversion', async () => {
     const fake = createFakeChildProcess()
     fake.process.kill = vi.fn()
@@ -300,5 +324,51 @@ describe('cancelConversion', () => {
 
     fake.process.emit('close', 0)
     await expect(promise).rejects.toThrow('cancelled')
+  })
+})
+
+describe('convert concurrency', () => {
+  const validUrl = 'https://www.youtube.com/watch?v=concurrent'
+  const baseOpts = { mode: 'audio', format: 'mp3', quality: 'best' }
+
+  it('kills the previous process when a new convert starts', async () => {
+    const fake1 = createFakeChildProcess()
+    const killSpy = vi.spyOn(fake1.process, 'kill')
+    const fake2 = createFakeChildProcess()
+    spawnMock.mockReturnValueOnce(fake1.process).mockReturnValueOnce(fake2.process)
+
+    const p1 = convert(validUrl, baseOpts)
+    const p1Settled = p1.catch(() => {})
+    await tick()
+
+    const p2 = convert(validUrl, baseOpts)
+    await tick()
+
+    expect(spawnMock).toHaveBeenCalledTimes(2)
+    expect(killSpy).toHaveBeenCalled()
+
+    await expect(p1).rejects.toThrow()
+    await p1Settled
+
+    fake2.emitClose(0)
+    await p2
+  })
+
+  it('allows a new convert after cancel', async () => {
+    const fake1 = createFakeChildProcess()
+    spawnMock.mockReturnValueOnce(fake1.process)
+    const p1 = convert(validUrl, baseOpts)
+    await tick()
+    cancelConversion()
+    fake1.process.emit('close', 0)
+    await expect(p1).rejects.toThrow('cancelled')
+
+    const fake2 = createFakeChildProcess()
+    spawnMock.mockReturnValueOnce(fake2.process)
+    const p2 = convert(validUrl, baseOpts)
+    await tick()
+    fake2.emitClose(0)
+    const result = await p2
+    expect(result.success).toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import store from '../store.js';
 import { addToHistory, getHistory, clearHistory, removeHistoryItem } from './history.js';
 
@@ -26,8 +26,11 @@ describe('history service', () => {
   });
 
   it('removeHistoryItem filters by id', () => {
+    let tick = 1000;
+    vi.spyOn(Date, 'now').mockImplementation(() => tick++);
     addToHistory({ fileName: 'one.mp3', url: 'https://1', format: 'mp3', mode: 'audio' });
     addToHistory({ fileName: 'two.mp3', url: 'https://2', format: 'mp3', mode: 'audio' });
+    vi.restoreAllMocks();
     const [first, second] = getHistory();
     const updated = removeHistoryItem(second.id);
     expect(updated).toHaveLength(1);

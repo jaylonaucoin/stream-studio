@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ErrorDialog from './ErrorDialog';
 import { renderWithMui } from '../test-utils/render-with-mui';
 
@@ -29,8 +30,13 @@ describe('ErrorDialog', () => {
     const { container } = renderWithMui(
       <ErrorDialog open title="Error" message="Something failed" onClose={() => {}} />
     )
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
+  })
+
+  it('matches snapshot for open error dialog', () => {
+    const { container } = renderWithMui(
+      <ErrorDialog open title="Error" message="Something failed" onClose={() => {}} />
+    )
+    expect(container.firstChild).toMatchSnapshot()
   })
 })

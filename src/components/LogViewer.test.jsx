@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { screen } from '@testing-library/react'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import LogViewer from './LogViewer'
 import { renderWithMui } from '../test-utils/render-with-mui'
 
@@ -45,17 +46,6 @@ describe('LogViewer', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<LogViewer {...defaultProps} />)
-    expect(await axe(container, {
-      rules: {
-        'color-contrast': { enabled: false },
-        'aria-input-field-name': { enabled: false },
-        'heading-order': { enabled: false },
-        'button-name': { enabled: false },
-        'list': { enabled: false },
-        'listitem': { enabled: false },
-        'label': { enabled: false },
-        'nested-interactive': { enabled: false },
-      }
-    })).toHaveNoViolations()
+    expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations()
   })
 })

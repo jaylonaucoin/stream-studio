@@ -4,6 +4,7 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const { isDev, getAppRoot, getIconPath } = require('./utils/paths');
+const { shouldLoadViteDevServer } = require('./window-load-target');
 const { getWindowBounds, saveWindowBounds } = require('./services/settings');
 
 let mainWindow = null;
@@ -45,8 +46,7 @@ function createWindow() {
   mainWindow.on('resize', saveBounds);
   mainWindow.on('move', saveBounds);
 
-  const e2eBuiltUi = process.env.STREAM_STUDIO_E2E === '1';
-  if (isDev() && !e2eBuiltUi) {
+  if (shouldLoadViteDevServer(isDev(), process.env.STREAM_STUDIO_E2E)) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
     mainWindow.loadFile(path.join(getAppRoot(), 'dist-renderer', 'index.html'));

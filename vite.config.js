@@ -4,6 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  assetsInclude: ['**/*.png'],
   base: './',
   build: {
     outDir: 'dist-renderer',

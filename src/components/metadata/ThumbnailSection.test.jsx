@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen } from '@testing-library/react'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import ThumbnailSection from './ThumbnailSection'
 import { renderWithMui } from '../../test-utils/render-with-mui'
 import { createRendererApiMock, installWindowApi } from '../../../tests/setup/renderer-api-mock.js'
@@ -55,8 +56,6 @@ describe('ThumbnailSection', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<ThumbnailSection {...defaultProps} />)
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })

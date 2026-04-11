@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import QueuePanel from './QueuePanel';
 import { renderWithMui } from '../test-utils/render-with-mui';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
@@ -97,8 +98,6 @@ describe('QueuePanel', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<QueuePanelHarness />)
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   });
 });

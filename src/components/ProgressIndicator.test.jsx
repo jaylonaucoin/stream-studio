@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ProgressIndicator from './ProgressIndicator'
 import { renderWithMui } from '../test-utils/render-with-mui'
 
@@ -81,8 +82,6 @@ describe('ProgressIndicator', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<ProgressIndicator {...baseProps} />)
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })

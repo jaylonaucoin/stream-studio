@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import TimeInput from './TimeInput'
 import { renderWithMui } from '../test-utils/render-with-mui'
 
@@ -53,6 +54,6 @@ describe('TimeInput', () => {
     const { container } = renderWithMui(
       <TimeInput label="Start" placeholder="0:00" onChange={() => {}} />
     )
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })

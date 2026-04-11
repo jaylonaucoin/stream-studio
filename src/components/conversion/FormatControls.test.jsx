@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import FormatControls from './FormatControls'
 import { renderWithMui } from '../../test-utils/render-with-mui'
 
@@ -49,8 +50,6 @@ describe('FormatControls', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<FormatControls {...defaults} />)
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })

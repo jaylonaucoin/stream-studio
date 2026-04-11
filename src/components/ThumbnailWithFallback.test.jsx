@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
-import { axe } from 'jest-axe'
-import ThumbnailWithFallback, { ThumbnailPlaceholder } from './ThumbnailWithFallback'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
+import ThumbnailWithFallback from './ThumbnailWithFallback'
 import { renderWithMui } from '../test-utils/render-with-mui'
 
 describe('ThumbnailWithFallback', () => {
@@ -33,6 +34,6 @@ describe('ThumbnailWithFallback', () => {
     const { container } = renderWithMui(
       <ThumbnailWithFallback thumbnail={null} alt="thumb" />
     )
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })

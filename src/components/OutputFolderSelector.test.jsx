@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { screen } from '@testing-library/react'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import OutputFolderSelector from './OutputFolderSelector'
 import { renderWithMui } from '../test-utils/render-with-mui'
 
@@ -37,6 +38,11 @@ describe('OutputFolderSelector', () => {
     const { container } = renderWithMui(
       <OutputFolderSelector {...defaultProps} />
     )
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
+  })
+
+  it('matches snapshot', () => {
+    const { container } = renderWithMui(<OutputFolderSelector {...defaultProps} />)
+    expect(container.firstChild).toMatchSnapshot()
   })
 })

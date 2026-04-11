@@ -83,8 +83,10 @@ export function createRendererApiMock(options = {}) {
     selectLocalFiles: vi.fn(() => Promise.resolve({ success: false, cancelled: true })),
     selectLocalFolder: vi.fn(() => Promise.resolve({ success: false, cancelled: true })),
     convertLocalFile: vi.fn(() => Promise.resolve({ success: true })),
-    enumerateLocalMedia: vi.fn(() => Promise.resolve({ success: true, items: [] })),
-    readMetadataBatch: vi.fn(() => Promise.resolve({ success: true, items: [] })),
+    enumerateLocalMedia: vi.fn(() =>
+      Promise.resolve({ paths: [], truncated: false })
+    ),
+    readMetadataBatch: vi.fn(() => Promise.resolve({ results: [] })),
     applyMetadataBatch: vi.fn(() => Promise.resolve({ success: true })),
     dryRunLocalBatch: vi.fn(() => Promise.resolve({ success: true, items: [] })),
     cancelBatchJob: vi.fn(() => Promise.resolve()),

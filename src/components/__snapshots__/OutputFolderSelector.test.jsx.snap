@@ -1,0 +1,72 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`OutputFolderSelector > matches snapshot 1`] = `
+<div
+  class="MuiBox-root css-128maw8"
+>
+  <div
+    class="MuiBox-root css-1r1k8la"
+  >
+    <svg
+      aria-hidden="true"
+      class="MuiSvgIcon-root MuiSvgIcon-colorAction MuiSvgIcon-fontSizeMedium css-11zkyu6-MuiSvgIcon-root"
+      data-testid="FolderIcon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8z"
+      />
+    </svg>
+    <p
+      class="MuiTypography-root MuiTypography-body2 css-8um36c-MuiTypography-root"
+    >
+      Output:
+    </p>
+    <div
+      aria-label="/Users/test/Downloads/music"
+      class="MuiChip-root MuiChip-outlined MuiChip-sizeMedium MuiChip-colorDefault MuiChip-outlinedDefault css-iwkvp0-MuiChip-root"
+      data-mui-internal-clone-element="true"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiChip-icon MuiChip-iconMedium MuiChip-iconColorDefault css-1umw9bq-MuiSvgIcon-root"
+        data-testid="FolderOpenIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2m0 12H4V8h16z"
+        />
+      </svg>
+      <span
+        class="MuiChip-label MuiChip-labelMedium css-16cgrcw-MuiChip-label"
+      >
+        /Users/test/Downloads/music
+      </span>
+    </div>
+  </div>
+  <button
+    class="MuiButtonBase-root MuiButton-root MuiButton-outlined MuiButton-outlinedPrimary MuiButton-sizeSmall MuiButton-outlinedSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-outlined MuiButton-outlinedPrimary MuiButton-sizeSmall MuiButton-outlinedSizeSmall MuiButton-colorPrimary css-tl9tbd-MuiButtonBase-root-MuiButton-root"
+    tabindex="0"
+    type="button"
+  >
+    <span
+      class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+        data-testid="FolderOpenIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2m0 12H4V8h16z"
+        />
+      </svg>
+    </span>
+    Choose Folder
+  </button>
+</div>
+`;

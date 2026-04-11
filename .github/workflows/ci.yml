@@ -48,5 +48,8 @@ jobs:
 
       - name: End-to-end smoke
         uses: coactions/setup-xvfb@v1
+        env:
+          STREAM_STUDIO_E2E: '1'
+          STREAM_STUDIO_E2E_MOCK_CONVERT: '1'
         with:
           run: npm run test:e2e

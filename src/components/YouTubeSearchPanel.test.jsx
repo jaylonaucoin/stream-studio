@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { screen, waitFor } from '@testing-library/react'
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import YouTubeSearchPanel from './YouTubeSearchPanel'
 import { renderWithMui } from '../test-utils/render-with-mui'
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js'
@@ -151,17 +152,6 @@ describe('YouTubeSearchPanel', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(<YouTubeSearchPanel {...defaultProps} />)
-    expect(await axe(container, {
-      rules: {
-        'color-contrast': { enabled: false },
-        'aria-input-field-name': { enabled: false },
-        'heading-order': { enabled: false },
-        'button-name': { enabled: false },
-        'list': { enabled: false },
-        'listitem': { enabled: false },
-        'label': { enabled: false },
-        'nested-interactive': { enabled: false },
-      }
-    })).toHaveNoViolations()
+    expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations()
   })
 })

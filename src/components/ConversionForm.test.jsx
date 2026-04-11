@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import ConversionForm from './ConversionForm';
 import { renderWithMui } from '../test-utils/render-with-mui';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
@@ -92,17 +93,6 @@ describe('ConversionForm', () => {
         disabled={false}
       />
     )
-    expect(await axe(container, {
-      rules: {
-        'color-contrast': { enabled: false },
-        'aria-input-field-name': { enabled: false },
-        'heading-order': { enabled: false },
-        'button-name': { enabled: false },
-        'list': { enabled: false },
-        'listitem': { enabled: false },
-        'label': { enabled: false },
-        'nested-interactive': { enabled: false },
-      }
-    })).toHaveNoViolations()
+    expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations()
   })
 })

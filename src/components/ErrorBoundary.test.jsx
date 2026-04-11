@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ErrorBoundary from './ErrorBoundary';
 import { renderWithMui } from '../test-utils/render-with-mui';
 
@@ -43,6 +44,6 @@ describe('ErrorBoundary', () => {
         <p>All good here</p>
       </ErrorBoundary>
     )
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
   })
 })
