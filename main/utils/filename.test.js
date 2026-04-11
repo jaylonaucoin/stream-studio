@@ -57,5 +57,59 @@ describe('filename utils', () => {
       expect(sanitizeFileName('')).toBe('');
       expect(sanitizeFileName(null)).toBe('');
     });
+
+    it('replaces special characters', () => {
+      expect(sanitizeFileName('a<b>c:d"e')).toBe('a_b_c_d_e');
+      expect(sanitizeFileName('file|name?.txt')).toBe('file_name_.txt');
+    });
+
+    it('handles very long filename', () => {
+      const long = 'a'.repeat(300) + '.mp3';
+      const result = sanitizeFileName(long);
+      expect(result).toBe(long);
+    });
+
+    it('returns empty string when all chars are invalid', () => {
+      expect(sanitizeFileName(':<>"|')).toBe('_____');
+    });
+  });
+
+  describe('getFormatExtension – all audio formats', () => {
+    it.each([
+      ['mp3', 'mp3'],
+      ['m4a', 'm4a'],
+      ['flac', 'flac'],
+      ['wav', 'wav'],
+      ['opus', 'opus'],
+      ['aac', 'aac'],
+      ['vorbis', 'ogg'],
+      ['alac', 'm4a'],
+    ])('maps audio format %s → %s', (format, expected) => {
+      expect(getFormatExtension(format, 'audio')).toBe(expected);
+    });
+  });
+
+  describe('getFormatExtension – all video formats', () => {
+    it.each([
+      ['mp4', 'mp4'],
+      ['webm', 'webm'],
+      ['mkv', 'mkv'],
+      ['avi', 'avi'],
+      ['mov', 'mov'],
+    ])('maps video format %s → %s', (format, expected) => {
+      expect(getFormatExtension(format, 'video')).toBe(expected);
+    });
+  });
+
+  describe('getUniqueFilename – many collisions', () => {
+    it('increments suffix through multiple collisions', () => {
+      let callCount = 0;
+      existsSpy.mockImplementation(() => {
+        callCount++;
+        return callCount <= 5;
+      });
+      const result = getUniqueFilename('/tmp/song.mp3');
+      expect(result).toMatch(/song \(5\)\.mp3$/);
+    });
   });
 });

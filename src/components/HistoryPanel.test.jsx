@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
+import { axe } from 'jest-axe'
 import HistoryPanel from './HistoryPanel';
 import { renderWithMui } from '../test-utils/render-with-mui';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
@@ -68,5 +69,28 @@ describe('HistoryPanel', () => {
     await waitFor(() => {
       expect(window.api.removeHistoryItem).toHaveBeenCalledWith('1');
     });
+  });
+
+  it('shows empty state when no history items', async () => {
+    const { api } = createRendererApiMock({ historyItems: [] });
+    teardownApi?.();
+    teardownApi = installWindowApi(api);
+
+    renderWithMui(<HistoryPanel open onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(window.api.getHistory).toHaveBeenCalled();
+    });
+    expect(screen.getByText(/no conversion history yet/i)).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations', async () => {
+    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />)
+    await waitFor(() => {
+      expect(window.api.getHistory).toHaveBeenCalled()
+    })
+    expect(await axe(container, {
+      rules: { 'color-contrast': { enabled: false } }
+    })).toHaveNoViolations()
   });
 });

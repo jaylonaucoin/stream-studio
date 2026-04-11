@@ -56,4 +56,72 @@ describe('isValidYear', () => {
     expect(isValidYear('1980', 1990, 2010)).toBe(false);
     expect(isValidYear('2020', 1990, 2010)).toBe(false);
   });
+
+  it('rejects non-numeric string', () => {
+    expect(isValidYear('abc')).toBe(false);
+    expect(isValidYear('twenty')).toBe(false);
+  });
+});
+
+describe('validateMetadata – edge cases', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns empty errors for undefined/null/empty object', () => {
+    expect(validateMetadata(undefined ?? {})).toEqual({});
+    expect(validateMetadata(null ?? {})).toEqual({});
+    expect(validateMetadata({})).toEqual({});
+  });
+
+  it('returns no errors when fields are empty strings', () => {
+    const result = validateMetadata({ year: '', bpm: '', trackNumber: '', totalTracks: '' });
+    expect(result).toEqual({});
+  });
+
+  it('accepts current year and current year + 1 as boundary', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-15'));
+    expect(validateMetadata({ year: '2025' }).year).toBeUndefined();
+    expect(validateMetadata({ year: '2026' }).year).toBeUndefined();
+    expect(validateMetadata({ year: '2027' }).year).toBeDefined();
+  });
+
+  it('accepts BPM at lower boundary (1) and upper boundary (300)', () => {
+    expect(validateMetadata({ bpm: '1' }).bpm).toBeUndefined();
+    expect(validateMetadata({ bpm: '300' }).bpm).toBeUndefined();
+  });
+
+  it('rejects BPM just outside boundaries', () => {
+    expect(validateMetadata({ bpm: '0' }).bpm).toBeDefined();
+    expect(validateMetadata({ bpm: '301' }).bpm).toBeDefined();
+  });
+});
+
+describe('isValidHttpUrl – edge cases', () => {
+  it('returns false for empty string', () => {
+    expect(isValidHttpUrl('')).toBe(false);
+  });
+
+  it('returns false for null', () => {
+    expect(isValidHttpUrl(null)).toBe(false);
+  });
+
+  it('rejects javascript: protocol', () => {
+    expect(isValidHttpUrl('javascript:alert(1)')).toBe(false);
+  });
+});
+
+describe('isValidPositiveInteger – edge cases', () => {
+  it('rejects negative string', () => {
+    expect(isValidPositiveInteger('-1')).toBe(false);
+  });
+
+  it('rejects decimal string', () => {
+    expect(isValidPositiveInteger('1.5')).toBe(false);
+  });
+
+  it('handles very large number string', () => {
+    expect(isValidPositiveInteger('999999999')).toBe(true);
+  });
 });

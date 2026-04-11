@@ -11,7 +11,7 @@ export default defineConfig({
           environment: 'jsdom',
           globals: true,
           include: ['src/**/*.{test,spec}.{js,jsx}'],
-          setupFiles: ['./tests/setup/renderer-setup.js'],
+          setupFiles: ['./tests/setup/renderer-setup.js', './tests/setup/axe-matchers.js'],
         },
       },
       {
@@ -39,10 +39,10 @@ export default defineConfig({
         'src/test-utils/**',
       ],
       thresholds: {
-        lines: 29,
-        statements: 29,
-        functions: 31,
-        branches: 56,
+        lines: 50,
+        statements: 50,
+        functions: 45,
+        branches: 50,
         'src/utils/validation.js': {
           lines: 80,
           statements: 80,

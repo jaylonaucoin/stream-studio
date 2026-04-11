@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen } from '@testing-library/react';
+import { axe } from 'jest-axe'
 import ErrorDialog from './ErrorDialog';
 import { renderWithMui } from '../test-utils/render-with-mui';
 
@@ -22,5 +23,14 @@ describe('ErrorDialog', () => {
       <ErrorDialog open title="Error" message={longMsg} onClose={onClose} />
     )
     expect(screen.queryByRole('button', { name: /hide full details/i })).not.toBeInTheDocument()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = renderWithMui(
+      <ErrorDialog open title="Error" message="Something failed" onClose={() => {}} />
+    )
+    expect(await axe(container, {
+      rules: { 'color-contrast': { enabled: false } }
+    })).toHaveNoViolations()
   })
 })

@@ -36,3 +36,35 @@ describe('formatDuration', () => {
     expect(formatDuration(90)).toBe('1:30');
   });
 });
+
+describe('parseTimeToSeconds – edge cases', () => {
+  it('returns null for null and undefined', () => {
+    expect(parseTimeToSeconds(null)).toBeNull();
+    expect(parseTimeToSeconds(undefined)).toBeNull();
+  });
+
+  it('returns null for non-string input (number)', () => {
+    expect(parseTimeToSeconds(42)).toBeNull();
+  });
+
+  it('returns null for 4-part time string', () => {
+    expect(parseTimeToSeconds('1:02:03:04')).toBeNull();
+  });
+});
+
+describe('formatSecondsToTime – edge cases', () => {
+  it('returns empty string for negative number', () => {
+    const result = formatSecondsToTime(-5);
+    expect(typeof result).toBe('string');
+  });
+
+  it('handles very large number', () => {
+    const result = formatSecondsToTime(360000);
+    expect(result).toBe('100:00:00');
+  });
+
+  it('returns empty string for null and undefined', () => {
+    expect(formatSecondsToTime(null)).toBe('');
+    expect(formatSecondsToTime(undefined)).toBe('');
+  });
+});

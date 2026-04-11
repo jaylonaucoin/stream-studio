@@ -46,4 +46,32 @@ describe('useVideoPreview', () => {
     expect(window.api.getVideoInfo).toHaveBeenCalled()
     expect(result.current.videoInfo?.title).toBe('Vid')
   })
+
+  it('handles API error response gracefully', async () => {
+    window.api.getVideoInfo.mockResolvedValue({
+      success: false,
+      error: 'Video not found',
+    })
+    const { result, rerender } = renderHook(
+      ({ url }) => useVideoPreview(url, { debounceMs: 30 }),
+      { initialProps: { url: '' } }
+    )
+    rerender({ url: 'https://www.youtube.com/watch?v=missing' })
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false)
+      },
+      { timeout: 4000 }
+    )
+    expect(result.current.videoInfo).toBeNull()
+    expect(result.current.error).toBe('Video not found')
+  })
+
+  it('handles invalid URL (non-http)', () => {
+    const { result } = renderHook(() =>
+      useVideoPreview('ftp://example.com/file', { debounceMs: 30 })
+    )
+    expect(result.current.loading).toBe(false)
+    expect(window.api.getVideoInfo).not.toHaveBeenCalled()
+  })
 })

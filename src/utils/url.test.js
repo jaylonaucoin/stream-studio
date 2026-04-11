@@ -42,4 +42,33 @@ describe('isValidUrl', () => {
     const r = isValidUrl('https://localhost');
     expect(r.valid).toBe(false);
   });
+
+  it('returns a reason for invalid URLs', () => {
+    expect(isValidUrl('file:///tmp/x').reason).toBe('URL must use http:// or https://');
+    expect(isValidUrl('https://localhost').reason).toBe('Please enter a valid website URL');
+    expect(isValidUrl('').reason).toBe('');
+  });
+
+  it('accepts protocol-less URL containing dots', () => {
+    const r = isValidUrl('example.com');
+    expect(r.valid).toBe(true);
+    expect(r.normalized).toBe('https://example.com');
+  });
+});
+
+describe('normalizeUrl – edge cases', () => {
+  it('preserves URL that already has a protocol', () => {
+    expect(normalizeUrl('https://foo.bar')).toBe('https://foo.bar');
+    expect(normalizeUrl('http://foo.bar')).toBe('http://foo.bar');
+  });
+
+  it('strips whitespace and newlines', () => {
+    expect(normalizeUrl('  example.com\r\n')).toBe('https://example.com');
+    expect(normalizeUrl('\n  https://a.com \n')).toBe('https://a.com');
+  });
+
+  it('does not add protocol to non-domain-like input', () => {
+    expect(normalizeUrl('hello world')).toBe('hello world');
+    expect(normalizeUrl('nodot')).toBe('nodot');
+  });
 });
