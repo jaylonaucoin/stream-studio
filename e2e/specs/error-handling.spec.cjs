@@ -91,7 +91,9 @@ test('toolbar buttons remain functional after navigation', async () => {
   await window.locator('[aria-label="Close queue panel"]').click()
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('Conversion History')).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'Conversion History', exact: true })
+  ).toBeVisible({ timeout: 5000 })
   await window.locator('[aria-label="Close history panel"]').click()
 
   await window.getByRole('button', { name: /open settings/i }).click()

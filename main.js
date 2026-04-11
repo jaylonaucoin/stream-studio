@@ -6,6 +6,14 @@
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
 
+if (process.env.STREAM_STUDIO_E2E === '1') {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const e2eUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'stream-studio-e2e-'));
+  app.setPath('userData', e2eUserData);
+}
+
 // Import modular components
 const { createWindow, getMainWindow } = require('./main/window');
 const { registerAllHandlers } = require('./main/ipc');

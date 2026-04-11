@@ -23,7 +23,9 @@ test('opens keyboard shortcuts dialog via Ctrl+K', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.keyboard.press('Control+k')
-  await expect(window.getByText('Keyboard Shortcuts')).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })
+  ).toBeVisible({ timeout: 5000 })
 
   await app.close()
 })
@@ -39,7 +41,9 @@ test('shortcuts dialog shows shortcuts list', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.keyboard.press('Control+k')
-  await expect(window.getByText('Keyboard Shortcuts')).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })
+  ).toBeVisible({ timeout: 5000 })
 
   await expect(window.getByText(/start conversion/i)).toBeVisible()
   await expect(window.getByText(/paste url from clipboard/i)).toBeVisible()
@@ -59,10 +63,14 @@ test('can close shortcuts dialog', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.keyboard.press('Control+k')
-  await expect(window.getByText('Keyboard Shortcuts')).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })
+  ).toBeVisible({ timeout: 5000 })
 
   await window.locator('[aria-label="Close keyboard shortcuts"]').click()
-  await expect(window.getByText('Keyboard Shortcuts')).not.toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })
+  ).not.toBeVisible({ timeout: 5000 })
 
   await app.close()
 })

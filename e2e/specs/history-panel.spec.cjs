@@ -23,7 +23,7 @@ test('opens history panel', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('Conversion History')).toBeVisible({ timeout: 5000 })
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).toBeVisible({ timeout: 5000 })
 
   await app.close()
 })
@@ -39,7 +39,9 @@ test('history starts empty', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('No conversion history yet')).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'No conversion history yet', exact: true })
+  ).toBeVisible({ timeout: 5000 })
 
   await app.close()
 })
@@ -55,10 +57,10 @@ test('can close history panel', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('Conversion History')).toBeVisible({ timeout: 5000 })
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).toBeVisible({ timeout: 5000 })
 
   await window.locator('[aria-label="Close history panel"]').click()
-  await expect(window.getByText('Conversion History')).not.toBeVisible({ timeout: 5000 })
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).not.toBeVisible({ timeout: 5000 })
 
   await app.close()
 })
@@ -74,14 +76,16 @@ test('reopens history panel', async () => {
   await window.waitForLoadState('domcontentloaded')
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('Conversion History')).toBeVisible({ timeout: 5000 })
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).toBeVisible({ timeout: 5000 })
 
   await window.locator('[aria-label="Close history panel"]').click()
-  await expect(window.getByText('Conversion History')).not.toBeVisible({ timeout: 5000 })
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).not.toBeVisible({ timeout: 5000 })
 
   await window.getByRole('button', { name: /open conversion history/i }).click()
-  await expect(window.getByText('Conversion History')).toBeVisible({ timeout: 5000 })
-  await expect(window.getByText('No conversion history yet')).toBeVisible()
+  await expect(window.getByRole('heading', { name: 'Conversion History', exact: true })).toBeVisible({ timeout: 5000 })
+  await expect(
+    window.getByRole('heading', { name: 'No conversion history yet', exact: true })
+  ).toBeVisible()
 
   await app.close()
 })

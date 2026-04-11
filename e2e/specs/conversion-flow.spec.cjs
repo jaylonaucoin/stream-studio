@@ -40,6 +40,8 @@ test('format selector shows audio formats', async () => {
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
 
+  await window.getByRole('tab', { name: /paste url/i }).click()
+
   const formatSelect = window.locator('[aria-label="Output format selection"]')
   await expect(formatSelect).toBeVisible({ timeout: 10000 })
   await formatSelect.click()
@@ -80,6 +82,8 @@ test('quality selector shows quality options', async () => {
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
 
+  await window.getByRole('tab', { name: /paste url/i }).click()
+
   const qualitySelect = window.locator('[aria-label="Quality selection"]')
   await expect(qualitySelect).toBeVisible({ timeout: 10000 })
   await qualitySelect.click()
@@ -102,6 +106,8 @@ test('switching to video mode works', async () => {
   })
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
+
+  await window.getByRole('tab', { name: /paste url/i }).click()
 
   const videoBtn = window.locator('[aria-label="Video mode"]')
   await expect(videoBtn).toBeVisible({ timeout: 10000 })
