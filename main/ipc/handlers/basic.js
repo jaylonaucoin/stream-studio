@@ -65,10 +65,10 @@ function registerHandlers(ipcMain) {
   // History handlers
   ipcMain.handle('getHistory', () => {
     try {
-      return historyService.getHistory();
+      return { success: true, items: historyService.getHistory() };
     } catch (error) {
       console.error('Get history error:', error);
-      return [];
+      return { success: false, error: error.message, items: [] };
     }
   });
 
@@ -203,59 +203,77 @@ function registerHandlers(ipcMain) {
 
   // Fetch image as data URL (to avoid CORS)
   ipcMain.handle('fetchImageAsDataUrl', async (event, imageUrl) => {
-    return new Promise((resolve) => {
-      try {
-        if (!imageUrl || typeof imageUrl !== 'string') {
-          resolve({ success: false, error: 'Image URL is required' });
-          return;
-        }
-        
-        const parsedUrl = urlModule.parse(imageUrl);
-        if (!parsedUrl.protocol || !['http:', 'https:'].includes(parsedUrl.protocol)) {
-          resolve({ success: false, error: 'Invalid URL protocol' });
-          return;
-        }
-        
-        const client = parsedUrl.protocol === 'https:' ? https : http;
+    const maxRedirects = 8;
 
-        const req = client.get(imageUrl, (res) => {
-          // Handle redirects
-          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            // For redirects, recursively fetch
-            resolve({ success: false, error: 'Redirects not supported' });
+    const fetchOnce = (currentUrl, redirectDepth) =>
+      new Promise((resolve) => {
+        try {
+          if (!currentUrl || typeof currentUrl !== 'string') {
+            resolve({ success: false, error: 'Image URL is required' });
             return;
           }
-          
-          if (res.statusCode !== 200) {
-            resolve({ success: false, error: `HTTP ${res.statusCode}` });
+
+          const parsedUrl = urlModule.parse(currentUrl);
+          if (!parsedUrl.protocol || !['http:', 'https:'].includes(parsedUrl.protocol)) {
+            resolve({ success: false, error: 'Invalid URL protocol' });
             return;
           }
-          
-          const chunks = [];
-          res.on('data', (chunk) => chunks.push(chunk));
-          res.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            const contentType = res.headers['content-type'] || 'image/jpeg';
-            const base64 = buffer.toString('base64');
-            resolve({ success: true, dataUrl: `data:${contentType};base64,${base64}` });
+
+          const client = parsedUrl.protocol === 'https:' ? https : http;
+
+          const req = client.get(currentUrl, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              if (redirectDepth >= maxRedirects) {
+                res.resume();
+                resolve({ success: false, error: 'Too many redirects' });
+                return;
+              }
+              let nextUrl;
+              try {
+                nextUrl = new URL(res.headers.location, currentUrl).href;
+              } catch {
+                res.resume();
+                resolve({ success: false, error: 'Invalid redirect location' });
+                return;
+              }
+              res.resume();
+              fetchOnce(nextUrl, redirectDepth + 1).then(resolve);
+              return;
+            }
+
+            if (res.statusCode !== 200) {
+              res.resume();
+              resolve({ success: false, error: `HTTP ${res.statusCode}` });
+              return;
+            }
+
+            const chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => {
+              const buffer = Buffer.concat(chunks);
+              const contentType = res.headers['content-type'] || 'image/jpeg';
+              const base64 = buffer.toString('base64');
+              resolve({ success: true, dataUrl: `data:${contentType};base64,${base64}` });
+            });
+            res.on('error', (err) => {
+              resolve({ success: false, error: err.message });
+            });
           });
-          res.on('error', (err) => {
+
+          req.on('error', (err) => {
             resolve({ success: false, error: err.message });
           });
-        });
 
-        req.on('error', (err) => {
+          req.setTimeout(10000, () => {
+            req.destroy();
+            resolve({ success: false, error: 'Request timeout' });
+          });
+        } catch (err) {
           resolve({ success: false, error: err.message });
-        });
+        }
+      });
 
-        req.setTimeout(10000, () => {
-          req.destroy();
-          resolve({ success: false, error: 'Request timeout' });
-        });
-      } catch (err) {
-        resolve({ success: false, error: err.message });
-      }
-    });
+    return fetchOnce(imageUrl, 0);
   });
 
   // Save file buffer to temp (fallback when getPathForFile returns empty)

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,26 +22,33 @@ const SHORTCUTS = [
     items: [
       { keys: ['Enter'], description: 'Start conversion' },
       { keys: ['Escape'], description: 'Cancel conversion' },
-      { keys: ['Ctrl', 'V'], description: 'Paste URL from clipboard' },
-      { keys: ['Ctrl', 'K'], description: 'Show keyboard shortcuts' },
+      { keys: ['Mod', 'V'], description: 'Paste URL from clipboard' },
+      { keys: ['Mod', 'K'], description: 'Show keyboard shortcuts' },
     ],
   },
   {
     category: 'Navigation',
     items: [
-      { keys: ['Ctrl', 'H'], description: 'Open history panel' },
-      { keys: ['Ctrl', 'B'], description: 'Open URL batch queue panel' },
-      { keys: ['Ctrl', 'Shift', 'B'], description: 'Switch to Library tab (local files & tags)' },
-      { keys: ['Ctrl', ','], description: 'Open settings' },
+      { keys: ['Mod', 'H'], description: 'Open history panel' },
+      { keys: ['Mod', 'B'], description: 'Open URL batch queue panel' },
+      { keys: ['Mod', 'Shift', 'B'], description: 'Switch to Library tab (local files & tags)' },
+      { keys: ['Mod', ','], description: 'Open settings' },
     ],
   },
 ];
 
 function KeyboardShortcutsDialog({ open, onClose }) {
+  const modKeyLabel = useMemo(() => {
+    if (typeof navigator === 'undefined') return 'Ctrl';
+    const p = navigator.platform || '';
+    if (/Mac|iPhone|iPad|iPod/i.test(p)) return '⌘';
+    if (/Mac/i.test(navigator.userAgent || '')) return '⌘';
+    return 'Ctrl';
+  }, []);
+
   const getKeyLabel = (key) => {
     const labels = {
-      Ctrl: 'Ctrl',
-      Cmd: '⌘',
+      Mod: modKeyLabel,
       Shift: 'Shift',
       Alt: 'Alt',
       Enter: 'Enter',
@@ -65,13 +73,16 @@ function KeyboardShortcutsDialog({ open, onClose }) {
             <KeyboardIcon />
             <Typography variant="h6">Keyboard Shortcuts</Typography>
           </Box>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" aria-label="Close keyboard shortcuts">
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
 
       <DialogContent dividers>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+          Modifier shows as {modKeyLabel} on this system (Ctrl on Windows/Linux, ⌘ on macOS).
+        </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {SHORTCUTS.map((category, idx) => (
             <Box key={category.category}>

@@ -25,6 +25,7 @@ import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import { loadQueueFromStorage, saveQueueToStorage } from './lib/queueStorage';
+import { isIpcFailure, historyItemsFromResponse } from './utils/ipcResult';
 import logo from '../assets/icon.png';
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
@@ -133,9 +134,10 @@ function App() {
       if (window.api && window.api.checkFfmpeg) {
         try {
           const result = await window.api.checkFfmpeg();
-          setFfmpegAvailable(result.available);
+          setFfmpegAvailable(!!result?.available);
         } catch (err) {
           console.error('Failed to check FFmpeg:', err);
+          setFfmpegAvailable(false);
         }
       }
     };
@@ -144,6 +146,10 @@ function App() {
       if (window.api && window.api.getSettings) {
         try {
           const settings = await window.api.getSettings();
+          if (isIpcFailure(settings)) {
+            console.error('Failed to load settings:', settings.error);
+            return;
+          }
           setDefaultSettings({
             defaultMode: settings.defaultMode || 'audio',
             defaultAudioFormat: settings.defaultAudioFormat || 'mp3',
@@ -162,8 +168,9 @@ function App() {
     const loadHistoryCount = async () => {
       if (window.api && window.api.getHistory) {
         try {
-          const history = await window.api.getHistory();
-          setHistoryCount(history?.length || 0);
+          const res = await window.api.getHistory();
+          const items = historyItemsFromResponse(res);
+          setHistoryCount(items.length);
         } catch (err) {
           console.error('Failed to load history:', err);
         }
@@ -293,7 +300,7 @@ function App() {
 
     return () => {
       if (window.api && window.api.offProgress) {
-        window.api.offProgress();
+        window.api.offProgress(handleProgress);
       }
     };
   }, [handleProgress]);
@@ -564,8 +571,8 @@ function App() {
             outputFolder={outputFolder}
             onLocalBatchComplete={() => {
               if (window.api && window.api.getHistory) {
-                window.api.getHistory().then((history) => {
-                  setHistoryCount(history?.length || 0);
+                window.api.getHistory().then((res) => {
+                  setHistoryCount(historyItemsFromResponse(res).length);
                 });
               }
             }}
@@ -639,8 +646,8 @@ function App() {
             setHistoryOpen(false);
             // Refresh history count
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then((history) => {
-                setHistoryCount(history?.length || 0);
+              window.api.getHistory().then((res) => {
+                setHistoryCount(historyItemsFromResponse(res).length);
               });
             }
           }}
@@ -663,10 +670,9 @@ function App() {
           defaultSearchSite={defaultSettings.defaultSearchSite}
           defaultSearchLimit={defaultSettings.defaultSearchLimit}
           onQueueComplete={() => {
-            // Refresh history count after batch processing
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then((history) => {
-                setHistoryCount(history?.length || 0);
+              window.api.getHistory().then((res) => {
+                setHistoryCount(historyItemsFromResponse(res).length);
               });
             }
           }}

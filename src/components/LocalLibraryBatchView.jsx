@@ -35,6 +35,7 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
+  Stack,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -696,8 +697,8 @@ function LocalLibraryBatchView({
   const oneRowSelected = selectedPaths.length === 1;
 
   return (
-    <Box sx={{ mt: 1 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+    <Stack spacing={2} sx={{ mt: 2 }}>
+      <Typography variant="body2" color="text.secondary">
         Add one file or many (folders expand to all supported media). Use the table for
         per-file <strong>title</strong>, <strong>artist</strong>, and <strong>track</strong>; use the
         sections below for shared album info and artwork. <strong>Write tags</strong> updates files
@@ -706,21 +707,21 @@ function LocalLibraryBatchView({
       </Typography>
 
       {disabled && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert severity="warning">
           FFmpeg is not available. Conversion is disabled; tagging may still work for some formats
           (e.g. MP3).
         </Alert>
       )}
 
       {truncatedHint && (
-        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setTruncatedHint(false)}>
+        <Alert severity="info" onClose={() => setTruncatedHint(false)}>
           File list was truncated at the maximum allowed count. Add more files in a second batch if
           needed.
         </Alert>
       )}
 
       {batchReadError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBatchReadError(null)}>
+        <Alert severity="error" onClose={() => setBatchReadError(null)}>
           {batchReadError}
         </Alert>
       )}
@@ -729,7 +730,6 @@ function LocalLibraryBatchView({
         variant="outlined"
         sx={{
           p: 2,
-          mb: 2,
           borderStyle: 'dashed',
           bgcolor: 'action.hover',
         }}
@@ -800,7 +800,7 @@ function LocalLibraryBatchView({
       </Paper>
 
       {(busy || batchPhase) && progress.total > 0 && (
-        <Box sx={{ mb: 2 }}>
+        <Box>
           <Typography variant="caption" color="text.secondary" display="block" noWrap>
             {batchPhase === 'metadata' ? 'Writing metadata' : 'Converting'} — {progress.done}/
             {progress.total}
@@ -810,7 +810,7 @@ function LocalLibraryBatchView({
         </Box>
       )}
 
-      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320, mb: 2 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320 }}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
@@ -843,7 +843,7 @@ function LocalLibraryBatchView({
             ) : (
               rows.map((row) => (
                 <TableRow key={row.id} hover selected={row.selected}>
-                  <TableCell padding="checkbox">
+                  <TableCell padding="checkbox" sx={{ py: 0.5, verticalAlign: 'middle' }}>
                     <Checkbox
                       checked={row.selected}
                       onChange={() => handleToggleRow(row.id)}
@@ -851,7 +851,7 @@ function LocalLibraryBatchView({
                       inputProps={{ 'aria-label': `select ${row.path}` }}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>
                     <Tooltip title={row.path}>
                       <Typography variant="caption" noWrap sx={{ maxWidth: 160, display: 'block' }}>
                         {row.path}
@@ -891,12 +891,12 @@ function LocalLibraryBatchView({
                       inputProps={{ 'aria-label': `Track number for ${row.path}` }}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>
                     <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 120, display: 'block' }}>
                       {row.album}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>
                     <Typography variant="caption" color={row.error ? 'error' : 'text.secondary'}>
                       {row.status}
                       {row.error ? ` — ${row.error}` : ''}
@@ -909,29 +909,27 @@ function LocalLibraryBatchView({
         </Table>
       </TableContainer>
 
-      <Divider sx={{ my: 2 }} />
+      <Divider />
 
-      <FormLabel component="legend" sx={{ mb: 1 }}>
-        Apply actions to
-      </FormLabel>
-      <ToggleButtonGroup
-        value={applyScope}
-        exclusive
-        size="small"
-        onChange={(_, v) => v && setApplyScope(v)}
-        sx={{ mb: 1 }}
-      >
-        <ToggleButton value="selected">Selected ({selectedPaths.length})</ToggleButton>
-        <ToggleButton value="all">All ({rows.length})</ToggleButton>
-      </ToggleButtonGroup>
-      {selectedPaths.length > 1 && (
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-          Bulk edit: shared fields below apply to every target; table cells set per-file title,
-          artist, and track. Empty shared fields in merge mode leave existing tags unchanged.
-        </Typography>
-      )}
+      <Stack spacing={1.5}>
+        <FormLabel component="legend">Apply actions to</FormLabel>
+        <ToggleButtonGroup
+          value={applyScope}
+          exclusive
+          size="small"
+          onChange={(_, v) => v && setApplyScope(v)}
+        >
+          <ToggleButton value="selected">Selected ({selectedPaths.length})</ToggleButton>
+          <ToggleButton value="all">All ({rows.length})</ToggleButton>
+        </ToggleButtonGroup>
+        {selectedPaths.length > 1 && (
+          <Typography variant="caption" color="text.secondary" display="block">
+            Bulk edit: shared fields below apply to every target; table cells set per-file title,
+            artist, and track. Empty shared fields in merge mode leave existing tags unchanged.
+          </Typography>
+        )}
 
-      <FormControl component="fieldset" sx={{ mb: 2 }}>
+        <FormControl component="fieldset">
         <FormLabel component="legend">Tag writing mode</FormLabel>
         <RadioGroup row value={strategy} onChange={(e) => setStrategy(e.target.value)}>
           <FormControlLabel
@@ -945,23 +943,25 @@ function LocalLibraryBatchView({
             label="Replace — missing shared fields cleared (per-file row still applied)"
           />
         </RadioGroup>
-      </FormControl>
+        </FormControl>
 
-      {strategy === 'replace' && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Replace clears every shared tag you leave empty (album, genre, year, advanced fields) on
-          all targets. Title, artist, and track in the table still apply per file. Confirm before
-          write or convert.
-        </Alert>
-      )}
+        {strategy === 'replace' && (
+          <Alert severity="warning">
+            Replace clears every shared tag you leave empty (album, genre, year, advanced fields) on
+            all targets. Title, artist, and track in the table still apply per file. Confirm before
+            write or convert.
+          </Alert>
+        )}
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Button size="small" variant="outlined" onClick={handleClearSharedForm} disabled={busy}>
-          Clear shared form
-        </Button>
-      </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Button size="small" variant="outlined" onClick={handleClearSharedForm} disabled={busy}>
+            Clear shared form
+          </Button>
+        </Box>
+      </Stack>
 
-      <Accordion defaultExpanded>
+      <Stack spacing={1}>
+        <Accordion defaultExpanded disableGutters sx={{ border: 1, borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="subtitle2">Shared album info &amp; genre</Typography>
         </AccordionSummary>
@@ -976,9 +976,9 @@ function LocalLibraryBatchView({
             showTotalTracksOnly
           />
         </AccordionDetails>
-      </Accordion>
+        </Accordion>
 
-      <Accordion>
+        <Accordion disableGutters sx={{ border: 1, borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="subtitle2">Advanced tags</Typography>
         </AccordionSummary>
@@ -994,9 +994,10 @@ function LocalLibraryBatchView({
             showTotalTracksOnly={false}
           />
         </AccordionDetails>
-      </Accordion>
+        </Accordion>
+      </Stack>
 
-      <Box sx={{ mt: 2 }}>
+      <Box>
         <ThumbnailSection
           thumbnailUrl={thumbnailUrl}
           onThumbnailChange={(url) => {
@@ -1019,15 +1020,18 @@ function LocalLibraryBatchView({
         )}
       </Box>
 
-      <Divider sx={{ my: 2 }} />
+      <Divider />
 
-      <Typography variant="subtitle2" gutterBottom>
-        Convert output
-      </Typography>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-        New files go to your output folder (footer). Tags below are applied after conversion.
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Convert output
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block">
+            New files go to your output folder (footer). Tags below are applied after conversion.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
         <ToggleButtonGroup
           value={convertMode}
           exclusive
@@ -1080,9 +1084,9 @@ function LocalLibraryBatchView({
             <MenuItem value="low">Low</MenuItem>
           </Select>
         </FormControl>
-      </Box>
+        </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <Button
           variant="outlined"
           onClick={handleDryRun}
@@ -1116,7 +1120,8 @@ function LocalLibraryBatchView({
         >
           Stop
         </Button>
-      </Box>
+        </Box>
+      </Stack>
 
       <Dialog open={replaceConfirmOpen} onClose={handleReplaceConfirmCancel}>
         <DialogTitle>Confirm replace mode</DialogTitle>
@@ -1149,7 +1154,7 @@ function LocalLibraryBatchView({
           {batchSnackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </Stack>
   );
 }
 

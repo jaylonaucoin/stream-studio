@@ -16,6 +16,8 @@ import {
   Select,
   MenuItem,
   IconButton,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -27,6 +29,7 @@ import {
   DEFAULT_SEARCH_SITE,
   DEFAULT_SEARCH_LIMIT,
 } from '../constants';
+import { isIpcFailure } from '../utils/ipcResult';
 
 // Use format arrays from constants
 const AUDIO_FORMATS = AUDIO_FORMAT_VALUES;
@@ -45,14 +48,23 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
     defaultSearchLimit: DEFAULT_SEARCH_LIMIT,
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
   const loadSettings = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     if (window.api && window.api.getSettings) {
       try {
         const savedSettings = await window.api.getSettings();
-        setSettings((prev) => ({ ...prev, ...savedSettings }));
+        if (isIpcFailure(savedSettings)) {
+          setLoadError(savedSettings.error || 'Failed to load settings');
+        } else {
+          setSettings((prev) => ({ ...prev, ...savedSettings }));
+        }
       } catch (err) {
         console.error('Failed to load settings:', err);
+        setLoadError(err.message || 'Failed to load settings');
       }
     }
     setLoading(false);
@@ -60,6 +72,7 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
 
   useEffect(() => {
     if (open) {
+      setSaveError(null);
       loadSettings();
     }
   }, [open, loadSettings]);
@@ -69,15 +82,23 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     if (window.api && window.api.saveSettings) {
       try {
-        await window.api.saveSettings(settings);
+        const res = await window.api.saveSettings(settings);
+        if (isIpcFailure(res)) {
+          setSaveError(res.error || 'Failed to save settings');
+          return;
+        }
         onSettingsSaved?.(settings);
+        onClose();
       } catch (err) {
         console.error('Failed to save settings:', err);
+        setSaveError(err.message || 'Failed to save settings');
       }
+    } else {
+      onClose();
     }
-    onClose();
   };
 
   return (
@@ -101,8 +122,23 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
       </DialogTitle>
 
       <DialogContent dividers>
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress aria-label="Loading settings" />
+          </Box>
+        )}
         {!loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {loadError && (
+              <Alert severity="error" onClose={() => setLoadError(null)}>
+                {loadError}
+              </Alert>
+            )}
+            {saveError && (
+              <Alert severity="error" onClose={() => setSaveError(null)}>
+                {saveError}
+              </Alert>
+            )}
             {/* Theme */}
             <Box>
               <Typography
@@ -120,10 +156,21 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
                   label="Theme"
                   onChange={async (e) => {
                     const newTheme = e.target.value;
+                    const prevTheme = settings.theme;
+                    setSaveError(null);
                     handleChange('theme', newTheme);
-                    if (window.api?.saveSettings) {
-                      await window.api.saveSettings({ ...settings, theme: newTheme });
+                    if (!window.api?.saveSettings) return;
+                    try {
+                      const res = await window.api.saveSettings({ ...settings, theme: newTheme });
+                      if (isIpcFailure(res)) {
+                        setSaveError(res.error || 'Failed to save theme');
+                        handleChange('theme', prevTheme);
+                        return;
+                      }
                       onSettingsSaved?.({ ...settings, theme: newTheme });
+                    } catch (err) {
+                      setSaveError(err.message || 'Failed to save theme');
+                      handleChange('theme', prevTheme);
                     }
                   }}
                   aria-label="Theme selection"

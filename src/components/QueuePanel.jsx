@@ -338,35 +338,34 @@ function QueuePanel({
     setIsProcessing(true);
     stopRequestedRef.current = false;
 
-    for (let i = 0; i < queue.length; i++) {
-      if (stopRequestedRef.current) {
-        break;
+    const progressHandler = (data) => {
+      if (
+        (data.type === 'progress' || data.type === 'playlist-progress') &&
+        data.percent !== undefined
+      ) {
+        setCurrentProgress(data.percent);
       }
+    };
 
-      const item = queue[i];
-      if (item.status !== 'pending') continue;
+    if (window.api?.onProgress) {
+      window.api.onProgress(progressHandler);
+    }
 
-      setCurrentProgress(0);
-
-      // Update status to processing
-      setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q)));
-
-      try {
-        // Set up progress listener for this item
-        const progressHandler = (data) => {
-          if (
-            (data.type === 'progress' || data.type === 'playlist-progress') &&
-            data.percent !== undefined
-          ) {
-            setCurrentProgress(data.percent);
-          }
-        };
-
-        if (window.api && window.api.onProgress) {
-          window.api.offProgress();
-          window.api.onProgress(progressHandler);
+    try {
+      for (let i = 0; i < queue.length; i++) {
+        if (stopRequestedRef.current) {
+          break;
         }
 
+        const item = queue[i];
+        if (item.status !== 'pending') continue;
+
+        setCurrentProgress(0);
+
+        // Update status to processing
+        setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q)));
+
+        try {
         // Force audio mode for audio-only sources (SoundCloud, Bandcamp, Mixcloud)
         const isAudioOnly =
           (item.extractor && isAudioOnlyExtractor(item.extractor)) || isAudioOnlyUrl(item.url);
@@ -392,7 +391,7 @@ function QueuePanel({
 
         const result = await window.api.convert(item.url, convertOptions);
 
-        if (result.success) {
+        if (result?.success) {
           setQueue((prev) =>
             prev.map((q) =>
               q.id === item.id
@@ -405,15 +404,27 @@ function QueuePanel({
                 : q
             )
           );
+        } else {
+          const msg = result?.message || result?.error || 'Conversion failed';
+          setQueue((prev) =>
+            prev.map((q) =>
+              q.id === item.id ? { ...q, status: 'error', error: msg } : q
+            )
+          );
         }
-      } catch (error) {
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id
-              ? { ...q, status: 'error', error: error.message || 'Conversion failed' }
-              : q
-          )
-        );
+        } catch (error) {
+          setQueue((prev) =>
+            prev.map((q) =>
+              q.id === item.id
+                ? { ...q, status: 'error', error: error.message || 'Conversion failed' }
+                : q
+            )
+          );
+        }
+      }
+    } finally {
+      if (window.api?.offProgress) {
+        window.api.offProgress(progressHandler);
       }
     }
 

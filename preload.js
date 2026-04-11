@@ -6,6 +6,30 @@ try {
   webUtils = null;
 }
 
+const conversionProgressListeners = new Set();
+let conversionProgressRelay = null;
+
+function ensureConversionProgressRelay() {
+  if (conversionProgressRelay) return;
+  conversionProgressRelay = (_event, data) => {
+    conversionProgressListeners.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (e) {
+        console.error('[conversion-progress listener]', e);
+      }
+    });
+  };
+  ipcRenderer.on('conversion-progress', conversionProgressRelay);
+}
+
+function teardownConversionProgressRelayIfEmpty() {
+  if (conversionProgressListeners.size === 0 && conversionProgressRelay) {
+    ipcRenderer.removeListener('conversion-progress', conversionProgressRelay);
+    conversionProgressRelay = null;
+  }
+}
+
 // Get file path from File object (works for drag-drop and file input in Electron sandbox)
 function getPathForFile(file) {
   if (!file) return '';
@@ -31,12 +55,19 @@ contextBridge.exposeInMainWorld('api', {
   convert: (url, options) => ipcRenderer.invoke('convert', url, options),
   cancel: () => ipcRenderer.invoke('cancel'),
   
-  // Progress events
+  // Progress events (multiplex: App + queue can subscribe without dropping each other)
   onProgress: (callback) => {
-    ipcRenderer.on('conversion-progress', (event, data) => callback(data));
+    if (typeof callback !== 'function') return;
+    conversionProgressListeners.add(callback);
+    ensureConversionProgressRelay();
   },
-  offProgress: () => {
-    ipcRenderer.removeAllListeners('conversion-progress');
+  offProgress: (callback) => {
+    if (callback) {
+      conversionProgressListeners.delete(callback);
+    } else {
+      conversionProgressListeners.clear();
+    }
+    teardownConversionProgressRelayIfEmpty();
   },
   
   // Folder selection

@@ -13,6 +13,7 @@ import {
   Divider,
   TextField,
   InputAdornment,
+  Alert,
 } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -25,18 +26,29 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import { historyItemsFromResponse, historyErrorFromResponse, isIpcFailure } from '../utils/ipcResult';
 
 function HistoryPanel({ open, onClose }) {
   const [history, setHistory] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadError, setLoadError] = useState(null);
 
   const loadHistory = useCallback(async () => {
     if (window.api && window.api.getHistory) {
       try {
-        const items = await window.api.getHistory();
-        setHistory(items || []);
+        const res = await window.api.getHistory();
+        const err = historyErrorFromResponse(res);
+        if (err) {
+          setLoadError(err);
+          setHistory([]);
+          return;
+        }
+        setLoadError(null);
+        setHistory(historyItemsFromResponse(res));
       } catch (err) {
         console.error('Failed to load history:', err);
+        setLoadError(err.message || 'Failed to load history');
+        setHistory([]);
       }
     }
   }, []);
@@ -51,9 +63,14 @@ function HistoryPanel({ open, onClose }) {
     if (window.api && window.api.removeHistoryItem) {
       try {
         const updated = await window.api.removeHistoryItem(id);
-        setHistory(updated || []);
+        if (isIpcFailure(updated)) {
+          setLoadError(updated.error || 'Failed to remove item');
+          return;
+        }
+        setHistory(Array.isArray(updated) ? updated : []);
       } catch (err) {
         console.error('Failed to remove history item:', err);
+        setLoadError(err.message || 'Failed to remove item');
       }
     }
   };
@@ -61,10 +78,15 @@ function HistoryPanel({ open, onClose }) {
   const handleClearAll = async () => {
     if (window.api && window.api.clearHistory) {
       try {
-        await window.api.clearHistory();
+        const res = await window.api.clearHistory();
+        if (isIpcFailure(res)) {
+          setLoadError(res.error || 'Failed to clear history');
+          return;
+        }
         setHistory([]);
       } catch (err) {
         console.error('Failed to clear history:', err);
+        setLoadError(err.message || 'Failed to clear history');
       }
     }
   };
@@ -139,6 +161,11 @@ function HistoryPanel({ open, onClose }) {
       }}
     >
       <Box sx={{ p: 2 }}>
+        {loadError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLoadError(null)}>
+            {loadError}
+          </Alert>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <HistoryIcon />
