@@ -21,7 +21,7 @@ describe('history service', () => {
   it('clearHistory empties list', () => {
     addToHistory({ fileName: 'x.mp3', url: 'https://x', format: 'mp3', mode: 'audio' });
     expect(getHistory()).toHaveLength(1);
-    clearHistory();
+    expect(clearHistory()).toEqual([]);
     expect(getHistory()).toHaveLength(0);
   });
 
@@ -32,5 +32,12 @@ describe('history service', () => {
     const updated = removeHistoryItem(second.id);
     expect(updated).toHaveLength(1);
     expect(updated[0].id).toBe(first.id);
+  });
+
+  it('removeHistoryItem with unknown id leaves list unchanged', () => {
+    addToHistory({ fileName: 'a.mp3', url: 'https://a', format: 'mp3', mode: 'audio' });
+    const before = getHistory();
+    const after = removeHistoryItem('missing-id');
+    expect(after).toHaveLength(before.length);
   });
 });

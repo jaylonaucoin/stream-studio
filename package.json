@@ -27,6 +27,7 @@
     "build:win": "npm run build:renderer && electron-builder --win --x64",
     "build:linux": "npm run build:renderer && electron-builder --linux --x64",
     "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },

@@ -22,11 +22,11 @@ jobs:
       - name: Tests with coverage
         run: npm run test:coverage
 
-      - name: Upload coverage HTML
+      - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-html
+          name: coverage-reports
           path: coverage/
           if-no-files-found: ignore
 

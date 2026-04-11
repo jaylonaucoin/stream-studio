@@ -10,4 +10,5 @@ module.exports = {
   timeout: 120_000,
   expect: { timeout: 30_000 },
   reporter: 'list',
+  retries: process.env.CI ? 2 : 0,
 };
