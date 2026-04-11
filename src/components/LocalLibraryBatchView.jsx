@@ -47,6 +47,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SortIcon from '@mui/icons-material/Sort';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
+import CatalogLinkSection from './metadata/CatalogLinkSection';
 import { validateMetadata, fileStemFromPath, normalizeTagDisplay } from '../utils';
 
 export const emptySharedMetadata = () => ({
@@ -972,6 +973,19 @@ function LocalLibraryBatchView({
           <Typography variant="subtitle2">Shared album info &amp; genre</Typography>
         </AccordionSummary>
         <AccordionDetails>
+          <CatalogLinkSection
+            variant="albumShared"
+            disabled={busy}
+            onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+            onCoverLoaded={(dataUrl) => {
+              if (dataUrl) {
+                setThumbnailUrl(dataUrl);
+                setCoverTouched(true);
+                setThumbError(null);
+              }
+            }}
+            onError={(msg) => msg && setThumbError(msg)}
+          />
           <MetadataFormFields
             metadata={metadata}
             onChange={handleMetadataChange}

@@ -137,5 +137,8 @@ contextBridge.exposeInMainWorld('api', {
   
   // Fetch image as data URL (for thumbnail cropping - avoids CORS)
   fetchImageAsDataUrl: (imageUrl) => ipcRenderer.invoke('fetchImageAsDataUrl', imageUrl),
+
+  // MusicBrainz / Discogs catalog URL → metadata (lookup by ID only)
+  fetchCatalogMetadataFromUrl: (url) => ipcRenderer.invoke('fetchCatalogMetadataFromUrl', url),
 });
 

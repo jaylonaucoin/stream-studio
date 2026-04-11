@@ -18,6 +18,7 @@ const store = new Store({
       theme: 'dark',
       defaultSearchSite: 'youtube',
       defaultSearchLimit: 15,
+      discogsToken: '',
     },
   },
 });

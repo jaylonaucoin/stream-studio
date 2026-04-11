@@ -30,6 +30,7 @@ import {
   ChapterMetadataForm,
   SegmentMetadataForm,
   PlaylistVideoItem,
+  CatalogLinkSection,
 } from './metadata';
 import {
   GENRES,
@@ -563,6 +564,17 @@ function MetadataEditor({
 
   const renderSingleVideoForm = () => (
     <Box>
+      <CatalogLinkSection
+        variant="full"
+        onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+        onCoverLoaded={(dataUrl) => {
+          if (dataUrl) {
+            setThumbnailUrl(dataUrl);
+            setCustomThumbnail(dataUrl);
+          }
+        }}
+        onError={(msg) => msg && setErrorMessage(msg)}
+      />
       <MetadataFormFields
         metadata={metadata}
         onChange={handleMetadataChange}
@@ -623,6 +635,20 @@ function MetadataEditor({
           Shared Album Metadata
         </Typography>
         <Divider sx={{ mb: 2 }} />
+
+        <CatalogLinkSection
+          variant="albumShared"
+          onMetadataLoaded={(m) =>
+            setPlaylistSharedMetadata((prev) => ({ ...prev, ...m }))
+          }
+          onCoverLoaded={(dataUrl) => {
+            if (dataUrl) {
+              setThumbnailUrl(dataUrl);
+              setCustomThumbnail(dataUrl);
+            }
+          }}
+          onError={(msg) => msg && setErrorMessage(msg)}
+        />
 
         <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <FormControlLabel

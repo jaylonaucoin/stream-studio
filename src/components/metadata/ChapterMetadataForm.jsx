@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { GENRES } from '../../constants';
 import ThumbnailSection from './ThumbnailSection';
+import CatalogLinkSection from './CatalogLinkSection';
 
 /**
  * ChapterMetadataForm component for editing chapter/album metadata
@@ -52,6 +53,19 @@ function ChapterMetadataForm({
         Album metadata will be applied to all chapters. Track numbers will auto-increment based on
         selected chapters.
       </Alert>
+      <CatalogLinkSection
+        variant="albumShared"
+        onMetadataLoaded={(m) => {
+          onChapterMetadataChange((prev) => ({
+            ...prev,
+            albumMetadata: { ...prev.albumMetadata, ...m },
+          }));
+        }}
+        onCoverLoaded={(dataUrl) => {
+          if (dataUrl) onThumbnailChange(dataUrl);
+        }}
+        onError={onError}
+      />
       <Typography variant="h6" gutterBottom>
         Album Metadata
       </Typography>

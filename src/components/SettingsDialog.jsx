@@ -15,6 +15,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  TextField,
   IconButton,
   CircularProgress,
   Alert,
@@ -46,6 +47,7 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
     theme: 'dark',
     defaultSearchSite: DEFAULT_SEARCH_SITE,
     defaultSearchLimit: DEFAULT_SEARCH_LIMIT,
+    discogsToken: '',
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -327,6 +329,36 @@ function SettingsDialog({ open, onClose, onSettingsSaved }) {
                   </Select>
                 </FormControl>
               </Box>
+            </Box>
+
+            <Divider />
+
+            {/* Catalog metadata (Discogs) */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ fontWeight: 600 }}
+              >
+                Catalog metadata
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Optional personal access token for Discogs API when loading metadata from a Discogs
+                release URL in the metadata editor. MusicBrainz does not require a token.
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                type="password"
+                label="Discogs personal token"
+                value={settings.discogsToken ?? ''}
+                onChange={(e) => handleChange('discogsToken', e.target.value)}
+                autoComplete="off"
+                placeholder="Paste token from Discogs developer settings"
+                helperText="Create one at discogs.com → Settings → Developers"
+                aria-label="Discogs personal access token"
+              />
             </Box>
 
             <Divider />
