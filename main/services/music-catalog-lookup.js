@@ -1,13 +1,12 @@
 /**
  * Parse catalog URLs and fetch metadata by ID (MusicBrainz, Discogs) — no search.
  */
-const { app } = require('electron');
-
 const MBID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const MB_USER_AGENT = `StreamStudio/${app.getVersion()} (https://github.com/jaylonaucoin/stream-studio)`;
-
-const DISCOGS_USER_AGENT = MB_USER_AGENT;
+function getCatalogUserAgent() {
+  const { app } = require('electron');
+  return `StreamStudio/${app.getVersion()} (https://github.com/jaylonaucoin/stream-studio)`;
+}
 
 function emptyMetadata() {
   return {
@@ -91,7 +90,7 @@ async function musicBrainzGet(pathAndQuery) {
   const res = await fetch(url, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': MB_USER_AGENT,
+      'User-Agent': getCatalogUserAgent(),
     },
   });
   let data = {};
@@ -391,7 +390,7 @@ async function fetchCatalogMetadataFromUrl(url, options = {}) {
     if (parsed.provider === 'discogs') {
       const headers = {
         Accept: 'application/json',
-        'User-Agent': DISCOGS_USER_AGENT,
+        'User-Agent': getCatalogUserAgent(),
       };
       const token = (options.discogsToken || '').trim();
       if (token) {

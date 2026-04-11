@@ -25,18 +25,28 @@
     "start": "electron .",
     "build:mac": "npm run build:renderer && electron-builder --mac --x64",
     "build:win": "npm run build:renderer && electron-builder --win --x64",
-    "build:linux": "npm run build:renderer && electron-builder --linux --x64"
+    "build:linux": "npm run build:renderer && electron-builder --linux --x64",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^9.1.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "vite": "^6.0.3",
+    "vitest": "^3.2.4",
     "wait-on": "^8.0.1"
   },
   "dependencies": {
