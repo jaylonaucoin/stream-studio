@@ -47,7 +47,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SortIcon from '@mui/icons-material/Sort';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
-import { validateMetadata } from '../utils';
+import { validateMetadata, fileStemFromPath } from '../utils';
 
 export const emptySharedMetadata = () => ({
   title: '',
@@ -259,9 +259,10 @@ function LocalLibraryBatchView({
             return { ...row, status: 'read error', error: r.error || 'read failed' };
           }
           const m = r.metadata || {};
+          const tagTitle = m.title != null ? String(m.title).trim() : '';
           return {
             ...row,
-            title: m.title || '',
+            title: tagTitle !== '' ? tagTitle : fileStemFromPath(row.path),
             artist: m.artist || '',
             album: m.album || '',
             trackNumber: m.trackNumber || '',
@@ -297,7 +298,7 @@ function LocalLibraryBatchView({
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             path: p,
             selected: true,
-            title: '',
+            title: fileStemFromPath(p),
             artist: '',
             album: '',
             trackNumber: '',
@@ -378,12 +379,13 @@ function LocalLibraryBatchView({
         return;
       }
       const m = r.metadata;
+      const tagTitle = m.title != null ? String(m.title).trim() : '';
       setRows((prev) =>
         prev.map((row) =>
           row.path === p
             ? {
                 ...row,
-                title: m.title || '',
+                title: tagTitle !== '' ? tagTitle : fileStemFromPath(p),
                 artist: m.artist || '',
                 album: m.album || '',
                 trackNumber: m.trackNumber || '',
