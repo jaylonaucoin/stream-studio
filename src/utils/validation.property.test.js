@@ -14,7 +14,7 @@ describe('validation properties', () => {
         const r = validateMetadata(meta);
         expect(r).toEqual(expect.any(Object));
       }),
-      { numRuns: 50 }
+      { numRuns: 500 }
     );
   });
 
@@ -30,7 +30,7 @@ describe('validation properties', () => {
           expect(isValidHttpUrl(u)).toBe(false);
         }
       }),
-      { numRuns: 40 }
+      { numRuns: 500 }
     );
   });
 
@@ -41,7 +41,7 @@ describe('validation properties', () => {
         const ok = n > 0 && s === String(parseInt(s, 10));
         expect(isValidPositiveInteger(s)).toBe(ok);
       }),
-      { numRuns: 60 }
+      { numRuns: 500 }
     );
   });
 
@@ -56,7 +56,7 @@ describe('validation properties', () => {
           expect(isValidYear(s, minY, maxY)).toBe(y >= minY && y <= maxY);
         }
       ),
-      { numRuns: 40 }
+      { numRuns: 500 }
     );
   });
 });

@@ -33,6 +33,7 @@ describe('basic IPC handlers', () => {
     expect(settings).toMatchObject({
       defaultMode: 'audio',
       theme: 'dark',
+      discogsToken: expect.any(String),
     });
     expect(settings.discogsToken).toBeDefined();
   });

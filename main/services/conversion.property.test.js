@@ -15,7 +15,7 @@ describe('parseTimeToSeconds properties', () => {
           expect(r === null || (Number.isInteger(r) && r >= 0)).toBe(true);
         }
       ),
-      { numRuns: 100 }
+      { numRuns: 500 }
     );
   });
 
@@ -25,7 +25,22 @@ describe('parseTimeToSeconds properties', () => {
         const s = `${m}:${String(sec).padStart(2, '0')}`;
         expect(parseTimeToSeconds(s)).toBe(m * 60 + sec);
       }),
-      { numRuns: 40 }
+      { numRuns: 500 }
+    );
+  });
+
+  it('parses H:MM:SS to total seconds', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 99 }),
+        fc.integer({ min: 0, max: 59 }),
+        fc.integer({ min: 0, max: 59 }),
+        (h, m, sec) => {
+          const s = `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+          expect(parseTimeToSeconds(s)).toBe(h * 3600 + m * 60 + sec);
+        }
+      ),
+      { numRuns: 500 }
     );
   });
 });

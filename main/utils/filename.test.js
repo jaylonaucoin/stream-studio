@@ -32,6 +32,10 @@ describe('filename utils', () => {
       expect(getFormatExtension('unknown', 'audio')).toBe('mp3');
       expect(getFormatExtension('unknown', 'video')).toBe('mp4');
     });
+
+    it('maps best in video mode to mp4', () => {
+      expect(getFormatExtension('best', 'video')).toBe('mp4');
+    });
   });
 
   describe('getUniqueFilename', () => {
@@ -110,6 +114,12 @@ describe('filename utils', () => {
       });
       const result = getUniqueFilename('/tmp/song.mp3');
       expect(result).toMatch(/song \(5\)\.mp3$/);
+    });
+
+    it('stops at safety limit when paths keep existing', () => {
+      existsSpy.mockReturnValue(true);
+      const result = getUniqueFilename('/tmp/clash.mp3');
+      expect(result).toMatch(/clash \(999\)\.mp3$/);
     });
   });
 });

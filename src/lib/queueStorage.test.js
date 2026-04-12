@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { buildQueueItem } from '../../tests/factories.js';
 import { loadQueueFromStorage, saveQueueToStorage } from './queueStorage.js';
 
 const STORAGE_KEY = 'stream-studio-queue';
@@ -64,9 +65,43 @@ describe('queueStorage', () => {
     setItem.mockImplementation(() => {
       throw err;
     });
-    const r = saveQueueToStorage([{ url: 'https://x.com' }]);
+    const r = saveQueueToStorage([buildQueueItem({ url: 'https://x.com' })]);
     expect(r.success).toBe(false);
     expect(r.error).toContain('full');
     setItem.mockRestore();
+  });
+
+  it('filters out entries with empty url after load', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        buildQueueItem({ url: 'https://keep.com' }),
+        buildQueueItem({ url: '' }),
+      ])
+    );
+    const { items } = loadQueueFromStorage();
+    expect(items).toHaveLength(1);
+    expect(items[0].url).toBe('https://keep.com');
+  });
+
+  it('saveQueueToStorage returns generic error for non-quota failures', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    setItem.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    const r = saveQueueToStorage([buildQueueItem()]);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('could not be saved');
+    setItem.mockRestore();
+  });
+
+  it('saveQueueToStorage reports success when window is undefined', () => {
+    vi.stubGlobal('window', undefined);
+    try {
+      const r = saveQueueToStorage([buildQueueItem({ url: 'https://nw.com' })]);
+      expect(r).toEqual({ success: true });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

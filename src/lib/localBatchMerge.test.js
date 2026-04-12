@@ -14,6 +14,14 @@ describe('patchForStrategy', () => {
   it('merge skips empty strings', () => {
     expect(patchForStrategy({ a: '', b: 'ok' }, 'merge')).toEqual({ b: 'ok' });
   });
+
+  it('merge skips null, undefined, and whitespace-only values', () => {
+    expect(patchForStrategy({ a: null, b: undefined, c: '  ', d: 'ok' }, 'merge')).toEqual({ d: 'ok' });
+  });
+
+  it('replace coerces undefined values to empty string', () => {
+    expect(patchForStrategy({ a: undefined, b: 'z' }, 'replace')).toEqual({ a: '', b: 'z' });
+  });
 });
 
 describe('patchSharedOnly', () => {
@@ -24,6 +32,11 @@ describe('patchSharedOnly', () => {
     );
     expect(out).not.toHaveProperty('title');
     expect(out.album).toBe('Al');
+  });
+
+  it('applies replace strategy after stripping shared fields', () => {
+    const out = patchSharedOnly({ title: 'T', album: 'Al', genre: null }, 'replace');
+    expect(out).toEqual({ album: 'Al', genre: '' });
   });
 });
 
@@ -111,6 +124,25 @@ describe('mergeBatchJobIntoRows', () => {
     );
     expect(next[0].status).toBe('done');
   });
+
+  it('treats null results like an empty list', () => {
+    const next = mergeBatchJobIntoRows(prev, paths, null, false, null, 'convert');
+    expect(next[0].status).toBe('error');
+    expect(next[0].error).toBe('No result returned');
+  });
+
+  it('records null error when success is false without error text', () => {
+    const next = mergeBatchJobIntoRows(
+      prev,
+      paths,
+      [{ path: '/a.mp3', success: false }],
+      false,
+      null,
+      'convert'
+    );
+    expect(next[0].status).toBe('error');
+    expect(next[0].error).toBeNull();
+  });
 });
 
 describe('buildPerFilePatchesMap', () => {
@@ -129,5 +161,15 @@ describe('buildPerFilePatchesMap', () => {
   it('replace passes through title/artist/track as strings', () => {
     const m = buildPerFilePatchesMap(rows, set, 'replace');
     expect(m['/x.flac']).toEqual({ title: '  ', artist: 'A', trackNumber: '2' });
+    expect(m['/y.flac']).toEqual({ title: 'T', artist: '', trackNumber: '' });
+  });
+
+  it('skips rows not in targetPathSet', () => {
+    const r = [
+      { path: '/in.flac', title: 'A', artist: '', trackNumber: '' },
+      { path: '/out.flac', title: 'B', artist: '', trackNumber: '' },
+    ];
+    const m = buildPerFilePatchesMap(r, new Set(['/in.flac']), 'merge');
+    expect(Object.keys(m)).toEqual(['/in.flac']);
   });
 });
