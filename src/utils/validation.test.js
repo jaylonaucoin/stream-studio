@@ -20,9 +20,9 @@ describe('validateMetadata', () => {
   });
 
   it('flags track number above total', () => {
-    expect(
-      validateMetadata({ trackNumber: '5', totalTracks: '3' }).trackNumber
-    ).toContain('cannot exceed');
+    expect(validateMetadata({ trackNumber: '5', totalTracks: '3' }).trackNumber).toContain(
+      'cannot exceed'
+    );
   });
 
   it('flags invalid bpm', () => {

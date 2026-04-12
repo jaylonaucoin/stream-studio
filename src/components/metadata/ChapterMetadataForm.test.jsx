@@ -1,17 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
-import userEvent from '@testing-library/user-event'
-import { screen } from '@testing-library/react'
-import { axe } from 'jest-axe'
-import ChapterMetadataForm from './ChapterMetadataForm'
-import { renderWithMui } from '../../test-utils/render-with-mui'
+import { describe, it, expect, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
+import { muiComplexFormAxeConfig } from '../../../tests/setup/axe-config.js';
+import ChapterMetadataForm from './ChapterMetadataForm';
+import { renderWithMui } from '../../test-utils/render-with-mui';
 
 vi.mock('./ThumbnailSection', () => ({
   default: () => <div data-testid="thumbnail-section" />,
-}))
+}));
 
 vi.mock('./CatalogLinkSection', () => ({
   default: () => <div data-testid="catalog-link-section" />,
-}))
+}));
 
 const chapterMetadata = {
   albumMetadata: {
@@ -24,7 +25,7 @@ const chapterMetadata = {
     comment: 'A comment',
   },
   chapterTitleTemplate: '{chapterTitle}',
-}
+};
 
 describe('ChapterMetadataForm', () => {
   const defaultProps = {
@@ -33,55 +34,41 @@ describe('ChapterMetadataForm', () => {
     thumbnailUrl: 'data:image/png;base64,abc',
     onThumbnailChange: vi.fn(),
     onError: vi.fn(),
-  }
+  };
 
   it('renders expected fields', () => {
-    renderWithMui(<ChapterMetadataForm {...defaultProps} />)
+    renderWithMui(<ChapterMetadataForm {...defaultProps} />);
 
-    expect(screen.getByLabelText('Artist')).toBeInTheDocument()
-    expect(screen.getByLabelText('Album')).toBeInTheDocument()
-    expect(screen.getByLabelText('Album Artist')).toBeInTheDocument()
-    expect(screen.getByLabelText('Year')).toBeInTheDocument()
-    expect(screen.getByLabelText('Composer')).toBeInTheDocument()
-    expect(screen.getByLabelText('Comment')).toBeInTheDocument()
-  })
+    expect(screen.getByLabelText('Artist')).toBeInTheDocument();
+    expect(screen.getByLabelText('Album')).toBeInTheDocument();
+    expect(screen.getByLabelText('Album Artist')).toBeInTheDocument();
+    expect(screen.getByLabelText('Year')).toBeInTheDocument();
+    expect(screen.getByLabelText('Composer')).toBeInTheDocument();
+    expect(screen.getByLabelText('Comment')).toBeInTheDocument();
+  });
 
   it('calls onChapterMetadataChange when editing a field', async () => {
-    const user = userEvent.setup()
-    const onChapterMetadataChange = vi.fn()
+    const user = userEvent.setup();
+    const onChapterMetadataChange = vi.fn();
     renderWithMui(
-      <ChapterMetadataForm
-        {...defaultProps}
-        onChapterMetadataChange={onChapterMetadataChange}
-      />
-    )
+      <ChapterMetadataForm {...defaultProps} onChapterMetadataChange={onChapterMetadataChange} />
+    );
 
-    const artistField = screen.getByLabelText('Artist')
-    await user.clear(artistField)
-    await user.type(artistField, 'New')
+    const artistField = screen.getByLabelText('Artist');
+    await user.clear(artistField);
+    await user.type(artistField, 'New');
 
-    expect(onChapterMetadataChange).toHaveBeenCalled()
-  })
+    expect(onChapterMetadataChange).toHaveBeenCalled();
+  });
 
   it('renders catalog link section', () => {
-    renderWithMui(<ChapterMetadataForm {...defaultProps} />)
+    renderWithMui(<ChapterMetadataForm {...defaultProps} />);
 
-    expect(screen.getByTestId('catalog-link-section')).toBeInTheDocument()
-  })
+    expect(screen.getByTestId('catalog-link-section')).toBeInTheDocument();
+  });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<ChapterMetadataForm {...defaultProps} />)
-    expect(await axe(container, {
-      rules: {
-        'color-contrast': { enabled: false },
-        'aria-input-field-name': { enabled: false },
-        'heading-order': { enabled: false },
-        'button-name': { enabled: false },
-        'list': { enabled: false },
-        'listitem': { enabled: false },
-        'label': { enabled: false },
-        'nested-interactive': { enabled: false },
-      }
-    })).toHaveNoViolations()
-  })
-})
+    const { container } = renderWithMui(<ChapterMetadataForm {...defaultProps} />);
+    expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
+  });
+});

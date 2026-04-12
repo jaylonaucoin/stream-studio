@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import HistoryPanel from './HistoryPanel';
 import { renderWithMui } from '../test-utils/render-with-mui';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
@@ -85,12 +86,10 @@ describe('HistoryPanel', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />)
+    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />);
     await waitFor(() => {
-      expect(window.api.getHistory).toHaveBeenCalled()
-    })
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+      expect(window.api.getHistory).toHaveBeenCalled();
+    });
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
-import { axe } from 'jest-axe'
+import { axe } from 'jest-axe';
+import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import QueuePanel from './QueuePanel';
 import { renderWithMui } from '../test-utils/render-with-mui';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
@@ -90,15 +91,11 @@ describe('QueuePanel', () => {
   it('shows empty state message when queue is empty', () => {
     renderWithMui(<QueuePanelHarness />);
     expect(screen.getByText(/queue is empty/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/paste multiple urls/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/paste multiple urls/i)).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<QueuePanelHarness />)
-    expect(await axe(container, {
-      rules: { 'color-contrast': { enabled: false } }
-    })).toHaveNoViolations()
+    const { container } = renderWithMui(<QueuePanelHarness />);
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

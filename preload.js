@@ -1,4 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const {
+  getPathForFile: resolvePathForFile,
+  createConversionProgressHandlers,
+} = require('./shared/preload-logic.js');
+
 let webUtils;
 try {
   webUtils = require('electron').webUtils;
@@ -6,43 +11,7 @@ try {
   webUtils = null;
 }
 
-const conversionProgressListeners = new Set();
-let conversionProgressRelay = null;
-
-function ensureConversionProgressRelay() {
-  if (conversionProgressRelay) return;
-  conversionProgressRelay = (_event, data) => {
-    conversionProgressListeners.forEach((cb) => {
-      try {
-        cb(data);
-      } catch (e) {
-        console.error('[conversion-progress listener]', e);
-      }
-    });
-  };
-  ipcRenderer.on('conversion-progress', conversionProgressRelay);
-}
-
-function teardownConversionProgressRelayIfEmpty() {
-  if (conversionProgressListeners.size === 0 && conversionProgressRelay) {
-    ipcRenderer.removeListener('conversion-progress', conversionProgressRelay);
-    conversionProgressRelay = null;
-  }
-}
-
-// Get file path from File object (works for drag-drop and file input in Electron sandbox)
-function getPathForFile(file) {
-  if (!file) return '';
-  try {
-    if (webUtils && typeof webUtils.getPathForFile === 'function') {
-      const path = webUtils.getPathForFile(file);
-      if (path) return path;
-    }
-    return file.path || '';
-  } catch (e) {
-    return file.path || '';
-  }
-}
+const { onProgress, offProgress } = createConversionProgressHandlers(ipcRenderer);
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -56,19 +25,8 @@ contextBridge.exposeInMainWorld('api', {
   cancel: () => ipcRenderer.invoke('cancel'),
 
   // Progress events (multiplex: App + queue can subscribe without dropping each other)
-  onProgress: (callback) => {
-    if (typeof callback !== 'function') return;
-    conversionProgressListeners.add(callback);
-    ensureConversionProgressRelay();
-  },
-  offProgress: (callback) => {
-    if (callback) {
-      conversionProgressListeners.delete(callback);
-    } else {
-      conversionProgressListeners.clear();
-    }
-    teardownConversionProgressRelayIfEmpty();
-  },
+  onProgress,
+  offProgress,
 
   // Folder selection
   chooseOutput: () => ipcRenderer.invoke('chooseOutput'),
@@ -124,7 +82,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.removeAllListeners('batch-job-progress');
   },
   // Get filesystem path from File object (for drag-drop; file.path is undefined in sandboxed renderer)
-  getPathForFile: (file) => getPathForFile(file),
+  getPathForFile: (file) => resolvePathForFile(file, webUtils),
   // Fallback: save file buffer to temp when getPathForFile returns empty
   saveFileToTemp: (buffer, filename) => ipcRenderer.invoke('saveFileToTemp', { buffer, filename }),
 
