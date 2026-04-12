@@ -1,5 +1,6 @@
 const path = require('path');
 const { test, expect, _electron: electron } = require('@playwright/test');
+const { hasRendererPreloadApi } = require('../helpers/renderer-api.cjs');
 
 const repoRoot = path.join(__dirname, '..', '..');
 const electronExecutable = require('electron');
@@ -14,8 +15,6 @@ function launchEnv() {
   return env;
 }
 
-test.describe.configure({ mode: 'serial' });
-
 test('completes a mocked conversion and shows success', async () => {
   const app = await electron.launch({
     args: [repoRoot],
@@ -24,7 +23,8 @@ test('completes a mocked conversion and shows success', async () => {
     env: launchEnv(),
   });
   const window = await app.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
+  await window.waitForLoadState('load');
+  await expect.poll(async () => hasRendererPreloadApi(app)).toBe(true);
 
   await window.getByRole('tab', { name: /paste url/i }).click();
   const urlInput = window.locator('[aria-label="Video or audio URL input"]');
@@ -34,10 +34,10 @@ test('completes a mocked conversion and shows success', async () => {
   await expect(convertBtn).toBeEnabled({ timeout: 15000 });
   await convertBtn.click();
 
-  await expect(window.getByText('Conversion complete!', { exact: false })).toBeVisible({
-    timeout: 15000,
-  });
-  await expect(window.getByText('Success')).toBeVisible({ timeout: 5000 });
+  const completeHeading = window.getByRole('heading', { name: /conversion complete/i });
+  await expect(completeHeading).toBeVisible({ timeout: 15000 });
+  await completeHeading.scrollIntoViewIfNeeded();
+  await expect(window.getByText(/^Success$/)).toBeVisible({ timeout: 5000 });
 
   await app.close();
 });

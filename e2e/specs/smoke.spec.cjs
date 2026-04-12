@@ -1,5 +1,10 @@
 const path = require('path');
 const { test, expect, _electron: electron } = require('@playwright/test');
+const {
+  hasRendererPreloadApi,
+  pingFromRenderer,
+  getAppVersionFromRenderer,
+} = require('../helpers/renderer-api.cjs');
 
 const repoRoot = path.join(__dirname, '..', '..');
 const electronExecutable = require('electron');
@@ -9,8 +14,6 @@ function launchEnv() {
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
 }
-
-test.describe.configure({ mode: 'serial' });
 
 test('electron app opens a window', async () => {
   const app = await electron.launch({
@@ -46,11 +49,9 @@ test('renderer exposes preload API after load', async () => {
     env: launchEnv(),
   });
   const window = await app.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await expect
-    .poll(async () => window.evaluate(() => Boolean(window.api?.ping)))
-    .toBe(true);
-  const pong = await window.evaluate(() => window.api.ping());
+  await window.waitForLoadState('load');
+  await expect.poll(async () => hasRendererPreloadApi(app)).toBe(true);
+  const pong = await pingFromRenderer(app);
   expect(pong).toBe('pong');
   await app.close();
 });
@@ -63,11 +64,12 @@ test('getAppVersion returns a non-empty string', async () => {
     env: launchEnv(),
   });
   const window = await app.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
-  await expect
-    .poll(async () => window.evaluate(() => Boolean(window.api?.getAppVersion)))
-    .toBe(true);
-  const version = await window.evaluate(async () => window.api.getAppVersion());
+  await window.waitForLoadState('load');
+  let version = '';
+  await expect.poll(async () => {
+    version = await getAppVersionFromRenderer(app);
+    return version.length > 0;
+  }).toBe(true);
   expect(typeof version).toBe('string');
   expect(version.length).toBeGreaterThan(0);
   await app.close();

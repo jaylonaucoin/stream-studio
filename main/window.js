@@ -26,6 +26,7 @@ function createWindow() {
       preload: path.join(getAppRoot(), 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
     },
     icon: getIconPath(),
     show: false, // Don't show until ready
