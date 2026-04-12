@@ -18,7 +18,10 @@ describe('patchForStrategy', () => {
 
 describe('patchSharedOnly', () => {
   it('strips title, artist, trackNumber before patching', () => {
-    const out = patchSharedOnly({ title: 'T', artist: 'A', album: 'Al', trackNumber: '1' }, 'merge');
+    const out = patchSharedOnly(
+      { title: 'T', artist: 'A', album: 'Al', trackNumber: '1' },
+      'merge'
+    );
     expect(out).not.toHaveProperty('title');
     expect(out.album).toBe('Al');
   });
@@ -29,13 +32,27 @@ describe('mergeBatchJobIntoRows', () => {
   const prev = [{ path: '/a.mp3', status: 'converting', title: 'x' }];
 
   it('marks success with new path', () => {
-    const next = mergeBatchJobIntoRows(prev, paths, [{ path: '/a.mp3', success: true, newPath: '/b.mp3' }], false, null, 'convert');
+    const next = mergeBatchJobIntoRows(
+      prev,
+      paths,
+      [{ path: '/a.mp3', success: true, newPath: '/b.mp3' }],
+      false,
+      null,
+      'convert'
+    );
     expect(next[0].path).toBe('/b.mp3');
     expect(next[0].status).toBe('converted');
   });
 
   it('keeps path when success without newPath', () => {
-    const next = mergeBatchJobIntoRows(prev, paths, [{ path: '/a.mp3', success: true }], false, null, 'convert');
+    const next = mergeBatchJobIntoRows(
+      prev,
+      paths,
+      [{ path: '/a.mp3', success: true }],
+      false,
+      null,
+      'convert'
+    );
     expect(next[0].path).toBe('/a.mp3');
     expect(next[0].status).toBe('converted');
   });
@@ -84,7 +101,14 @@ describe('mergeBatchJobIntoRows', () => {
 
   it('uses working/done status for metadata phase', () => {
     const p = [{ path: '/a.mp3', status: 'working' }];
-    const next = mergeBatchJobIntoRows(p, paths, [{ path: '/a.mp3', success: true }], false, null, 'metadata');
+    const next = mergeBatchJobIntoRows(
+      p,
+      paths,
+      [{ path: '/a.mp3', success: true }],
+      false,
+      null,
+      'metadata'
+    );
     expect(next[0].status).toBe('done');
   });
 });

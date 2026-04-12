@@ -53,7 +53,10 @@ describe('conversion IPC handlers', () => {
   });
 
   it('cancel delegates to service', async () => {
-    vi.spyOn(conversionService, 'cancelConversion').mockReturnValue({ success: true, cancelled: true });
+    vi.spyOn(conversionService, 'cancelConversion').mockReturnValue({
+      success: true,
+      cancelled: true,
+    });
     const ipc = createFakeIpcMain();
     registerHandlers(ipc);
     await expect(ipc.invoke('cancel', {})).resolves.toEqual({

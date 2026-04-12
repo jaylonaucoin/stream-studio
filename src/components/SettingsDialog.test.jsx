@@ -21,9 +21,7 @@ describe('SettingsDialog', () => {
   });
 
   it('loads settings when opened and shows theme control', async () => {
-    renderWithMui(
-      <SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />
-    );
+    renderWithMui(<SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />);
 
     await waitFor(() => {
       expect(window.api.getSettings).toHaveBeenCalled();
@@ -38,9 +36,7 @@ describe('SettingsDialog', () => {
     const onClose = vi.fn();
     const onSettingsSaved = vi.fn();
 
-    renderWithMui(
-      <SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />
-    );
+    renderWithMui(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
 
     await waitFor(() => {
       expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument();
@@ -59,9 +55,7 @@ describe('SettingsDialog', () => {
     const onClose = vi.fn();
     const onSettingsSaved = vi.fn();
 
-    renderWithMui(
-      <SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />
-    );
+    renderWithMui(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
 
     await waitFor(() => {
       expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument();
@@ -76,10 +70,10 @@ describe('SettingsDialog', () => {
   it('has no accessibility violations', async () => {
     const { container } = renderWithMui(
       <SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />
-    )
+    );
     await waitFor(() => {
-      expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument()
-    })
-    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
+      expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument();
+    });
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

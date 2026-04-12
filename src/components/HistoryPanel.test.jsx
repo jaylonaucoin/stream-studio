@@ -86,10 +86,10 @@ describe('HistoryPanel', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />)
+    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />);
     await waitFor(() => {
-      expect(window.api.getHistory).toHaveBeenCalled()
-    })
-    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
+      expect(window.api.getHistory).toHaveBeenCalled();
+    });
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

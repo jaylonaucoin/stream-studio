@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  isIpcFailure,
-  historyItemsFromResponse,
-  historyErrorFromResponse,
-} from './ipcResult.js';
+import { isIpcFailure, historyItemsFromResponse, historyErrorFromResponse } from './ipcResult.js';
 
 describe('isIpcFailure', () => {
   it('detects failure objects', () => {

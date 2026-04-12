@@ -8,10 +8,13 @@ const { parseTimeToSeconds } = require('./conversion.js');
 describe('parseTimeToSeconds properties', () => {
   it('returns null or non-negative integer', () => {
     fc.assert(
-      fc.property(fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined), fc.integer()), (v) => {
-        const r = parseTimeToSeconds(v);
-        expect(r === null || (Number.isInteger(r) && r >= 0)).toBe(true);
-      }),
+      fc.property(
+        fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined), fc.integer()),
+        (v) => {
+          const r = parseTimeToSeconds(v);
+          expect(r === null || (Number.isInteger(r) && r >= 0)).toBe(true);
+        }
+      ),
       { numRuns: 100 }
     );
   });

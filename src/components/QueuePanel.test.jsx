@@ -91,13 +91,11 @@ describe('QueuePanel', () => {
   it('shows empty state message when queue is empty', () => {
     renderWithMui(<QueuePanelHarness />);
     expect(screen.getByText(/queue is empty/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/paste multiple urls/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/paste multiple urls/i)).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<QueuePanelHarness />)
-    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations()
+    const { container } = renderWithMui(<QueuePanelHarness />);
+    expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

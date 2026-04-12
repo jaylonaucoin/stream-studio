@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { validateMetadata, isValidHttpUrl, isValidPositiveInteger, isValidYear } from './validation.js';
+import {
+  validateMetadata,
+  isValidHttpUrl,
+  isValidPositiveInteger,
+  isValidYear,
+} from './validation.js';
 
 describe('validation properties', () => {
   it('validateMetadata never throws', () => {
@@ -18,7 +23,9 @@ describe('validation properties', () => {
       fc.property(fc.webUrl(), (u) => {
         try {
           const parsed = new URL(u);
-          expect(isValidHttpUrl(u)).toBe(parsed.protocol === 'http:' || parsed.protocol === 'https:');
+          expect(isValidHttpUrl(u)).toBe(
+            parsed.protocol === 'http:' || parsed.protocol === 'https:'
+          );
         } catch {
           expect(isValidHttpUrl(u)).toBe(false);
         }
@@ -40,11 +47,15 @@ describe('validation properties', () => {
 
   it('isValidYear respects bounds', () => {
     fc.assert(
-      fc.property(fc.integer({ min: 1900, max: 2100 }), fc.integer({ min: 1800, max: 2200 }), (y, minY) => {
-        const s = String(y);
-        const maxY = minY + 50;
-        expect(isValidYear(s, minY, maxY)).toBe(y >= minY && y <= maxY);
-      }),
+      fc.property(
+        fc.integer({ min: 1900, max: 2100 }),
+        fc.integer({ min: 1800, max: 2200 }),
+        (y, minY) => {
+          const s = String(y);
+          const maxY = minY + 50;
+          expect(isValidYear(s, minY, maxY)).toBe(y >= minY && y <= maxY);
+        }
+      ),
       { numRuns: 40 }
     );
   });

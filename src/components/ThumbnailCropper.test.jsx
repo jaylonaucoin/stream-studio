@@ -28,7 +28,12 @@ describe('ThumbnailCropper', () => {
     const user = userEvent.setup();
 
     renderWithMui(
-      <ThumbnailCropper open imageUrl="https://example.com/x.png" onClose={onClose} onCropComplete={onCropComplete} />
+      <ThumbnailCropper
+        open
+        imageUrl="https://example.com/x.png"
+        onClose={onClose}
+        onCropComplete={onCropComplete}
+      />
     );
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));
