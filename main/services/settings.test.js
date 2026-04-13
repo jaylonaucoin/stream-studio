@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import store from '../store.js';
-import { getSettings, saveSettings, getOutputFolder, setOutputFolder, getWindowBounds, saveWindowBounds } from './settings.js';
+import {
+  getSettings,
+  saveSettings,
+  getOutputFolder,
+  setOutputFolder,
+  getWindowBounds,
+  saveWindowBounds,
+} from './settings.js';
 
 describe('settings service', () => {
   beforeEach(() => {

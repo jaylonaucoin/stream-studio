@@ -74,10 +74,7 @@ describe('queueStorage', () => {
   it('filters out entries with empty url after load', () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify([
-        buildQueueItem({ url: 'https://keep.com' }),
-        buildQueueItem({ url: '' }),
-      ])
+      JSON.stringify([buildQueueItem({ url: 'https://keep.com' }), buildQueueItem({ url: '' })])
     );
     const { items } = loadQueueFromStorage();
     expect(items).toHaveLength(1);

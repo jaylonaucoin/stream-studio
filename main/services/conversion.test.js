@@ -6,7 +6,6 @@ const require = createRequire(import.meta.url);
 
 const childProcess = require('child_process');
 const fs = require('fs');
-const path = require('path');
 
 const spawnMock = vi.fn();
 const checkFfmpegAvailable = vi.fn(() => Promise.resolve(true));

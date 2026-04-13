@@ -47,7 +47,6 @@ batchLocal._loadMusicMetadataOverride = { parseFile: mockParseFile };
 
 const {
   enumeratePaths,
-  readAudioMetadata,
   readMetadataBatch,
   applyMetadataBatch,
   dryRunLocalBatch,

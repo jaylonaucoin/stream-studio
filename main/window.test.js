@@ -95,9 +95,7 @@ describe('window', () => {
     expect(lastBw.gotOpts.webPreferences.contextIsolation).toBe(true);
     expect(lastBw.gotOpts.webPreferences.sandbox).toBe(false);
     expect(lastBw.gotOpts.show).toBe(false);
-    expect(lastBw.gotOpts.webPreferences.preload).toBe(
-      path.join('/fake-app-root', 'preload.js')
-    );
+    expect(lastBw.gotOpts.webPreferences.preload).toBe(path.join('/fake-app-root', 'preload.js'));
     expect(getMainWindow()).toBe(lastBw);
   });
 

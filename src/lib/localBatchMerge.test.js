@@ -16,7 +16,9 @@ describe('patchForStrategy', () => {
   });
 
   it('merge skips null, undefined, and whitespace-only values', () => {
-    expect(patchForStrategy({ a: null, b: undefined, c: '  ', d: 'ok' }, 'merge')).toEqual({ d: 'ok' });
+    expect(patchForStrategy({ a: null, b: undefined, c: '  ', d: 'ok' }, 'merge')).toEqual({
+      d: 'ok',
+    });
   });
 
   it('replace coerces undefined values to empty string', () => {

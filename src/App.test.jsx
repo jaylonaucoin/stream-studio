@@ -223,7 +223,9 @@ describe('App', () => {
   it('opens settings on Meta+,', async () => {
     const user = userEvent.setup();
     renderWithMui(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /open settings/i })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open settings/i })).toBeTruthy()
+    );
     fireEvent.keyDown(window, { key: ',', metaKey: true });
     const settingsDialog = await screen.findByRole('dialog');
     expect(within(settingsDialog).getByText(/^settings$/i)).toBeInTheDocument();
@@ -232,14 +234,18 @@ describe('App', () => {
 
   it('opens history panel on Meta+H', async () => {
     renderWithMui(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /open conversion history/i })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open conversion history/i })).toBeTruthy()
+    );
     fireEvent.keyDown(window, { key: 'h', metaKey: true });
     expect(await screen.findByText('Conversion History')).toBeInTheDocument();
   });
 
   it('opens queue panel on Meta+B', async () => {
     renderWithMui(<App />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /open batch queue/i })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open batch queue/i })).toBeTruthy()
+    );
     fireEvent.keyDown(window, { key: 'b', metaKey: true, shiftKey: false });
     expect(await screen.findByText('Batch Queue')).toBeInTheDocument();
   });
