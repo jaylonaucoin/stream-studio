@@ -12,6 +12,15 @@ function registerHandlers(ipcMain) {
   // Note: URL and options validation is done in the conversion service
   // to match the original behavior
   ipcMain.handle('convert', async (event, url, options = {}) => {
+    if (
+      process.env.STREAM_STUDIO_E2E === '1' &&
+      process.env.STREAM_STUDIO_E2E_MOCK_CONVERT === '1'
+    ) {
+      return {
+        success: true,
+        fileName: 'e2e-mock-output.mp3',
+      };
+    }
     return await conversionService.convert(url, options);
   });
 

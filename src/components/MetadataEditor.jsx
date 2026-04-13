@@ -30,6 +30,8 @@ import {
   ChapterMetadataForm,
   SegmentMetadataForm,
   PlaylistVideoItem,
+  CatalogLinkSection,
+  pickAlbumSharedFields,
 } from './metadata';
 import {
   GENRES,
@@ -61,10 +63,12 @@ function MetadataEditor({
   const [errorMessage, setErrorMessage] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [playlistPage, setPlaylistPage] = useState(0);
+  const [catalogTracklistNotice, setCatalogTracklistNotice] = useState(null);
 
   // Track previous mode and open state to detect changes
   const prevModeRef = useRef(mode);
   const prevOpenRef = useRef(open);
+  const skipNextYoutubePlaylistInitRef = useRef(false);
 
   // Single video / Bulk playlist metadata
   const [metadata, setMetadata] = useState({ ...DEFAULT_METADATA });
@@ -99,6 +103,8 @@ function MetadataEditor({
       setPlaylistPage(0);
       setValidationErrors({});
       setErrorMessage(null);
+      setCatalogTracklistNotice(null);
+      skipNextYoutubePlaylistInitRef.current = false;
     }
 
     // Reset state when mode changes
@@ -109,6 +115,8 @@ function MetadataEditor({
       setChapterMetadata({ ...DEFAULT_CHAPTER_METADATA });
       setSegmentMetadata({ ...DEFAULT_SEGMENT_METADATA });
       setValidationErrors({});
+      setCatalogTracklistNotice(null);
+      skipNextYoutubePlaylistInitRef.current = false;
     }
 
     prevModeRef.current = mode;
@@ -275,29 +283,37 @@ function MetadataEditor({
       const sharedArtist =
         videoInfo?.artist || videoInfo?.uploader || playlistInfo?.playlistUploader || '';
 
-      setPlaylistSharedMetadata({
-        artist: sharedArtist,
-        album: playlistInfo.playlistTitle || '',
-        albumArtist: sharedArtist,
-        genre: '',
-        year: videoInfo?.uploadDate ? videoInfo.uploadDate.substring(0, 4) : currentYear.toString(),
-        composer: '',
-        publisher: '',
-        comment: '',
-        description: '',
-        language: '',
-        copyright: '',
-        bpm: '',
-      });
+      if (!skipNextYoutubePlaylistInitRef.current) {
+        setPlaylistSharedMetadata({
+          artist: sharedArtist,
+          album: playlistInfo.playlistTitle || '',
+          albumArtist: sharedArtist,
+          genre: '',
+          year: videoInfo?.uploadDate
+            ? videoInfo.uploadDate.substring(0, 4)
+            : currentYear.toString(),
+          composer: '',
+          publisher: '',
+          comment: '',
+          description: '',
+          language: '',
+          copyright: '',
+          bpm: '',
+        });
+      } else {
+        skipNextYoutubePlaylistInitRef.current = false;
+      }
 
-      // Initialize per-file metadata for displayed videos
-      // Use video's artist if available, otherwise use shared artist
-      const perFile = videosToUse.map((video, index) => ({
-        title: video.title || '',
-        artist: video.artist || sharedArtist, // Use video's artist if available, otherwise shared
-        trackNumber: (index + 1).toString(),
-      }));
-      setPerFileMetadata(perFile);
+      setPerFileMetadata((prev) => {
+        if (prev.length === videosToUse.length && prev.length > 0) {
+          return prev;
+        }
+        return videosToUse.map((video, index) => ({
+          title: video.title || '',
+          artist: video.artist || sharedArtist,
+          trackNumber: (index + 1).toString(),
+        }));
+      });
       setUseSharedArtist(true);
 
       // Set thumbnail to first video's thumbnail for individual mode
@@ -386,6 +402,73 @@ function MetadataEditor({
   const handlePlaylistSharedMetadataChange = useCallback((field, value) => {
     setPlaylistSharedMetadata((prev) => ({ ...prev, [field]: value }));
   }, []);
+
+  const handlePlaylistCatalogTracklistLoaded = useCallback(
+    (tracks, catalogMetaFull = {}) => {
+      if (!tracks?.length || mode !== 'playlist' || !playlistInfo?.videos) return;
+      const videosToUse =
+        selectedVideos && selectedVideos.length > 0
+          ? playlistInfo.videos.filter((_, idx) => selectedVideos.includes(idx + 1))
+          : playlistInfo.videos;
+      const n = videosToUse.length;
+      const m = tracks.length;
+      const k = Math.min(n, m);
+      const albumPatch = pickAlbumSharedFields(catalogMetaFull);
+
+      skipNextYoutubePlaylistInitRef.current = true;
+
+      setPlaylistSharedMetadata((prev) => ({ ...prev, ...albumPatch }));
+
+      setPlaylistEditMode((prevMode) => {
+        if (prevMode === 'bulk') {
+          return 'individual';
+        }
+        return prevMode;
+      });
+
+      const sharedArtistLine =
+        albumPatch.artist ||
+        videoInfo?.artist ||
+        videoInfo?.uploader ||
+        playlistInfo?.playlistUploader ||
+        '';
+
+      const nextPerFile = videosToUse.map((video, i) => {
+        const baseArtist = video.artist || sharedArtistLine;
+        const row = {
+          title: video.title || '',
+          artist: baseArtist,
+          trackNumber: String(i + 1),
+        };
+        if (i >= k) return row;
+        const t = tracks[i];
+        const title = (t.title || '').trim();
+        if (t.trackNumber != null && String(t.trackNumber).trim() !== '') {
+          row.trackNumber = String(t.trackNumber);
+        }
+        if (title) {
+          row.title = title;
+        }
+        if (!useSharedArtist && (t.artist || '').trim()) {
+          row.artist = (t.artist || '').trim();
+        }
+        return row;
+      });
+
+      setPerFileMetadata(nextPerFile);
+
+      queueMicrotask(() => {
+        if (m !== n) {
+          setCatalogTracklistNotice(
+            `Applied first ${k} tracks. Catalog has ${m} tracks; playlist has ${n}.`
+          );
+        } else {
+          setCatalogTracklistNotice(null);
+        }
+      });
+    },
+    [mode, playlistInfo, selectedVideos, videoInfo, useSharedArtist]
+  );
 
   const handleThumbnailChange = useCallback((newUrl) => {
     setThumbnailUrl(newUrl);
@@ -563,6 +646,18 @@ function MetadataEditor({
 
   const renderSingleVideoForm = () => (
     <Box>
+      <CatalogLinkSection
+        variant="full"
+        onMetadataLoaded={(m) => setMetadata((prev) => ({ ...prev, ...m }))}
+        onCoverLoaded={(dataUrl) => {
+          if (dataUrl) {
+            setThumbnailUrl(dataUrl);
+            setCustomThumbnail(dataUrl);
+          }
+        }}
+        onTracklistLoaded={mode === 'playlist' ? handlePlaylistCatalogTracklistLoaded : undefined}
+        onError={(msg) => msg && setErrorMessage(msg)}
+      />
       <MetadataFormFields
         metadata={metadata}
         onChange={handleMetadataChange}
@@ -623,6 +718,24 @@ function MetadataEditor({
           Shared Album Metadata
         </Typography>
         <Divider sx={{ mb: 2 }} />
+
+        <CatalogLinkSection
+          variant="albumShared"
+          onMetadataLoaded={(m) => setPlaylistSharedMetadata((prev) => ({ ...prev, ...m }))}
+          onCoverLoaded={(dataUrl) => {
+            if (dataUrl) {
+              setThumbnailUrl(dataUrl);
+              setCustomThumbnail(dataUrl);
+            }
+          }}
+          onTracklistLoaded={handlePlaylistCatalogTracklistLoaded}
+          onError={(msg) => msg && setErrorMessage(msg)}
+        />
+        {catalogTracklistNotice && (
+          <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCatalogTracklistNotice(null)}>
+            {catalogTracklistNotice}
+          </Alert>
+        )}
 
         <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <FormControlLabel

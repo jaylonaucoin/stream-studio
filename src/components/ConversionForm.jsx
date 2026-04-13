@@ -25,8 +25,10 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import TimeInput from './TimeInput';
 import MetadataEditor from './MetadataEditor';
+import LocalLibraryBatchView from './LocalLibraryBatchView';
 import SegmentEditor from './SegmentEditor';
 import YouTubeSearchPanel from './YouTubeSearchPanel';
 import {
@@ -38,6 +40,10 @@ import {
 } from './conversion';
 import { SUPPORTED_SITES, isAudioOnlyExtractor, isAudioOnlyUrl } from '../constants';
 import { normalizeUrl, isValidUrl, isLikelyUrl } from '../utils';
+import mediaInputExtensions from '../../shared/media-input-extensions.json';
+
+const LOCAL_FILE_ACCEPT = `audio/*,video/*,${mediaInputExtensions.allMedia.map((e) => `.${e}`).join(',')}`;
+const AUDIO_ONLY_EXTENSIONS = new Set(mediaInputExtensions.audioOnly);
 
 function ConversionForm({
   onConvert,
@@ -51,6 +57,10 @@ function ConversionForm({
   defaultSearchSite = 'youtube',
   defaultSearchLimit = 15,
   onAddToQueue,
+  inputMode: inputModeProp,
+  onInputModeChange,
+  outputFolder = '',
+  onLocalBatchComplete,
 }) {
   const [url, setUrl] = useState('');
   const [isValid, setIsValid] = useState(true);
@@ -92,8 +102,10 @@ function ConversionForm({
   const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
   const [customMetadata, setCustomMetadata] = useState(null);
 
-  // Input mode: 'search', 'paste' (URL), or 'local'
-  const [inputMode, setInputMode] = useState('search');
+  const [inputModeInternal, setInputModeInternal] = useState('search');
+  const inputModeControlled = typeof onInputModeChange === 'function';
+  const inputMode = inputModeControlled ? (inputModeProp ?? 'search') : inputModeInternal;
+  const setInputMode = inputModeControlled ? onInputModeChange : setInputModeInternal;
 
   // Local file state
   const [localFilePath, setLocalFilePath] = useState('');
@@ -101,20 +113,6 @@ function ConversionForm({
   // Clip/trim state (for URL or local file)
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-
-  // Audio-only file extensions: cannot convert to video (mp3->mp4 invalid)
-  const AUDIO_ONLY_EXTENSIONS = new Set([
-    'mp3',
-    'm4a',
-    'flac',
-    'wav',
-    'aac',
-    'ogg',
-    'opus',
-    'alac',
-    'wma',
-    'ape',
-  ]);
 
   // When local file is audio-only, disable Video mode (can't go mp3->mp4)
   const isLocalFileAudioOnly =
@@ -315,7 +313,7 @@ function ConversionForm({
     } catch (err) {
       console.error('Failed to read clipboard:', err);
     }
-  }, [validateUrl]);
+  }, [validateUrl, setInputMode]);
 
   const handleSearchSelect = useCallback(
     (selectedUrl) => {
@@ -325,7 +323,7 @@ function ConversionForm({
         setInputMode('paste');
       }
     },
-    [validateUrl]
+    [validateUrl, setInputMode]
   );
 
   const handleModeChange = useCallback((newMode) => {
@@ -545,7 +543,7 @@ function ConversionForm({
         if (isLikelyUrl(trimmed)) setInputMode('paste');
       }
     },
-    [validateUrl]
+    [validateUrl, setInputMode]
   );
 
   const handleLocalFileDrop = useCallback(async (e) => {
@@ -646,6 +644,14 @@ function ConversionForm({
           aria-controls="tabpanel-local"
           id="tab-local"
         />
+        <Tab
+          value="batch-local"
+          label="Library"
+          icon={<LibraryMusicIcon fontSize="small" />}
+          iconPosition="start"
+          aria-controls="tabpanel-batch-local"
+          id="tab-batch-local"
+        />
       </Tabs>
 
       {inputMode === 'search' && (
@@ -707,12 +713,31 @@ function ConversionForm({
         </Box>
       )}
 
+      {inputMode === 'batch-local' && (
+        <Box
+          id="tabpanel-batch-local"
+          role="tabpanel"
+          aria-labelledby="tab-batch-local"
+          sx={{ mt: 1, mb: 2 }}
+        >
+          <LocalLibraryBatchView
+            outputFolder={outputFolder}
+            defaultMode={defaultMode}
+            defaultAudioFormat={defaultAudioFormat}
+            defaultVideoFormat={defaultVideoFormat}
+            defaultQuality={defaultQuality}
+            disabled={disabled}
+            onBatchComplete={onLocalBatchComplete}
+          />
+        </Box>
+      )}
+
       {inputMode === 'local' && (
         <Box id="tabpanel-local" role="tabpanel" aria-labelledby="tab-local" sx={{ mt: 1, mb: 2 }}>
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/*,video/*,.mp3,.m4a,.flac,.wav,.aac,.ogg,.opus,.mp4,.mkv,.webm,.avi,.mov"
+            accept={LOCAL_FILE_ACCEPT}
             style={{ display: 'none' }}
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -773,7 +798,7 @@ function ConversionForm({
                 : 'Drop audio or video file here, or click to browse'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Supports MP3, M4A, FLAC, WAV, MP4, MKV, WebM, and more
+              Common audio and video files
             </Typography>
           </Paper>
         </Box>

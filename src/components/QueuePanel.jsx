@@ -18,6 +18,7 @@ import {
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
+  Snackbar,
 } from '@mui/material';
 import QueueIcon from '@mui/icons-material/Queue';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -60,6 +61,7 @@ function QueuePanel({
   const [currentProgress, setCurrentProgress] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const stopRequestedRef = useRef(false);
+  const [queueToast, setQueueToast] = useState({ open: false, message: '', severity: 'info' });
 
   const addUrlsToQueue = useCallback(
     async (urlStrings) => {
@@ -311,22 +313,53 @@ function QueuePanel({
     if (!window.api?.openQueueFile || isProcessing) return;
     try {
       const result = await window.api.openQueueFile();
-      if (result?.success && Array.isArray(result.data)) {
-        const newItems = result.data.map((item, index) => ({
-          id: Date.now().toString() + index,
-          url: item.url,
+      if (result?.cancelled) {
+        return;
+      }
+      if (!result?.success) {
+        setQueueToast({
+          open: true,
+          severity: 'error',
+          message: result?.error || 'Could not import queue file.',
+        });
+        return;
+      }
+      if (!Array.isArray(result.data) || result.data.length === 0) {
+        setQueueToast({
+          open: true,
+          severity: 'warning',
+          message: 'No queue entries were imported.',
+        });
+        return;
+      }
+      const baseId = Date.now().toString();
+      const newItems = result.data.map((item, index) => {
+        const normalizedUrl = normalizeUrl(item.url);
+        return {
+          id: baseId + index,
+          url: normalizedUrl,
           status: 'pending',
           error: null,
-          isPlaylist: item.isPlaylist || false,
+          isPlaylist: Boolean(item.isPlaylist),
           playlistInfo: null,
           playlistMode: item.playlistMode || 'full',
-          title: item.title || null,
+          title: item.title ?? null,
           thumbnail: null,
-        }));
-        setQueue((prev) => [...prev, ...newItems]);
-      }
+        };
+      });
+      setQueue((prev) => [...prev, ...newItems]);
+      setQueueToast({
+        open: true,
+        severity: 'success',
+        message: `Imported ${newItems.length} item(s).`,
+      });
     } catch (err) {
       console.error('Import queue error:', err);
+      setQueueToast({
+        open: true,
+        severity: 'error',
+        message: err?.message || 'Could not import queue file.',
+      });
     }
   }, [isProcessing, setQueue]);
 
@@ -338,82 +371,93 @@ function QueuePanel({
     setIsProcessing(true);
     stopRequestedRef.current = false;
 
-    for (let i = 0; i < queue.length; i++) {
-      if (stopRequestedRef.current) {
-        break;
+    const progressHandler = (data) => {
+      if (
+        (data.type === 'progress' || data.type === 'playlist-progress') &&
+        data.percent !== undefined
+      ) {
+        setCurrentProgress(data.percent);
       }
+    };
 
-      const item = queue[i];
-      if (item.status !== 'pending') continue;
+    if (window.api?.onProgress) {
+      window.api.onProgress(progressHandler);
+    }
 
-      setCurrentProgress(0);
+    try {
+      for (let i = 0; i < queue.length; i++) {
+        if (stopRequestedRef.current) {
+          break;
+        }
 
-      // Update status to processing
-      setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q)));
+        const item = queue[i];
+        if (item.status !== 'pending') continue;
 
-      try {
-        // Set up progress listener for this item
-        const progressHandler = (data) => {
-          if (
-            (data.type === 'progress' || data.type === 'playlist-progress') &&
-            data.percent !== undefined
-          ) {
-            setCurrentProgress(data.percent);
+        setCurrentProgress(0);
+
+        // Update status to processing
+        setQueue((prev) =>
+          prev.map((q) => (q.id === item.id ? { ...q, status: 'processing' } : q))
+        );
+
+        try {
+          // Force audio mode for audio-only sources (SoundCloud, Bandcamp, Mixcloud)
+          const isAudioOnly =
+            (item.extractor && isAudioOnlyExtractor(item.extractor)) || isAudioOnlyUrl(item.url);
+          const effectiveMode = isAudioOnly ? 'audio' : defaultMode || 'audio';
+          const effectiveFormat = isAudioOnly
+            ? defaultFormat === 'mp3'
+              ? 'mp3'
+              : 'mp3'
+            : defaultFormat || 'mp3';
+          const effectiveQuality = defaultQuality || 'best';
+
+          const convertOptions = {
+            outputFolder,
+            mode: effectiveMode,
+            format: effectiveMode === 'audio' ? effectiveFormat : defaultFormat,
+            quality: effectiveQuality,
+          };
+
+          // If it's a playlist, pass the playlist mode
+          if (item.isPlaylist) {
+            convertOptions.playlistMode = item.playlistMode;
           }
-        };
 
-        if (window.api && window.api.onProgress) {
-          window.api.offProgress();
-          window.api.onProgress(progressHandler);
-        }
+          const result = await window.api.convert(item.url, convertOptions);
 
-        // Force audio mode for audio-only sources (SoundCloud, Bandcamp, Mixcloud)
-        const isAudioOnly =
-          (item.extractor && isAudioOnlyExtractor(item.extractor)) || isAudioOnlyUrl(item.url);
-        const effectiveMode = isAudioOnly ? 'audio' : defaultMode || 'audio';
-        const effectiveFormat = isAudioOnly
-          ? defaultFormat === 'mp3'
-            ? 'mp3'
-            : 'mp3'
-          : defaultFormat || 'mp3';
-        const effectiveQuality = defaultQuality || 'best';
-
-        const convertOptions = {
-          outputFolder,
-          mode: effectiveMode,
-          format: effectiveMode === 'audio' ? effectiveFormat : defaultFormat,
-          quality: effectiveQuality,
-        };
-
-        // If it's a playlist, pass the playlist mode
-        if (item.isPlaylist) {
-          convertOptions.playlistMode = item.playlistMode;
-        }
-
-        const result = await window.api.convert(item.url, convertOptions);
-
-        if (result.success) {
+          if (result?.success) {
+            setQueue((prev) =>
+              prev.map((q) =>
+                q.id === item.id
+                  ? {
+                      ...q,
+                      status: 'completed',
+                      fileName: result.isPlaylist ? `${result.fileCount} files` : result.fileName,
+                      fileCount: result.fileCount,
+                    }
+                  : q
+              )
+            );
+          } else {
+            const msg = result?.message || result?.error || 'Conversion failed';
+            setQueue((prev) =>
+              prev.map((q) => (q.id === item.id ? { ...q, status: 'error', error: msg } : q))
+            );
+          }
+        } catch (error) {
           setQueue((prev) =>
             prev.map((q) =>
               q.id === item.id
-                ? {
-                    ...q,
-                    status: 'completed',
-                    fileName: result.isPlaylist ? `${result.fileCount} files` : result.fileName,
-                    fileCount: result.fileCount,
-                  }
+                ? { ...q, status: 'error', error: error.message || 'Conversion failed' }
                 : q
             )
           );
         }
-      } catch (error) {
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.id === item.id
-              ? { ...q, status: 'error', error: error.message || 'Conversion failed' }
-              : q
-          )
-        );
+      }
+    } finally {
+      if (window.api?.offProgress) {
+        window.api.offProgress(progressHandler);
       }
     }
 
@@ -467,371 +511,400 @@ function QueuePanel({
   const playlistCount = queue.filter((item) => item.isPlaylist).length;
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={isProcessing ? undefined : onClose}
-      ModalProps={{ keepMounted: true }}
-      PaperProps={{
-        sx: { width: { xs: '100%', sm: 480 }, bgcolor: 'background.default' },
-      }}
-    >
-      <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <QueueIcon />
-            <Typography variant="h6">Batch Queue</Typography>
-            {queue.length > 0 && (
-              <Chip
-                label={queue.length}
-                size="small"
-                color="primary"
-                aria-label={`${queue.length} items in queue`}
-              />
-            )}
+    <>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={isProcessing ? undefined : onClose}
+        ModalProps={{ keepMounted: true }}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: 480 }, bgcolor: 'background.default' },
+        }}
+      >
+        <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <QueueIcon />
+              <Typography variant="h6">Batch Queue</Typography>
+              {queue.length > 0 && (
+                <Chip
+                  label={queue.length}
+                  size="small"
+                  color="primary"
+                  aria-label={`${queue.length} items in queue`}
+                />
+              )}
+            </Box>
+            <IconButton onClick={onClose} disabled={isProcessing} aria-label="Close queue panel">
+              <CloseIcon />
+            </IconButton>
           </Box>
-          <IconButton onClick={onClose} disabled={isProcessing} aria-label="Close queue panel">
-            <CloseIcon />
-          </IconButton>
-        </Box>
 
-        {isProcessing && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Processing queue... ({queue.length - pendingCount} of {queue.length})
-          </Alert>
-        )}
+          {isProcessing && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Processing queue... ({queue.length - pendingCount} of {queue.length})
+            </Alert>
+          )}
 
-        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Paste video or playlist URLs (one per line) - supports 1000+ sites:
-          </Typography>
-          <TextField
-            multiline
-            rows={4}
-            fullWidth
-            placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/playlist?list=...&#10;https://vimeo.com/...&#10;https://twitter.com/user/status/..."
-            value={urls}
-            onChange={(e) => setUrls(e.target.value)}
-            disabled={isProcessing || isChecking}
-            size="small"
-            sx={{ mb: 1 }}
-          />
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleAddToQueue}
-              disabled={!urls.trim() || isProcessing || isChecking}
-              startIcon={isChecking ? <CircularProgress size={16} color="inherit" /> : null}
-            >
-              {isChecking ? 'Checking URLs...' : 'Add to Queue'}
-            </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>
-              ·
+          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Paste video or playlist URLs (one per line) - supports 1000+ sites:
             </Typography>
-            <Tooltip title="Import queue from a saved JSON file">
-              <span>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleImportQueue}
-                  disabled={isProcessing}
-                  startIcon={<FileUploadIcon />}
-                >
-                  Import
-                </Button>
-              </span>
-            </Tooltip>
-            <Tooltip title="Export queue to a JSON file">
-              <span>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleExportQueue}
-                  disabled={queue.length === 0 || isProcessing}
-                  startIcon={<FileDownloadIcon />}
-                >
-                  Export
-                </Button>
-              </span>
-            </Tooltip>
-          </Box>
-        </Paper>
-
-        <Divider sx={{ mb: 2 }} />
-
-        {queue.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            {!isProcessing ? (
+            <TextField
+              multiline
+              rows={4}
+              fullWidth
+              placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/playlist?list=...&#10;https://vimeo.com/...&#10;https://twitter.com/user/status/..."
+              value={urls}
+              onChange={(e) => setUrls(e.target.value)}
+              disabled={isProcessing || isChecking}
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
               <Button
-                startIcon={<PlayArrowIcon />}
                 variant="contained"
                 size="small"
-                onClick={processQueue}
-                disabled={pendingCount === 0}
-                color="success"
+                onClick={handleAddToQueue}
+                disabled={!urls.trim() || isProcessing || isChecking}
+                startIcon={isChecking ? <CircularProgress size={16} color="inherit" /> : null}
               >
-                Start ({pendingCount})
+                {isChecking ? 'Checking URLs...' : 'Add to Queue'}
               </Button>
-            ) : (
-              <Button
-                startIcon={<StopIcon />}
-                variant="contained"
-                size="small"
-                onClick={handleStopQueue}
-                color="error"
-              >
-                Stop
-              </Button>
-            )}
-            {errorCount > 0 && !isProcessing && (
-              <Button
-                startIcon={<ReplayIcon />}
-                size="small"
-                onClick={handleRetryAllFailed}
-                color="warning"
-              >
-                Retry Failed ({errorCount})
-              </Button>
-            )}
-            {(completedCount > 0 || errorCount > 0) && !isProcessing && (
-              <Button startIcon={<ClearIcon />} size="small" onClick={handleClearCompleted}>
-                Clear Done
-              </Button>
-            )}
-            {!isProcessing && (
-              <Button
-                startIcon={<DeleteIcon />}
-                size="small"
-                color="error"
-                onClick={handleClearQueue}
-              >
-                Clear All
-              </Button>
-            )}
-          </Box>
-        )}
-
-        <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-          {queue.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6 }}>
-              <QueueIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Queue is empty
+              <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5 }}>
+                ·
               </Typography>
-              <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 300, mx: 'auto' }}>
-                Paste multiple URLs above and click &quot;Add to Queue&quot; to batch convert
-                multiple files. Playlists are automatically detected!
+              <Tooltip title="Import queue from a saved JSON file">
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleImportQueue}
+                    disabled={isProcessing}
+                    startIcon={<FileUploadIcon />}
+                  >
+                    Import
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Export queue to a JSON file">
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleExportQueue}
+                    disabled={queue.length === 0 || isProcessing}
+                    startIcon={<FileDownloadIcon />}
+                  >
+                    Export
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+          </Paper>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {queue.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+              {!isProcessing ? (
+                <Button
+                  startIcon={<PlayArrowIcon />}
+                  variant="contained"
+                  size="small"
+                  onClick={processQueue}
+                  disabled={pendingCount === 0}
+                  color="success"
+                >
+                  Start ({pendingCount})
+                </Button>
+              ) : (
+                <Button
+                  startIcon={<StopIcon />}
+                  variant="contained"
+                  size="small"
+                  onClick={handleStopQueue}
+                  color="error"
+                >
+                  Stop
+                </Button>
+              )}
+              {errorCount > 0 && !isProcessing && (
+                <Button
+                  startIcon={<ReplayIcon />}
+                  size="small"
+                  onClick={handleRetryAllFailed}
+                  color="warning"
+                >
+                  Retry Failed ({errorCount})
+                </Button>
+              )}
+              {(completedCount > 0 || errorCount > 0) && !isProcessing && (
+                <Button startIcon={<ClearIcon />} size="small" onClick={handleClearCompleted}>
+                  Clear Done
+                </Button>
+              )}
+              {!isProcessing && (
+                <Button
+                  startIcon={<DeleteIcon />}
+                  size="small"
+                  color="error"
+                  onClick={handleClearQueue}
+                >
+                  Clear All
+                </Button>
+              )}
+            </Box>
+          )}
+
+          <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+            {queue.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <QueueIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  Queue is empty
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.disabled"
+                  sx={{ maxWidth: 300, mx: 'auto' }}
+                >
+                  Paste multiple URLs above and click &quot;Add to Queue&quot; to batch convert
+                  multiple files. Playlists are automatically detected!
+                </Typography>
+              </Box>
+            ) : (
+              <List dense>
+                {queue.map((item, index) => (
+                  <Paper
+                    key={item.id}
+                    elevation={1}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'background.paper',
+                      transition: 'all 0.2s ease-in-out',
+                      border: item.isPlaylist ? 2 : 0,
+                      borderColor: item.isPlaylist ? 'primary.main' : 'transparent',
+                      '&:hover': {
+                        elevation: 2,
+                      },
+                    }}
+                  >
+                    <ListItem
+                      secondaryAction={
+                        item.status !== 'processing' && !isProcessing ? (
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            {item.isPlaylist && item.status === 'pending' && (
+                              <Tooltip title="Expand to individual videos">
+                                <IconButton
+                                  edge="end"
+                                  size="small"
+                                  onClick={() => handleExpandPlaylist(item)}
+                                  color="primary"
+                                >
+                                  <UnfoldMoreIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {item.status === 'error' && (
+                              <Tooltip title="Retry">
+                                <IconButton
+                                  edge="end"
+                                  size="small"
+                                  onClick={() => handleRetryItem(item.id)}
+                                  color="warning"
+                                >
+                                  <ReplayIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Remove">
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => handleRemoveItem(item.id)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        ) : null
+                      }
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {index + 1}.
+                        </Typography>
+                        {getStatusIcon(item.status)}
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexGrow: 1 }}>
+                        {/* Thumbnail */}
+                        {item.thumbnail ? (
+                          <Box
+                            component="img"
+                            src={item.thumbnail}
+                            alt={item.title || 'Thumbnail'}
+                            sx={{
+                              width: 60,
+                              height: 34,
+                              objectFit: 'cover',
+                              borderRadius: 0.5,
+                              flexShrink: 0,
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 60,
+                              height: 34,
+                              bgcolor: 'action.hover',
+                              borderRadius: 0.5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {item.isPlaylist ? (
+                              <PlaylistPlayIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                            ) : (
+                              <MusicNoteIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                            )}
+                          </Box>
+                        )}
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              {item.isPlaylist && (
+                                <Chip
+                                  icon={<PlaylistPlayIcon />}
+                                  label={`${item.playlistInfo?.playlistVideoCount || '?'} ${item.extractor && isAudioOnlyExtractor(item.extractor) ? 'tracks' : 'videos'}`}
+                                  size="small"
+                                  color="primary"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              )}
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: item.isPlaylist ? 180 : 220,
+                                  fontWeight: item.title ? 500 : 400,
+                                }}
+                                title={item.title || item.url}
+                              >
+                                {item.title || item.url}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={
+                            item.error ? (
+                              <Typography variant="caption" color="error">
+                                {item.error}
+                              </Typography>
+                            ) : item.fileName ? (
+                              <Typography variant="caption" color="success.main">
+                                ✓ {item.fileName}
+                              </Typography>
+                            ) : item.isPlaylist && item.status === 'pending' ? (
+                              <Box sx={{ mt: 0.5 }}>
+                                <ToggleButtonGroup
+                                  value={item.playlistMode}
+                                  exclusive
+                                  onChange={(e, newMode) =>
+                                    handleTogglePlaylistMode(item.id, newMode)
+                                  }
+                                  size="small"
+                                  sx={{ height: 24 }}
+                                >
+                                  <ToggleButton
+                                    value="single"
+                                    sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
+                                  >
+                                    First Only
+                                  </ToggleButton>
+                                  <ToggleButton
+                                    value="full"
+                                    sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
+                                  >
+                                    All Videos
+                                  </ToggleButton>
+                                </ToggleButtonGroup>
+                              </Box>
+                            ) : (
+                              <Chip
+                                label={item.status}
+                                size="small"
+                                color={getStatusColor(item.status)}
+                                sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
+                              />
+                            )
+                          }
+                        />
+                      </Box>
+                    </ListItem>
+                    {item.status === 'processing' && (
+                      <LinearProgress
+                        variant="determinate"
+                        value={currentProgress}
+                        sx={{ borderRadius: '0 0 4px 4px' }}
+                      />
+                    )}
+                  </Paper>
+                ))}
+              </List>
+            )}
+          </Box>
+
+          {queue.length > 0 && (
+            <Box sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary">
+                {completedCount > 0 && (
+                  <span style={{ color: '#22c55e' }}>✓ {completedCount} completed</span>
+                )}
+                {completedCount > 0 && (pendingCount > 0 || errorCount > 0) && ' • '}
+                {pendingCount > 0 && <span>{pendingCount} pending</span>}
+                {pendingCount > 0 && errorCount > 0 && ' • '}
+                {errorCount > 0 && <span style={{ color: '#ef4444' }}>✗ {errorCount} failed</span>}
+                {playlistCount > 0 && (
+                  <span style={{ marginLeft: 8, color: '#3b82f6' }}>
+                    ({playlistCount} playlist{playlistCount > 1 ? 's' : ''})
+                  </span>
+                )}
               </Typography>
             </Box>
-          ) : (
-            <List dense>
-              {queue.map((item, index) => (
-                <Paper
-                  key={item.id}
-                  elevation={1}
-                  sx={{
-                    mb: 1,
-                    bgcolor: 'background.paper',
-                    transition: 'all 0.2s ease-in-out',
-                    border: item.isPlaylist ? 2 : 0,
-                    borderColor: item.isPlaylist ? 'primary.main' : 'transparent',
-                    '&:hover': {
-                      elevation: 2,
-                    },
-                  }}
-                >
-                  <ListItem
-                    secondaryAction={
-                      item.status !== 'processing' && !isProcessing ? (
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          {item.isPlaylist && item.status === 'pending' && (
-                            <Tooltip title="Expand to individual videos">
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => handleExpandPlaylist(item)}
-                                color="primary"
-                              >
-                                <UnfoldMoreIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {item.status === 'error' && (
-                            <Tooltip title="Retry">
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => handleRetryItem(item.id)}
-                                color="warning"
-                              >
-                                <ReplayIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Remove">
-                            <IconButton
-                              edge="end"
-                              size="small"
-                              onClick={() => handleRemoveItem(item.id)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      ) : null
-                    }
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {index + 1}.
-                      </Typography>
-                      {getStatusIcon(item.status)}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexGrow: 1 }}>
-                      {/* Thumbnail */}
-                      {item.thumbnail ? (
-                        <Box
-                          component="img"
-                          src={item.thumbnail}
-                          alt={item.title || 'Thumbnail'}
-                          sx={{
-                            width: 60,
-                            height: 34,
-                            objectFit: 'cover',
-                            borderRadius: 0.5,
-                            flexShrink: 0,
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          sx={{
-                            width: 60,
-                            height: 34,
-                            bgcolor: 'action.hover',
-                            borderRadius: 0.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {item.isPlaylist ? (
-                            <PlaylistPlayIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                          ) : (
-                            <MusicNoteIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                          )}
-                        </Box>
-                      )}
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {item.isPlaylist && (
-                              <Chip
-                                icon={<PlaylistPlayIcon />}
-                                label={`${item.playlistInfo?.playlistVideoCount || '?'} ${item.extractor && isAudioOnlyExtractor(item.extractor) ? 'tracks' : 'videos'}`}
-                                size="small"
-                                color="primary"
-                                sx={{ height: 20, fontSize: '0.7rem' }}
-                              />
-                            )}
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                maxWidth: item.isPlaylist ? 180 : 220,
-                                fontWeight: item.title ? 500 : 400,
-                              }}
-                              title={item.title || item.url}
-                            >
-                              {item.title || item.url}
-                            </Typography>
-                          </Box>
-                        }
-                        secondary={
-                          item.error ? (
-                            <Typography variant="caption" color="error">
-                              {item.error}
-                            </Typography>
-                          ) : item.fileName ? (
-                            <Typography variant="caption" color="success.main">
-                              ✓ {item.fileName}
-                            </Typography>
-                          ) : item.isPlaylist && item.status === 'pending' ? (
-                            <Box sx={{ mt: 0.5 }}>
-                              <ToggleButtonGroup
-                                value={item.playlistMode}
-                                exclusive
-                                onChange={(e, newMode) =>
-                                  handleTogglePlaylistMode(item.id, newMode)
-                                }
-                                size="small"
-                                sx={{ height: 24 }}
-                              >
-                                <ToggleButton
-                                  value="single"
-                                  sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
-                                >
-                                  First Only
-                                </ToggleButton>
-                                <ToggleButton
-                                  value="full"
-                                  sx={{ px: 1, py: 0, fontSize: '0.65rem' }}
-                                >
-                                  All Videos
-                                </ToggleButton>
-                              </ToggleButtonGroup>
-                            </Box>
-                          ) : (
-                            <Chip
-                              label={item.status}
-                              size="small"
-                              color={getStatusColor(item.status)}
-                              sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
-                            />
-                          )
-                        }
-                      />
-                    </Box>
-                  </ListItem>
-                  {item.status === 'processing' && (
-                    <LinearProgress
-                      variant="determinate"
-                      value={currentProgress}
-                      sx={{ borderRadius: '0 0 4px 4px' }}
-                    />
-                  )}
-                </Paper>
-              ))}
-            </List>
           )}
         </Box>
-
-        {queue.length > 0 && (
-          <Box sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="body2" color="text.secondary">
-              {completedCount > 0 && (
-                <span style={{ color: '#22c55e' }}>✓ {completedCount} completed</span>
-              )}
-              {completedCount > 0 && (pendingCount > 0 || errorCount > 0) && ' • '}
-              {pendingCount > 0 && <span>{pendingCount} pending</span>}
-              {pendingCount > 0 && errorCount > 0 && ' • '}
-              {errorCount > 0 && <span style={{ color: '#ef4444' }}>✗ {errorCount} failed</span>}
-              {playlistCount > 0 && (
-                <span style={{ marginLeft: 8, color: '#3b82f6' }}>
-                  ({playlistCount} playlist{playlistCount > 1 ? 's' : ''})
-                </span>
-              )}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    </Drawer>
+      </Drawer>
+      <Snackbar
+        open={queueToast.open}
+        autoHideDuration={6000}
+        onClose={() => setQueueToast((t) => ({ ...t, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setQueueToast((t) => ({ ...t, open: false }))}
+          severity={
+            queueToast.severity === 'success'
+              ? 'success'
+              : queueToast.severity === 'warning'
+                ? 'warning'
+                : 'error'
+          }
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {queueToast.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 }
 

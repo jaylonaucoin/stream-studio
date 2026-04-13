@@ -70,6 +70,10 @@ export function useVideoPreview(url, { debounceMs = 500 } = {}) {
         if (videoInfoResult.status === 'fulfilled' && videoInfoResult.value.success) {
           setVideoInfo(videoInfoResult.value);
           setError(null);
+        } else if (videoInfoResult.status === 'fulfilled' && !videoInfoResult.value.success) {
+          const v = videoInfoResult.value;
+          setError(v.error || v.message || 'Failed to load video preview');
+          setVideoInfo(null);
         } else if (videoInfoResult.status === 'rejected') {
           setError('Failed to load video preview');
           setVideoInfo(null);

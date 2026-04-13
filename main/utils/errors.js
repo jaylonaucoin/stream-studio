@@ -56,7 +56,7 @@ function withErrorHandling(fn, context = 'operation') {
       return await fn(...args);
     } catch (error) {
       console.error(`Error in ${context}:`, error);
-      
+
       // If it's already an AppError, preserve it
       if (error instanceof AppError) {
         return {
@@ -66,7 +66,7 @@ function withErrorHandling(fn, context = 'operation') {
           details: error.details,
         };
       }
-      
+
       // Convert generic errors to a consistent format
       return {
         success: false,
@@ -131,12 +131,12 @@ function validateUrl(url) {
   if (!url || typeof url !== 'string') {
     throw new AppError('URL is required', ErrorCodes.VALIDATION_ERROR);
   }
-  
+
   const trimmed = url.trim();
   if (trimmed.length === 0) {
     throw new AppError('URL cannot be empty', ErrorCodes.VALIDATION_ERROR);
   }
-  
+
   try {
     new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
   } catch {

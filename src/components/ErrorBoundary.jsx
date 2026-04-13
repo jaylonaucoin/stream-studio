@@ -18,6 +18,10 @@ class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
+    if (typeof window !== 'undefined' && window.location?.reload) {
+      window.location.reload();
+      return;
+    }
     this.setState({ hasError: false, error: null });
   };
 
@@ -54,11 +58,11 @@ class ErrorBoundary extends React.Component {
               Something went wrong
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              An unexpected error occurred. Please try refreshing the application.
+              An unexpected error occurred. Reload the window to recover.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
               <Button variant="contained" startIcon={<RefreshIcon />} onClick={this.handleReset}>
-                Reload Application
+                Reload window
               </Button>
             </Box>
             {process.env.NODE_ENV === 'development' && this.state.error && (

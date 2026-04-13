@@ -6,3 +6,5 @@
 export * from './url';
 export * from './time';
 export * from './validation';
+export * from './path-helpers';
+export * from './metadata-helpers';

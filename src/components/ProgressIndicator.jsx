@@ -38,7 +38,6 @@ function ProgressIndicator({
               {isCompleted && (
                 <Chip icon={<CheckCircleIcon />} label="Success" color="success" size="small" />
               )}
-              {isError && <Chip icon={<ErrorIcon />} label="Error" color="error" size="small" />}
             </Box>
 
             {state === 'converting' && (
@@ -213,10 +212,23 @@ function ProgressIndicator({
         </Fade>
       )}
 
-      {!isActive && state === 'idle' && (
+      {isError && (
+        <Fade in={isError}>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 2 }}>
+              <Typography variant="body1" sx={{ flexGrow: 1 }}>
+                {statusMessage || 'Conversion failed'}
+              </Typography>
+              <Chip icon={<ErrorIcon />} label="Error" color="error" size="small" />
+            </Box>
+          </Box>
+        </Fade>
+      )}
+
+      {!isActive && !isError && state === 'idle' && (
         <Box sx={{ textAlign: 'center', py: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Enter a video URL above to start conversion
+            Paste a URL, pick a result in Search, or use the Library tab for local files
           </Typography>
         </Box>
       )}

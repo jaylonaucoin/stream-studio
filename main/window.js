@@ -4,6 +4,7 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const { isDev, getAppRoot, getIconPath } = require('./utils/paths');
+const { shouldLoadViteDevServer } = require('./window-load-target');
 const { getWindowBounds, saveWindowBounds } = require('./services/settings');
 
 let mainWindow = null;
@@ -25,6 +26,7 @@ function createWindow() {
       preload: path.join(getAppRoot(), 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
     },
     icon: getIconPath(),
     show: false, // Don't show until ready
@@ -45,8 +47,7 @@ function createWindow() {
   mainWindow.on('resize', saveBounds);
   mainWindow.on('move', saveBounds);
 
-  // Load from Vite dev server in development, from build in production
-  if (isDev()) {
+  if (shouldLoadViteDevServer(isDev(), process.env.STREAM_STUDIO_E2E)) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
     mainWindow.loadFile(path.join(getAppRoot(), 'dist-renderer', 'index.html'));

@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { GENRES } from '../../constants';
 import ThumbnailSection from './ThumbnailSection';
+import CatalogLinkSection from './CatalogLinkSection';
 
 /**
  * SegmentMetadataForm component for editing segment/manual split metadata
@@ -59,6 +60,19 @@ function SegmentMetadataForm({
         Album metadata will be applied to all segments. Each segment will be downloaded as a
         separate track with its own title.
       </Alert>
+      <CatalogLinkSection
+        variant="albumShared"
+        onMetadataLoaded={(m) => {
+          onSegmentMetadataChange((prev) => ({
+            ...prev,
+            albumMetadata: { ...prev.albumMetadata, ...m },
+          }));
+        }}
+        onCoverLoaded={(dataUrl) => {
+          if (dataUrl) onThumbnailChange(dataUrl);
+        }}
+        onError={onError}
+      />
       <Typography variant="h6" gutterBottom>
         Album Metadata
       </Typography>

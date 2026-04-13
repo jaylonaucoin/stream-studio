@@ -7,3 +7,4 @@ export { default as ThumbnailSection } from './ThumbnailSection';
 export { default as ChapterMetadataForm } from './ChapterMetadataForm';
 export { default as SegmentMetadataForm } from './SegmentMetadataForm';
 export { default as PlaylistVideoItem } from './PlaylistVideoItem';
+export { default as CatalogLinkSection, pickAlbumSharedFields } from './CatalogLinkSection';

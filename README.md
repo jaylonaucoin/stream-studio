@@ -74,7 +74,7 @@ For a complete list of supported sites, see the [yt-dlp supported sites](https:/
 ### Input & Discovery
 - **YouTube / multi-site search** — Search YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, and 10+ other sites with audio preview
 - **Paste URL** — Accepts URLs with or without `https://` prefix
-- **Local file conversion** — Convert existing media files (MP3, MP4, M4A, etc.)
+- **Local file conversion** — Convert existing audio/video files (broad container support: MP3, MP4, WMA, WMV, MKV, TS, and more)
 - **Drag & drop** — URLs and local files
 
 ### Conversion
@@ -381,6 +381,14 @@ npm run download-binaries
 ```
 
 Or manually download from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases).
+
+## Development and testing
+
+- **Unit / integration tests:** `npm test` or `npm run test:coverage`
+- **End-to-end (Playwright + Electron):** `npm run build:renderer && npm run test:e2e`
+- **Mutation testing (Stryker, optional):** `npm run test:mutation` — mutates `src/utils/validation.js` and `src/utils/ipcResult.js` with a scoped config; slower than unit tests
+
+CI sets `STREAM_STUDIO_E2E=1` for E2E runs. The optional variable `STREAM_STUDIO_E2E_MOCK_CONVERT=1` (used together with `STREAM_STUDIO_E2E=1`) makes the `convert` IPC handler return a fake success result so tests can assert the full UI path without running yt-dlp. This is for automated tests only, not for production builds.
 
 ## Publishing & Legal
 

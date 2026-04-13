@@ -1,11 +1,18 @@
 /**
  * Main process entry point
  * Stream Studio - Electron Application
- * 
+ *
  * This file serves as the entry point and delegates to the modular structure in /main/
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
+
+if (process.env.STREAM_STUDIO_E2E === '1') {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const e2eUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'stream-studio-e2e-'));
+  app.setPath('userData', e2eUserData);
+}
 
 // Import modular components
 const { createWindow, getMainWindow } = require('./main/window');

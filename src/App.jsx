@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import {
   Box,
@@ -10,6 +10,8 @@ import {
   Tooltip,
   Badge,
   Chip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
@@ -25,6 +27,7 @@ import HistoryPanel from './components/HistoryPanel';
 import QueuePanel from './components/QueuePanel';
 import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import { loadQueueFromStorage, saveQueueToStorage } from './lib/queueStorage';
+import { isIpcFailure, historyItemsFromResponse } from './utils/ipcResult';
 import logo from '../assets/icon.png';
 function App() {
   const [conversionState, setConversionState] = useState('idle'); // idle, converting, completed, error
@@ -43,6 +46,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [conversionInputMode, setConversionInputMode] = useState('search');
   const [historyCount, setHistoryCount] = useState(0);
   const [appVersion, setAppVersion] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -55,7 +59,12 @@ function App() {
     defaultSearchLimit: 15,
   });
   const addToQueueRef = useRef(null);
-  const [queue, setQueue] = useState(loadQueueFromStorage);
+  const queueBootstrap = useMemo(() => loadQueueFromStorage(), []);
+  const [queue, setQueue] = useState(queueBootstrap.items);
+  const [queueStorageSnackbar, setQueueStorageSnackbar] = useState({
+    open: false,
+    message: '',
+  });
   const [themeMode, setThemeMode] = useState('dark');
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     () =>
@@ -68,7 +77,18 @@ function App() {
   const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
 
   useEffect(() => {
-    saveQueueToStorage(queue);
+    if (queueBootstrap.loadError) {
+      console.warn('Queue storage:', queueBootstrap.loadError);
+      setQueueStorageSnackbar({ open: true, message: queueBootstrap.loadError });
+    }
+  }, [queueBootstrap.loadError]);
+
+  useEffect(() => {
+    const { success, error } = saveQueueToStorage(queue);
+    if (!success && error) {
+      console.warn('Queue storage:', error);
+      setQueueStorageSnackbar({ open: true, message: error });
+    }
   }, [queue]);
 
   // Listen for system preference changes when theme is 'system'
@@ -95,9 +115,13 @@ function App() {
         setHistoryOpen(true);
       }
       // Ctrl+B or Cmd+B to open batch queue (Cmd+Q is reserved for quit on macOS)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b' && !e.shiftKey) {
         e.preventDefault();
         setQueueOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b' && e.shiftKey) {
+        e.preventDefault();
+        setConversionInputMode('batch-local');
       }
       // Ctrl+, or Cmd+, to open settings
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
@@ -128,9 +152,10 @@ function App() {
       if (window.api && window.api.checkFfmpeg) {
         try {
           const result = await window.api.checkFfmpeg();
-          setFfmpegAvailable(result.available);
+          setFfmpegAvailable(!!result?.available);
         } catch (err) {
           console.error('Failed to check FFmpeg:', err);
+          setFfmpegAvailable(false);
         }
       }
     };
@@ -139,6 +164,10 @@ function App() {
       if (window.api && window.api.getSettings) {
         try {
           const settings = await window.api.getSettings();
+          if (isIpcFailure(settings)) {
+            console.error('Failed to load settings:', settings.error);
+            return;
+          }
           setDefaultSettings({
             defaultMode: settings.defaultMode || 'audio',
             defaultAudioFormat: settings.defaultAudioFormat || 'mp3',
@@ -157,8 +186,9 @@ function App() {
     const loadHistoryCount = async () => {
       if (window.api && window.api.getHistory) {
         try {
-          const history = await window.api.getHistory();
-          setHistoryCount(history?.length || 0);
+          const res = await window.api.getHistory();
+          const items = historyItemsFromResponse(res);
+          setHistoryCount(items.length);
         } catch (err) {
           console.error('Failed to load history:', err);
         }
@@ -288,7 +318,7 @@ function App() {
 
     return () => {
       if (window.api && window.api.offProgress) {
-        window.api.offProgress();
+        window.api.offProgress(handleProgress);
       }
     };
   }, [handleProgress]);
@@ -538,7 +568,10 @@ function App() {
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="md" sx={{ flexGrow: 1, py: 4 }}>
+        <Container
+          maxWidth={conversionInputMode === 'batch-local' ? 'lg' : 'md'}
+          sx={{ flexGrow: 1, py: 4 }}
+        >
           <ConversionForm
             onConvert={handleConvert}
             onCancel={handleCancel}
@@ -551,6 +584,16 @@ function App() {
             defaultSearchSite={defaultSettings.defaultSearchSite}
             defaultSearchLimit={defaultSettings.defaultSearchLimit}
             onAddToQueue={handleAddToQueue}
+            inputMode={conversionInputMode}
+            onInputModeChange={setConversionInputMode}
+            outputFolder={outputFolder}
+            onLocalBatchComplete={() => {
+              if (window.api && window.api.getHistory) {
+                window.api.getHistory().then((res) => {
+                  setHistoryCount(historyItemsFromResponse(res).length);
+                });
+              }
+            }}
           />
 
           <Box sx={{ mt: 4 }}>
@@ -621,8 +664,8 @@ function App() {
             setHistoryOpen(false);
             // Refresh history count
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then((history) => {
-                setHistoryCount(history?.length || 0);
+              window.api.getHistory().then((res) => {
+                setHistoryCount(historyItemsFromResponse(res).length);
               });
             }
           }}
@@ -645,16 +688,31 @@ function App() {
           defaultSearchSite={defaultSettings.defaultSearchSite}
           defaultSearchLimit={defaultSettings.defaultSearchLimit}
           onQueueComplete={() => {
-            // Refresh history count after batch processing
             if (window.api && window.api.getHistory) {
-              window.api.getHistory().then((history) => {
-                setHistoryCount(history?.length || 0);
+              window.api.getHistory().then((res) => {
+                setHistoryCount(historyItemsFromResponse(res).length);
               });
             }
           }}
         />
 
         <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+        <Snackbar
+          open={queueStorageSnackbar.open}
+          autoHideDuration={8000}
+          onClose={() => setQueueStorageSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            severity="warning"
+            variant="filled"
+            onClose={() => setQueueStorageSnackbar((s) => ({ ...s, open: false }))}
+            sx={{ width: '100%' }}
+          >
+            {queueStorageSnackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );
