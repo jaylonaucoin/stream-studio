@@ -1,6 +1,6 @@
 {
   "name": "stream-studio",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "A desktop app to download and convert online videos/audio from 1000+ sites (YouTube, Vimeo, TikTok, Twitter, etc.) to various formats using yt-dlp and ffmpeg",
   "main": "main.js",
   "homepage": "https://github.com/jaylonaucoin/stream-studio",
