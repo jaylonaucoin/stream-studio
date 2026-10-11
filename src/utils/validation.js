@@ -9,6 +9,8 @@
  */
 export function validateMetadata(meta) {
   const errors = {};
+  if (meta == null) return errors;
+
   const currentYear = new Date().getFullYear();
 
   if (meta.year) {

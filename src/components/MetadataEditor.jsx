@@ -535,7 +535,6 @@ function MetadataEditor({
       };
     } else if (mode === 'playlist') {
       if (playlistEditMode === 'bulk') {
-        // eslint-disable-next-line no-unused-vars -- destructure to exclude totalTracks from bulkMeta
         const { totalTracks, ...bulkMeta } = metadata;
         metadataToSave = {
           type: 'playlist',

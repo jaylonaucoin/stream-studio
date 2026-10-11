@@ -4,8 +4,9 @@ import { buildHistoryItem } from '../../tests/factories.js';
 import { addToHistory, getHistory, clearHistory, removeHistoryItem } from './history.js';
 
 function historyPayload(overrides = {}) {
-  const { id: _id, ...rest } = buildHistoryItem(overrides);
-  return rest;
+  const item = buildHistoryItem(overrides);
+  delete item.id;
+  return item;
 }
 
 describe('history service', () => {

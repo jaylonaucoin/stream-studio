@@ -7,7 +7,7 @@ const {
 let webUtils;
 try {
   webUtils = require('electron').webUtils;
-} catch (e) {
+} catch {
   webUtils = null;
 }
 

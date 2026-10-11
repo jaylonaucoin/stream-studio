@@ -69,8 +69,8 @@ describe('validateMetadata – edge cases', () => {
   });
 
   it('returns empty errors for undefined/null/empty object', () => {
-    expect(validateMetadata(undefined ?? {})).toEqual({});
-    expect(validateMetadata(null ?? {})).toEqual({});
+    expect(validateMetadata(undefined)).toEqual({});
+    expect(validateMetadata(null)).toEqual({});
     expect(validateMetadata({})).toEqual({});
   });
 

@@ -244,7 +244,6 @@ async function getPlaylistInfo(url) {
     });
 
     let stdout = '';
-    let stderr = '';
     let timeoutId = null;
 
     timeoutId = setTimeout(() => {
@@ -256,8 +255,8 @@ async function getPlaylistInfo(url) {
       stdout += data.toString();
     });
 
-    playlistProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
+    playlistProcess.stderr.on('data', () => {
+      // Drain stderr to avoid filling the pipe buffer
     });
 
     playlistProcess.on('close', async (code) => {
@@ -509,7 +508,7 @@ async function getChapterInfo(url) {
           } else {
             resolve({ success: true, hasChapters: false, chapters: [] });
           }
-        } catch (e) {
+        } catch {
           reject(new Error('Failed to parse chapter info'));
         }
       } else {
@@ -799,7 +798,7 @@ function getCachedVideoInfo(url) {
     if (cached && Date.now() - cached.timestamp < VIDEO_CACHE_TTL) {
       return cached.data;
     }
-  } catch (e) {
+  } catch {
     // URL validation failed
   }
   return null;
@@ -817,7 +816,7 @@ function getCachedChapterInfo(url) {
     if (cached && Date.now() - cached.timestamp < CHAPTER_CACHE_TTL) {
       return cached.data;
     }
-  } catch (e) {
+  } catch {
     // URL validation failed
   }
   return null;

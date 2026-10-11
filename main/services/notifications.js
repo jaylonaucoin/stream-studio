@@ -2,7 +2,6 @@
  * Notification service - handles system notifications
  */
 const { Notification } = require('electron');
-const path = require('path');
 const store = require('../store');
 const { getIconPath } = require('../utils/paths');
 

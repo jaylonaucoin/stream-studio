@@ -83,18 +83,6 @@ function makeFakeHttpResponse(chunks) {
   return res;
 }
 
-function makeFakeHttpRequest(response) {
-  const req = new EventEmitter();
-  req.setTimeout = vi.fn((_, cb) => {
-    req._timeoutCb = cb;
-  });
-  req.destroy = vi.fn();
-  setTimeout(() => {
-    if (response) response(req);
-  }, 0);
-  return req;
-}
-
 beforeEach(() => {
   spawnMock.mockReset();
   writeFileSyncMock.mockReset();

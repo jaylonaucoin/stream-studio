@@ -41,7 +41,7 @@ async function fetchThumbnailBuffer(imageUrl) {
     const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
     try {
       return Buffer.from(base64Data, 'base64');
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -66,7 +66,7 @@ async function fetchThumbnailBuffer(imageUrl) {
         reject(new Error('Timeout fetching thumbnail'));
       });
     });
-  } catch (fetchError) {
+  } catch {
     return null;
   }
 }

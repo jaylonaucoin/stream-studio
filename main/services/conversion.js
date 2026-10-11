@@ -17,14 +17,12 @@ const {
   checkFfmpegAvailable,
   getFfmpegUnavailableError,
   splitAudioByTime,
-  buildMetadataArgs,
   convertLocalFile: ffmpegConvertLocalFile,
 } = require('./ffmpeg');
 const { applyMetadataToFile } = require('./metadata');
 const { addToHistory } = require('./history');
 const { showNotification } = require('./notifications');
 const { getMainWindow } = require('../window');
-const videoInfoService = require('./videoInfo');
 
 // Conversion state
 let currentConversionProcess = null;
@@ -263,7 +261,7 @@ function cancelConversion() {
     } else {
       try {
         process.kill(-currentConversionProcess.pid, 'SIGTERM');
-      } catch (e) {
+      } catch {
         currentConversionProcess.kill('SIGTERM');
       }
     }
@@ -303,8 +301,6 @@ async function convert(url, options = {}) {
   const format = options.format || 'mp3';
   const quality = options.quality || 'best';
   const playlistMode = options.playlistMode || 'single';
-  const selectedChapters = options.chapters || null;
-  const chapterDownloadMode = options.chapterDownloadMode || 'split';
   const selectedVideos = options.selectedVideos || null;
   const manualSegments = options.manualSegments || null;
   const useSharedArtistForSegments = options.useSharedArtistForSegments !== false;
@@ -384,7 +380,6 @@ async function convert(url, options = {}) {
   currentConversionProcess = spawn(ytDlpPath, args, spawnOptions);
 
   let errorOutput = '';
-  let lastProgressPercent = 0;
   let playlistProgress = null;
 
   // Handle stdout
@@ -401,7 +396,6 @@ async function convert(url, options = {}) {
       }
 
       if (progressPercent !== null) {
-        lastProgressPercent = progressPercent;
         let finalPercent = progressPercent;
 
         if ((playlistMode === 'full' || playlistMode === 'selected') && progressInfo.playlistInfo) {
@@ -451,7 +445,6 @@ async function convert(url, options = {}) {
       }
 
       if (progressPercent !== null) {
-        lastProgressPercent = progressPercent;
         let finalPercent = progressPercent;
 
         if (playlistMode === 'full' && progressInfo.playlistInfo) {
@@ -497,7 +490,6 @@ async function convert(url, options = {}) {
 
     currentConversionProcess.on('close', async (code) => {
       clearTimeout(timeoutId);
-      const proc = currentConversionProcess;
       currentConversionProcess = null;
 
       if (conversionCancelled) {
@@ -530,8 +522,7 @@ async function convert(url, options = {}) {
             mode,
             format,
             fileExtension,
-            customMetadata,
-            playlistMode
+            customMetadata
           );
           resolve(result);
         } catch (error) {
@@ -563,8 +554,6 @@ async function handleManualSegments(
   customMetadata,
   useSharedArtist
 ) {
-  const ffmpegPath = getFfmpegPath();
-
   // Find the downloaded temp file
   const files = fs.readdirSync(outputFolder);
   const tempFile = files.find((f) => f.includes('.full-temp.'));
@@ -652,7 +641,7 @@ async function handleManualSegments(
   // Delete temp file
   try {
     fs.unlinkSync(tempFilePath);
-  } catch (e) {
+  } catch {
     // Ignore
   }
 
@@ -691,8 +680,7 @@ async function handleSingleFileResult(
   mode,
   format,
   fileExtension,
-  customMetadata,
-  playlistMode
+  customMetadata
 ) {
   const files = fs.readdirSync(outputFolder);
   const extension = fileExtension || (mode === 'audio' ? 'mp3' : 'mp4');

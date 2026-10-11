@@ -21,7 +21,7 @@ function encodeMetadataValue(value) {
   try {
     const buffer = Buffer.from(encoded, 'utf8');
     encoded = buffer.toString('utf8');
-  } catch (e) {
+  } catch {
     // If encoding fails, try to recover by replacing invalid characters
     encoded = encoded.replace(/[\uFFFD]/g, '');
   }

@@ -187,7 +187,7 @@ function YouTubeSearchPanel({
           try {
             await audio.play();
             setPlayingId(result.id);
-          } catch (err) {
+          } catch {
             setAudioError(`Could not resume preview for "${result.title}". Please try again.`);
             stopAudio();
           }
@@ -235,7 +235,7 @@ function YouTubeSearchPanel({
         setLoadedId(result.id);
         await newAudio.play();
         setPlayingId(result.id);
-      } catch (err) {
+      } catch {
         setAudioError('Preview not available for this site.');
         setPlayingId(null);
         setLoadedId(null);
