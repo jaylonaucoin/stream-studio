@@ -1,9 +1,12 @@
 /**
  * Electron store configuration
  */
-const Store = require('electron-store');
+const StoreModule = require('electron-store');
+const Store = StoreModule.default || StoreModule;
 
 const store = new Store({
+  // Fallback when not running under Electron (e.g. unit tests).
+  projectName: 'stream-studio',
   defaults: {
     windowBounds: { width: 900, height: 700 },
     outputFolder: null,
