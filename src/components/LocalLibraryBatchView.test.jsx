@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LocalLibraryBatchView, { emptySharedMetadata } from './LocalLibraryBatchView';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 describe('LocalLibraryBatchView', () => {
@@ -42,7 +42,7 @@ describe('LocalLibraryBatchView', () => {
 
   it('loads files and shows a row', async () => {
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <LocalLibraryBatchView
         outputFolder="/tmp/out"
         defaultMode="audio"

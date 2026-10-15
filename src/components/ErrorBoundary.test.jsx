@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ErrorBoundary from './ErrorBoundary';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 function ThrowingChild() {
   throw new Error('unit-test-boom');
@@ -19,7 +19,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('renders fallback UI when child throws', () => {
-    renderWithMui(
+    renderWithProviders(
       <ErrorBoundary>
         <ThrowingChild />
       </ErrorBoundary>
@@ -29,7 +29,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('renders children normally when no error occurs', () => {
-    renderWithMui(
+    renderWithProviders(
       <ErrorBoundary>
         <p>All good here</p>
       </ErrorBoundary>
@@ -39,7 +39,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <ErrorBoundary>
         <p>All good here</p>
       </ErrorBoundary>

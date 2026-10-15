@@ -19,22 +19,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Snackbar,
-} from '@mui/material';
-import QueueIcon from '@mui/icons-material/Queue';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ClearIcon from '@mui/icons-material/Clear';
-import CloseIcon from '@mui/icons-material/Close';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import ReplayIcon from '@mui/icons-material/Replay';
-import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
-import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
+} from '@/components/mui-compat';
+import { Queue as QueueIcon, Delete as DeleteIcon, Clear as ClearIcon, Close as CloseIcon, FileDownload as FileDownloadIcon, FileUpload as FileUploadIcon, PlayArrow as PlayArrowIcon, Stop as StopIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, HourglassEmpty as HourglassEmptyIcon, Replay as ReplayIcon, PlaylistPlay as PlaylistPlayIcon, UnfoldMore as UnfoldMoreIcon, MusicNote as MusicNoteIcon } from '@/components/mui-compat/icons';
 import { normalizeUrl, isValidUrl as validateUrl } from '../utils';
 import { isAudioOnlyExtractor, isAudioOnlyUrl } from '../constants';
 

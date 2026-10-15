@@ -37,15 +37,8 @@ import {
   Snackbar,
   Stack,
   Switch,
-} from '@mui/material';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import StopIcon from '@mui/icons-material/Stop';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SortIcon from '@mui/icons-material/Sort';
+} from '@/components/mui-compat';
+import { FolderOpen as FolderOpenIcon, InsertDriveFile as InsertDriveFileIcon, Refresh as RefreshIcon, DeleteOutline as DeleteOutlineIcon, Stop as StopIcon, PlayArrow as PlayArrowIcon, ExpandMore as ExpandMoreIcon, Sort as SortIcon } from '@/components/mui-compat/icons';
 import { MetadataFormFields } from './MetadataFormFields';
 import ThumbnailSection from './metadata/ThumbnailSection';
 import CatalogLinkSection, { pickAlbumSharedFields } from './metadata/CatalogLinkSection';
@@ -800,7 +793,7 @@ function LocalLibraryBatchView({
                   indeterminate={someSelected && !allSelected}
                   onChange={(e) => handleToggleAll(e.target.checked)}
                   disabled={!rows.length || busy}
-                  inputProps={{ 'aria-label': 'select all files' }}
+                  aria-label="Select all files"
                 />
               </TableCell>
               <TableCell>Path</TableCell>
@@ -828,7 +821,7 @@ function LocalLibraryBatchView({
                       checked={row.selected}
                       onChange={() => handleToggleRow(row.id)}
                       disabled={busy}
-                      inputProps={{ 'aria-label': `select ${row.path}` }}
+                      aria-label={`Select ${row.path}`}
                     />
                   </TableCell>
                   <TableCell sx={{ py: 0.5, verticalAlign: 'middle' }}>

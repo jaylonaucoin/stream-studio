@@ -1,26 +1,12 @@
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Chip,
-  Divider,
-  Checkbox,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  ListItemIcon,
-  Alert,
-} from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import ThumbnailWithFallback from '../ThumbnailWithFallback';
+import { Play } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import ThumbnailWithFallback from '../ThumbnailWithFallback'
 
-/**
- * PlaylistVideoSelector - Displays list of videos/tracks in playlist for selection
- */
 function PlaylistVideoSelector({
   videos,
   selectedVideos,
@@ -31,140 +17,92 @@ function PlaylistVideoSelector({
   isConverting,
   isAudioOnly = false,
 }) {
-  const itemLabel = isAudioOnly ? 'tracks' : 'videos';
+  const itemLabel = isAudioOnly ? 'tracks' : 'videos'
   return (
-    <Paper
-      elevation={1}
-      sx={{
-        p: 2,
-        mb: 2,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        border: 2,
-        borderColor: 'primary.main',
-      }}
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 1.5,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PlayArrowIcon sx={{ color: 'primary.main' }} />
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+    <div className="mb-4 rounded-xl border-2 border-primary bg-card p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Play className="size-5 text-primary" aria-hidden />
+          <h3 className="text-base font-semibold">
             Select {itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)}
-          </Typography>
-          <Chip
-            label={`${selectedVideos.length} of ${videos.length} selected`}
-            size="small"
-            sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
-          />
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+          </h3>
+          <Badge>
+            {selectedVideos.length} of {videos.length} selected
+          </Badge>
+        </div>
+        <div className="flex gap-2">
           <Button
-            size="small"
+            size="sm"
+            variant="ghost"
             onClick={onSelectAll}
             disabled={isConverting || disabled || selectedVideos.length === videos.length}
-            sx={{ minWidth: 'auto', px: 1 }}
           >
             Select All
           </Button>
           <Button
-            size="small"
+            size="sm"
+            variant="ghost"
             onClick={onDeselectAll}
             disabled={isConverting || disabled || selectedVideos.length === 0}
-            sx={{ minWidth: 'auto', px: 1 }}
           >
             Deselect All
           </Button>
-        </Box>
-      </Box>
-      <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-      <Box
-        sx={{
-          maxHeight: 300,
-          overflowY: 'auto',
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-        }}
-      >
-        <List dense sx={{ py: 0 }}>
+        </div>
+      </div>
+      <Separator className="my-3" />
+      <ScrollArea className="h-75 rounded-md border border-border">
+        <ul>
           {videos.map((video, index) => (
-            <ListItem
+            <li
               key={video.index}
-              disablePadding
-              sx={{
-                borderBottom: index < videos.length - 1 ? 1 : 0,
-                borderColor: 'divider',
-              }}
+              className={index < videos.length - 1 ? 'border-b border-border' : ''}
             >
-              <ListItemButton
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-2 py-2 text-left hover:bg-muted disabled:opacity-50"
                 onClick={() => onVideoToggle(video.index)}
                 disabled={isConverting || disabled}
-                sx={{ py: 1 }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <Checkbox
-                    edge="start"
-                    checked={selectedVideos.includes(video.index)}
-                    tabIndex={-1}
-                    disableRipple
-                    icon={<CheckBoxOutlineBlankIcon />}
-                    checkedIcon={<CheckBoxIcon />}
-                  />
-                </ListItemIcon>
-                <Box sx={{ display: 'flex', gap: 2, width: '100%', alignItems: 'center' }}>
-                  <ThumbnailWithFallback
-                    thumbnail={video.thumbnail}
-                    alt={video.title}
-                    isPlaylist={false}
-                    width={80}
-                    height={45}
-                  />
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {video.title}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
-                          <Chip
-                            label={`#${video.index}`}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 20, fontSize: '0.7rem' }}
-                          />
-                          {video.durationFormatted && (
-                            <Chip
-                              label={video.durationFormatted}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
-                          )}
-                        </Box>
-                      }
-                    />
-                  </Box>
-                </Box>
-              </ListItemButton>
-            </ListItem>
+                <Checkbox
+                  checked={selectedVideos.includes(video.index)}
+                  tabIndex={-1}
+                  aria-hidden
+                  className="pointer-events-none"
+                />
+                <ThumbnailWithFallback
+                  thumbnail={video.thumbnail}
+                  alt={video.title}
+                  isPlaylist={false}
+                  width={80}
+                  height={45}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{video.title}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge variant="outline" className="h-5 text-[0.7rem]">
+                      #{video.index}
+                    </Badge>
+                    {video.durationFormatted ? (
+                      <Badge variant="outline" className="h-5 text-[0.7rem]">
+                        {video.durationFormatted}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </button>
+            </li>
           ))}
-        </List>
-      </Box>
-      {selectedVideos.length === 0 && (
-        <Alert severity="info" sx={{ mt: 1.5 }}>
-          No {itemLabel} selected. Please select at least one {itemLabel.slice(0, -1)} to download.
+        </ul>
+      </ScrollArea>
+      {selectedVideos.length === 0 ? (
+        <Alert className="mt-3">
+          <AlertDescription>
+            No {itemLabel} selected. Please select at least one {itemLabel.slice(0, -1)} to download.
+          </AlertDescription>
         </Alert>
-      )}
-    </Paper>
-  );
+      ) : null}
+    </div>
+  )
 }
 
-export default PlaylistVideoSelector;
+export default PlaylistVideoSelector

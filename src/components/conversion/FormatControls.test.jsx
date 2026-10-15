@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import FormatControls from './FormatControls';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 const defaults = {
   mode: 'audio',
@@ -20,7 +20,7 @@ const defaults = {
 
 describe('FormatControls', () => {
   it('renders mode toggle with audio/video options', () => {
-    renderWithMui(<FormatControls {...defaults} />);
+    renderWithProviders(<FormatControls {...defaults} />);
     expect(screen.getByRole('button', { name: /audio mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /video mode/i })).toBeInTheDocument();
   });
@@ -28,28 +28,28 @@ describe('FormatControls', () => {
   it('calls onModeChange when toggling mode', async () => {
     const onModeChange = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(<FormatControls {...defaults} onModeChange={onModeChange} />);
+    renderWithProviders(<FormatControls {...defaults} onModeChange={onModeChange} />);
     await user.click(screen.getByRole('button', { name: /video mode/i }));
     expect(onModeChange).toHaveBeenCalledWith('video');
   });
 
   it('disables video mode when videoModeDisabled is true', () => {
-    renderWithMui(<FormatControls {...defaults} videoModeDisabled />);
+    renderWithProviders(<FormatControls {...defaults} videoModeDisabled />);
     expect(screen.getByRole('button', { name: /video mode/i })).toBeDisabled();
   });
 
   it('renders format select with audio formats', () => {
-    renderWithMui(<FormatControls {...defaults} mode="audio" />);
+    renderWithProviders(<FormatControls {...defaults} mode="audio" />);
     expect(screen.getByLabelText(/output format selection/i)).toBeInTheDocument();
   });
 
   it('renders disabled when isConverting', () => {
-    renderWithMui(<FormatControls {...defaults} isConverting />);
+    renderWithProviders(<FormatControls {...defaults} isConverting />);
     expect(screen.getByRole('button', { name: /audio mode/i })).toBeDisabled();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<FormatControls {...defaults} />);
+    const { container } = renderWithProviders(<FormatControls {...defaults} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

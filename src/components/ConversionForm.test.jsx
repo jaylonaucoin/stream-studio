@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import ConversionForm from './ConversionForm';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 describe('ConversionForm', () => {
@@ -29,7 +29,7 @@ describe('ConversionForm', () => {
   });
 
   it('shows FFmpeg warning when disabled', () => {
-    renderWithMui(
+    renderWithProviders(
       <ConversionForm onConvert={() => {}} onCancel={() => {}} isConverting={false} disabled />
     );
     expect(screen.getByText(/ffmpeg is not available/i)).toBeInTheDocument();
@@ -37,7 +37,7 @@ describe('ConversionForm', () => {
 
   it('validates URL on paste tab', async () => {
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <ConversionForm
         onConvert={() => {}}
         onCancel={() => {}}
@@ -52,7 +52,7 @@ describe('ConversionForm', () => {
   });
 
   it('renders without errors when not disabled', () => {
-    renderWithMui(
+    renderWithProviders(
       <ConversionForm
         onConvert={() => {}}
         onCancel={() => {}}
@@ -66,7 +66,7 @@ describe('ConversionForm', () => {
 
   it('disabled prop disables the convert button area', async () => {
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <ConversionForm onConvert={() => {}} onCancel={() => {}} isConverting={false} disabled />
     );
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
@@ -75,7 +75,7 @@ describe('ConversionForm', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <ConversionForm
         onConvert={() => {}}
         onCancel={() => {}}

@@ -15,17 +15,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import LinkIcon from '@mui/icons-material/Link';
-import ContentPasteIcon from '@mui/icons-material/ContentPaste';
-import SyncIcon from '@mui/icons-material/Sync';
-import CancelIcon from '@mui/icons-material/Cancel';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SettingsIcon from '@mui/icons-material/Settings';
-import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
+} from '@/components/mui-compat';
+import { Search as SearchIcon, Link as LinkIcon, ContentPaste as ContentPasteIcon, Sync as SyncIcon, Cancel as CancelIcon, FolderOpen as FolderOpenIcon, CloudUpload as CloudUploadIcon, ExpandMore as ExpandMoreIcon, Settings as SettingsIcon, LibraryMusic as LibraryMusicIcon } from '@/components/mui-compat/icons';
 import TimeInput from './TimeInput';
 import MetadataEditor from './MetadataEditor';
 import LocalLibraryBatchView from './LocalLibraryBatchView';

@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import YouTubeSearchPanel from './YouTubeSearchPanel';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 const mockResults = [
@@ -51,14 +51,14 @@ describe('YouTubeSearchPanel', () => {
   });
 
   it('renders search input and button', () => {
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     expect(screen.getByRole('textbox', { name: /search query/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument();
   });
 
   it('search button is disabled with empty query', () => {
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /search/i })).toBeDisabled();
   });
@@ -70,7 +70,7 @@ describe('YouTubeSearchPanel', () => {
       results: mockResults,
     });
 
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     await user.type(screen.getByRole('textbox', { name: /search query/i }), 'test query');
     await user.click(screen.getByRole('button', { name: /search/i }));
@@ -87,7 +87,7 @@ describe('YouTubeSearchPanel', () => {
       results: mockResults,
     });
 
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     await user.type(screen.getByRole('textbox', { name: /search query/i }), 'test query');
     await user.click(screen.getByRole('button', { name: /search/i }));
@@ -106,7 +106,7 @@ describe('YouTubeSearchPanel', () => {
       results: mockResults,
     });
 
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     await user.type(screen.getByRole('textbox', { name: /search query/i }), 'test query');
     await user.click(screen.getByRole('button', { name: /search/i }));
@@ -127,7 +127,7 @@ describe('YouTubeSearchPanel', () => {
       error: 'Network error occurred',
     });
 
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     await user.type(screen.getByRole('textbox', { name: /search query/i }), 'test query');
     await user.click(screen.getByRole('button', { name: /search/i }));
@@ -138,20 +138,20 @@ describe('YouTubeSearchPanel', () => {
   });
 
   it('search is disabled when isConverting is true', () => {
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} isConverting />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} isConverting />);
 
     expect(screen.getByRole('textbox', { name: /search query/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /search/i })).toBeDisabled();
   });
 
   it('shows empty state with no results and no search performed', () => {
-    renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
 
     expect(screen.getByText('Search for songs to learn')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<YouTubeSearchPanel {...defaultProps} />);
+    const { container } = renderWithProviders(<YouTubeSearchPanel {...defaultProps} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

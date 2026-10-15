@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import { MetadataFormFields } from './MetadataFormFields';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 const baseMetadata = {
   title: 'Test Title',
@@ -24,7 +24,7 @@ const baseMetadata = {
 
 describe('MetadataFormFields', () => {
   it('renders all text fields for full section', () => {
-    renderWithMui(<MetadataFormFields metadata={baseMetadata} onChange={() => {}} />);
+    renderWithProviders(<MetadataFormFields metadata={baseMetadata} onChange={() => {}} />);
 
     expect(screen.getByLabelText('Title')).toBeInTheDocument();
     expect(screen.getByLabelText('Artist')).toBeInTheDocument();
@@ -43,7 +43,7 @@ describe('MetadataFormFields', () => {
   it('fires onChange callback when a field is edited', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    renderWithMui(<MetadataFormFields metadata={baseMetadata} onChange={onChange} />);
+    renderWithProviders(<MetadataFormFields metadata={baseMetadata} onChange={onChange} />);
 
     const titleField = screen.getByLabelText('Title');
     await user.clear(titleField);
@@ -54,7 +54,7 @@ describe('MetadataFormFields', () => {
   });
 
   it('renders only albumCore fields when renderSection is albumCore', () => {
-    renderWithMui(
+    renderWithProviders(
       <MetadataFormFields metadata={baseMetadata} onChange={() => {}} renderSection="albumCore" />
     );
 
@@ -65,7 +65,7 @@ describe('MetadataFormFields', () => {
   });
 
   it('renders only advanced fields when renderSection is advanced', () => {
-    renderWithMui(
+    renderWithProviders(
       <MetadataFormFields metadata={baseMetadata} onChange={() => {}} renderSection="advanced" />
     );
 
@@ -76,7 +76,7 @@ describe('MetadataFormFields', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <MetadataFormFields metadata={baseMetadata} onChange={() => {}} />
     );
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();

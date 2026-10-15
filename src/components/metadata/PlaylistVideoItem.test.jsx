@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../../tests/setup/axe-config.js';
 import PlaylistVideoItem from './PlaylistVideoItem';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 const video = { title: 'Song Title' };
 
@@ -25,7 +25,7 @@ describe('PlaylistVideoItem', () => {
   };
 
   it('renders collapsed by default with track number and title', () => {
-    renderWithMui(<PlaylistVideoItem {...defaultProps} />);
+    renderWithProviders(<PlaylistVideoItem {...defaultProps} />);
 
     expect(screen.getByText('Song Title')).toBeInTheDocument();
     expect(screen.getByText('Track 3 of 10')).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('PlaylistVideoItem', () => {
 
   it('expands on click to show fields', async () => {
     const user = userEvent.setup();
-    renderWithMui(<PlaylistVideoItem {...defaultProps} />);
+    renderWithProviders(<PlaylistVideoItem {...defaultProps} />);
 
     await user.click(screen.getByText('Song Title'));
 
@@ -43,7 +43,7 @@ describe('PlaylistVideoItem', () => {
   });
 
   it('shows track number display in secondary text', () => {
-    renderWithMui(
+    renderWithProviders(
       <PlaylistVideoItem {...defaultProps} fileMeta={{ ...fileMeta, trackNumber: '' }} />
     );
 
@@ -51,7 +51,7 @@ describe('PlaylistVideoItem', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<PlaylistVideoItem {...defaultProps} />);
+    const { container } = renderWithProviders(<PlaylistVideoItem {...defaultProps} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

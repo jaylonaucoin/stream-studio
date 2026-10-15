@@ -4,14 +4,14 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ErrorDialog from './ErrorDialog';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('ErrorDialog', () => {
   it('closes and resets details expansion', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const longMsg = 'x'.repeat(220);
-    const { rerender } = renderWithMui(
+    const { rerender } = renderWithProviders(
       <ErrorDialog open title="Error" message={longMsg} onClose={onClose} />
     );
     await user.click(screen.getByRole('button', { name: /show full details/i }));
@@ -23,14 +23,14 @@ describe('ErrorDialog', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <ErrorDialog open title="Error" message="Something failed" onClose={() => {}} />
     );
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 
   it('matches snapshot for open error dialog', () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <ErrorDialog open title="Error" message="Something failed" onClose={() => {}} />
     );
     expect(container.firstChild).toMatchSnapshot();

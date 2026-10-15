@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import SegmentEditor, { parseTimestampsFromDescription } from './SegmentEditor';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('parseTimestampsFromDescription', () => {
   it('returns empty array for null/empty description', () => {
@@ -96,23 +96,23 @@ describe('SegmentEditor component', () => {
   });
 
   it('returns null when videoInfo is null', () => {
-    const { container } = renderWithMui(<SegmentEditor {...defaultProps} videoInfo={null} />);
+    const { container } = renderWithProviders(<SegmentEditor {...defaultProps} videoInfo={null} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders header with "Manual Segmentation" text', () => {
-    renderWithMui(<SegmentEditor {...defaultProps} />);
+    renderWithProviders(<SegmentEditor {...defaultProps} />);
     expect(screen.getByText('Manual Segmentation')).toBeInTheDocument();
   });
 
   it('shows "No chapters detected" chip when chapterInfo has no chapters', () => {
-    renderWithMui(<SegmentEditor {...defaultProps} />);
+    renderWithProviders(<SegmentEditor {...defaultProps} />);
     expect(screen.getByText('No chapters detected')).toBeInTheDocument();
   });
 
   it('calls setSegments when Add Segment is clicked', async () => {
     const user = userEvent.setup();
-    renderWithMui(<SegmentEditor {...defaultProps} />);
+    renderWithProviders(<SegmentEditor {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /add segment/i }));
 
@@ -127,7 +127,7 @@ describe('SegmentEditor component', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<SegmentEditor {...defaultProps} />);
+    const { container } = renderWithProviders(<SegmentEditor {...defaultProps} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

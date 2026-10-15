@@ -1,22 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { FormField } from '@/components/ui/form-field'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
-  Box,
-  TextField,
-  Typography,
-  Alert,
-  Divider,
-  FormControl,
-  InputLabel,
   Select,
-  MenuItem,
-} from '@mui/material';
-import { GENRES } from '../../constants';
-import ThumbnailSection from './ThumbnailSection';
-import CatalogLinkSection from './CatalogLinkSection';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { GENRES } from '../../constants'
+import ThumbnailSection from './ThumbnailSection'
+import CatalogLinkSection from './CatalogLinkSection'
 
-/**
- * ChapterMetadataForm component for editing chapter/album metadata
- */
 function ChapterMetadataForm({
   chapterMetadata,
   onChapterMetadataChange,
@@ -32,26 +29,28 @@ function ChapterMetadataForm({
           ...prev.albumMetadata,
           [field]: value,
         },
-      }));
+      }))
     },
     [onChapterMetadataChange]
-  );
+  )
 
   const handleTemplateChange = useCallback(
     (value) => {
       onChapterMetadataChange((prev) => ({
         ...prev,
         chapterTitleTemplate: value,
-      }));
+      }))
     },
     [onChapterMetadataChange]
-  );
+  )
 
   return (
-    <Box>
-      <Alert severity="info" sx={{ mb: 2 }}>
-        Album metadata will be applied to all chapters. Track numbers will auto-increment based on
-        selected chapters.
+    <div className="space-y-3">
+      <Alert>
+        <AlertDescription>
+          Album metadata will be applied to all chapters. Track numbers will auto-increment based on
+          selected chapters.
+        </AlertDescription>
       </Alert>
       <CatalogLinkSection
         variant="albumShared"
@@ -59,100 +58,96 @@ function ChapterMetadataForm({
           onChapterMetadataChange((prev) => ({
             ...prev,
             albumMetadata: { ...prev.albumMetadata, ...m },
-          }));
+          }))
         }}
         onCoverLoaded={(dataUrl) => {
-          if (dataUrl) onThumbnailChange(dataUrl);
+          if (dataUrl) onThumbnailChange(dataUrl)
         }}
         onError={onError}
       />
-      <Typography variant="h6" gutterBottom>
-        Album Metadata
-      </Typography>
-      <TextField
-        fullWidth
+      <h3 className="text-base font-semibold">Album Metadata</h3>
+      <FormField
         label="Artist"
         value={chapterMetadata.albumMetadata.artist}
         onChange={(e) => handleFieldChange('artist', e.target.value)}
-        margin="normal"
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Album"
         value={chapterMetadata.albumMetadata.album}
         onChange={(e) => handleFieldChange('album', e.target.value)}
-        margin="normal"
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Album Artist"
         value={chapterMetadata.albumMetadata.albumArtist}
         onChange={(e) => handleFieldChange('albumArtist', e.target.value)}
-        margin="normal"
       />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <FormControl fullWidth>
-          <InputLabel>Genre</InputLabel>
+      <div className="mt-2 flex gap-4">
+        <div className="w-full space-y-1.5">
+          <Label>Genre</Label>
           <Select
-            value={chapterMetadata.albumMetadata.genre}
-            label="Genre"
-            onChange={(e) => handleFieldChange('genre', e.target.value)}
+            value={chapterMetadata.albumMetadata.genre || '__none__'}
+            onValueChange={(v) => handleFieldChange('genre', v === '__none__' ? '' : v)}
           >
-            <MenuItem value="">None</MenuItem>
-            {GENRES.map((genre) => (
-              <MenuItem key={genre} value={genre}>
-                {genre}
-              </MenuItem>
-            ))}
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {GENRES.map((genre) => (
+                <SelectItem key={genre} value={genre}>
+                  {genre}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        </FormControl>
-        <TextField
-          fullWidth
+        </div>
+        <FormField
+          className="w-full"
           label="Year"
+          type="number"
           value={chapterMetadata.albumMetadata.year}
           onChange={(e) => handleFieldChange('year', e.target.value)}
-          type="number"
         />
-      </Box>
-      <TextField
-        fullWidth
+      </div>
+      <FormField
         label="Composer"
         value={chapterMetadata.albumMetadata.composer}
         onChange={(e) => handleFieldChange('composer', e.target.value)}
-        margin="normal"
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Comment"
         value={chapterMetadata.albumMetadata.comment}
         onChange={(e) => handleFieldChange('comment', e.target.value)}
-        margin="normal"
         multiline
         rows={2}
       />
-      <Divider sx={{ my: 2 }} />
-      <Typography variant="h6" gutterBottom>
-        Chapter Titles
-      </Typography>
-      <FormControl fullWidth margin="normal">
-        <InputLabel>Title Template</InputLabel>
+      <Separator className="my-4" />
+      <h3 className="text-base font-semibold">Chapter Titles</h3>
+      <div className="space-y-1.5">
+        <Label>Title Template</Label>
         <Select
           value={chapterMetadata.chapterTitleTemplate}
-          label="Title Template"
-          onChange={(e) => handleTemplateChange(e.target.value)}
+          onValueChange={handleTemplateChange}
         >
-          <MenuItem value="{chapterTitle}">Use Original Chapter Title</MenuItem>
-          <MenuItem value="{album} - {chapterTitle}">Album - Chapter Title</MenuItem>
-          <MenuItem value="Track {trackNumber}: {chapterTitle}">Track N: Chapter Title</MenuItem>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="{chapterTitle}">Use Original Chapter Title</SelectItem>
+            <SelectItem value="{album} - {chapterTitle}">Album - Chapter Title</SelectItem>
+            <SelectItem value="Track {trackNumber}: {chapterTitle}">
+              Track N: Chapter Title
+            </SelectItem>
+          </SelectContent>
         </Select>
-      </FormControl>
+      </div>
       <ThumbnailSection
         thumbnailUrl={thumbnailUrl}
         onThumbnailChange={onThumbnailChange}
         onError={onError}
-      />
-    </Box>
-  );
+        />
+    </div>
+  )
 }
 
-export default ChapterMetadataForm;
+export default ChapterMetadataForm

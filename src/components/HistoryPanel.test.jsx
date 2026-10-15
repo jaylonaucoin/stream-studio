@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import HistoryPanel from './HistoryPanel';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 describe('HistoryPanel', () => {
@@ -32,7 +32,7 @@ describe('HistoryPanel', () => {
   });
 
   it('lists history items when opened', async () => {
-    renderWithMui(<HistoryPanel open onClose={() => {}} />);
+    renderWithProviders(<HistoryPanel open onClose={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('HistoryPanel', () => {
 
   it('Clear All clears history via API', async () => {
     const user = userEvent.setup();
-    renderWithMui(<HistoryPanel open onClose={() => {}} />);
+    renderWithProviders(<HistoryPanel open onClose={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
@@ -57,13 +57,15 @@ describe('HistoryPanel', () => {
 
   it('remove button calls removeHistoryItem', async () => {
     const user = userEvent.setup();
-    renderWithMui(<HistoryPanel open onClose={() => {}} />);
+    renderWithProviders(<HistoryPanel open onClose={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
     });
 
-    const itemCard = screen.getByText('test-song.mp3').closest('.MuiPaper-root');
+    const itemCard = screen.getByText('test-song.mp3').closest('[data-slot="history-item"]')
+      || screen.getByText('test-song.mp3').closest('li')
+      || screen.getByText('test-song.mp3').parentElement?.parentElement;
     const removeBtn = within(itemCard).getByRole('button', { name: /remove from history/i });
     await user.click(removeBtn);
 
@@ -77,7 +79,7 @@ describe('HistoryPanel', () => {
     teardownApi?.();
     teardownApi = installWindowApi(api);
 
-    renderWithMui(<HistoryPanel open onClose={() => {}} />);
+    renderWithProviders(<HistoryPanel open onClose={() => {}} />);
 
     await waitFor(() => {
       expect(window.api.getHistory).toHaveBeenCalled();
@@ -86,7 +88,7 @@ describe('HistoryPanel', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<HistoryPanel open onClose={() => {}} />);
+    const { container } = renderWithProviders(<HistoryPanel open onClose={() => {}} />);
     await waitFor(() => {
       expect(window.api.getHistory).toHaveBeenCalled();
     });

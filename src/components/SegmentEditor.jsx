@@ -17,7 +17,8 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
-} from '@mui/material';
+} from '@/components/mui-compat';
+import { Add as AddIcon, Delete as DeleteIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, ContentCut as ContentCutIcon, AutoFixHigh as AutoFixHighIcon, DragIndicator as DragIndicatorIcon, AccessTime as AccessTimeIcon, MusicNote as MusicNoteIcon, Edit as EditIcon, Timer as TimerIcon, Schedule as ScheduleIcon } from '@/components/mui-compat/icons';
 import TimeInput from './TimeInput';
 import {
   DndContext,
@@ -35,18 +36,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ContentCutIcon from '@mui/icons-material/ContentCut';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import EditIcon from '@mui/icons-material/Edit';
-import TimerIcon from '@mui/icons-material/Timer';
-import ScheduleIcon from '@mui/icons-material/Schedule';
 import { parseTimeToSeconds, formatSecondsToTime } from '../utils';
 
 // Re-export for backward compatibility

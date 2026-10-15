@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import PlaylistPreviewCard from './PlaylistPreviewCard';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 vi.mock('../ThumbnailWithFallback', () => ({
   default: () => <div data-testid="thumbnail" />,
@@ -30,14 +30,14 @@ describe('PlaylistPreviewCard', () => {
   };
 
   it('renders playlist title and video count', () => {
-    renderWithMui(<PlaylistPreviewCard {...defaultProps} />);
+    renderWithProviders(<PlaylistPreviewCard {...defaultProps} />);
 
     expect(screen.getByText('My Awesome Playlist')).toBeInTheDocument();
     expect(screen.getByText('12 videos')).toBeInTheDocument();
   });
 
   it('renders mode toggle buttons', () => {
-    renderWithMui(<PlaylistPreviewCard {...defaultProps} />);
+    renderWithProviders(<PlaylistPreviewCard {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /full playlist mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /selected videos mode/i })).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('PlaylistPreviewCard', () => {
   it('calls onEditMetadata when edit button is clicked', async () => {
     const user = userEvent.setup();
     const onEditMetadata = vi.fn();
-    renderWithMui(<PlaylistPreviewCard {...defaultProps} onEditMetadata={onEditMetadata} />);
+    renderWithProviders(<PlaylistPreviewCard {...defaultProps} onEditMetadata={onEditMetadata} />);
 
     await user.click(screen.getByRole('button', { name: /edit metadata/i }));
 
@@ -54,7 +54,7 @@ describe('PlaylistPreviewCard', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<PlaylistPreviewCard {...defaultProps} />);
+    const { container } = renderWithProviders(<PlaylistPreviewCard {...defaultProps} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import ThumbnailSection from './ThumbnailSection';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../../tests/setup/renderer-api-mock.js';
 
 vi.mock('../ThumbnailCropper', () => ({
@@ -30,20 +30,20 @@ describe('ThumbnailSection', () => {
   };
 
   it('renders crop button', () => {
-    renderWithMui(<ThumbnailSection {...defaultProps} />);
+    renderWithProviders(<ThumbnailSection {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /crop/i })).toBeInTheDocument();
   });
 
   it('renders replace image button when thumbnail exists', () => {
-    renderWithMui(<ThumbnailSection {...defaultProps} />);
+    renderWithProviders(<ThumbnailSection {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /replace/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /replace/i })).not.toBeDisabled();
   });
 
   it('disables crop button when no thumbnail', () => {
-    renderWithMui(
+    renderWithProviders(
       <ThumbnailSection thumbnailUrl={null} onThumbnailChange={vi.fn()} onError={vi.fn()} />
     );
 
@@ -51,7 +51,7 @@ describe('ThumbnailSection', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<ThumbnailSection {...defaultProps} />);
+    const { container } = renderWithProviders(<ThumbnailSection {...defaultProps} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

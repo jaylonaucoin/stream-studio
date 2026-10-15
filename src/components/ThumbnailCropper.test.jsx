@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen } from '@testing-library/react';
 import ThumbnailCropper from './ThumbnailCropper';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 describe('ThumbnailCropper', () => {
@@ -27,7 +27,7 @@ describe('ThumbnailCropper', () => {
     const onCropComplete = vi.fn();
     const user = userEvent.setup();
 
-    renderWithMui(
+    renderWithProviders(
       <ThumbnailCropper
         open
         imageUrl="https://example.com/x.png"

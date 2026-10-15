@@ -1,24 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { FormField } from '@/components/ui/form-field'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
-  Box,
-  TextField,
-  Typography,
-  Alert,
-  Divider,
-  FormControl,
-  InputLabel,
   Select,
-  MenuItem,
-  List,
-  ListItem,
-} from '@mui/material';
-import { GENRES } from '../../constants';
-import ThumbnailSection from './ThumbnailSection';
-import CatalogLinkSection from './CatalogLinkSection';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { GENRES } from '../../constants'
+import ThumbnailSection from './ThumbnailSection'
+import CatalogLinkSection from './CatalogLinkSection'
 
-/**
- * SegmentMetadataForm component for editing segment/manual split metadata
- */
 function SegmentMetadataForm({
   segmentMetadata,
   onSegmentMetadataChange,
@@ -35,30 +30,32 @@ function SegmentMetadataForm({
           ...prev.albumMetadata,
           [field]: value,
         },
-      }));
+      }))
     },
     [onSegmentMetadataChange]
-  );
+  )
 
   const handlePerTrackChange = useCallback(
     (index, field, value) => {
       onSegmentMetadataChange((prev) => {
-        const updated = [...prev.perSegmentMetadata];
-        updated[index] = { ...updated[index], [field]: value };
+        const updated = [...prev.perSegmentMetadata]
+        updated[index] = { ...updated[index], [field]: value }
         return {
           ...prev,
           perSegmentMetadata: updated,
-        };
-      });
+        }
+      })
     },
     [onSegmentMetadataChange]
-  );
+  )
 
   return (
-    <Box>
-      <Alert severity="info" sx={{ mb: 2 }}>
-        Album metadata will be applied to all segments. Each segment will be downloaded as a
-        separate track with its own title.
+    <div className="space-y-3">
+      <Alert>
+        <AlertDescription>
+          Album metadata will be applied to all segments. Each segment will be downloaded as a
+          separate track with its own title.
+        </AlertDescription>
       </Alert>
       <CatalogLinkSection
         variant="albumShared"
@@ -66,131 +63,115 @@ function SegmentMetadataForm({
           onSegmentMetadataChange((prev) => ({
             ...prev,
             albumMetadata: { ...prev.albumMetadata, ...m },
-          }));
+          }))
         }}
         onCoverLoaded={(dataUrl) => {
-          if (dataUrl) onThumbnailChange(dataUrl);
+          if (dataUrl) onThumbnailChange(dataUrl)
         }}
         onError={onError}
       />
-      <Typography variant="h6" gutterBottom>
-        Album Metadata
-      </Typography>
-      <TextField
-        fullWidth
+      <h3 className="text-base font-semibold">Album Metadata</h3>
+      <FormField
         label="Artist"
         value={segmentMetadata.albumMetadata.artist}
         onChange={(e) => handleAlbumFieldChange('artist', e.target.value)}
-        margin="normal"
         helperText={
           useSharedArtistForSegments
             ? 'This artist will be applied to all segments'
             : 'Default artist (can be overridden per segment)'
         }
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Album"
         value={segmentMetadata.albumMetadata.album}
         onChange={(e) => handleAlbumFieldChange('album', e.target.value)}
-        margin="normal"
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Album Artist"
         value={segmentMetadata.albumMetadata.albumArtist}
         onChange={(e) => handleAlbumFieldChange('albumArtist', e.target.value)}
-        margin="normal"
       />
-      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <FormControl fullWidth>
-          <InputLabel>Genre</InputLabel>
+      <div className="mt-2 flex gap-4">
+        <div className="w-full space-y-1.5">
+          <Label>Genre</Label>
           <Select
-            value={segmentMetadata.albumMetadata.genre}
-            label="Genre"
-            onChange={(e) => handleAlbumFieldChange('genre', e.target.value)}
+            value={segmentMetadata.albumMetadata.genre || '__none__'}
+            onValueChange={(v) => handleAlbumFieldChange('genre', v === '__none__' ? '' : v)}
           >
-            <MenuItem value="">None</MenuItem>
-            {GENRES.map((genre) => (
-              <MenuItem key={genre} value={genre}>
-                {genre}
-              </MenuItem>
-            ))}
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {GENRES.map((genre) => (
+                <SelectItem key={genre} value={genre}>
+                  {genre}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-        </FormControl>
-        <TextField
-          fullWidth
+        </div>
+        <FormField
+          className="w-full"
           label="Year"
+          type="number"
           value={segmentMetadata.albumMetadata.year}
           onChange={(e) => handleAlbumFieldChange('year', e.target.value)}
-          type="number"
         />
-      </Box>
-      <TextField
-        fullWidth
+      </div>
+      <FormField
         label="Composer"
         value={segmentMetadata.albumMetadata.composer}
         onChange={(e) => handleAlbumFieldChange('composer', e.target.value)}
-        margin="normal"
       />
-      <TextField
-        fullWidth
+      <FormField
         label="Comment"
         value={segmentMetadata.albumMetadata.comment}
         onChange={(e) => handleAlbumFieldChange('comment', e.target.value)}
-        margin="normal"
         multiline
         rows={2}
       />
 
-      <Divider sx={{ my: 2 }} />
+      <Separator className="my-4" />
 
-      <Typography variant="h6" gutterBottom>
+      <h3 className="text-base font-semibold">
         Segment Titles ({segmentMetadata.perSegmentMetadata.length} segments)
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      </h3>
+      <p className="mb-4 text-sm text-muted-foreground">
         Review and edit the title{!useSharedArtistForSegments && ' and artist'} for each segment.
-      </Typography>
+      </p>
 
-      <List sx={{ bgcolor: 'background.default', borderRadius: 1 }}>
+      <ul className="rounded-lg bg-muted/40">
         {segmentMetadata.perSegmentMetadata.map((seg, index) => (
-          <ListItem key={index} sx={{ borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
-            <Box sx={{ width: '100%' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Track {index + 1}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                <TextField
-                  fullWidth
-                  label="Title"
-                  value={seg.title}
-                  onChange={(e) => handlePerTrackChange(index, 'title', e.target.value)}
-                  size="small"
+          <li key={index} className="border-b border-border px-3 py-3 last:border-b-0">
+            <p className="mb-2 text-xs text-muted-foreground">Track {index + 1}</p>
+            <div className="flex items-start gap-4">
+              <FormField
+                className="w-full"
+                label="Title"
+                value={seg.title}
+                onChange={(e) => handlePerTrackChange(index, 'title', e.target.value)}
+              />
+              {!useSharedArtistForSegments ? (
+                <FormField
+                  className="min-w-50"
+                  label="Artist"
+                  value={seg.artist}
+                  onChange={(e) => handlePerTrackChange(index, 'artist', e.target.value)}
                 />
-                {!useSharedArtistForSegments && (
-                  <TextField
-                    label="Artist"
-                    value={seg.artist}
-                    onChange={(e) => handlePerTrackChange(index, 'artist', e.target.value)}
-                    size="small"
-                    sx={{ minWidth: 200 }}
-                  />
-                )}
-              </Box>
-            </Box>
-          </ListItem>
+              ) : null}
+            </div>
+          </li>
         ))}
-      </List>
+      </ul>
 
       <ThumbnailSection
         thumbnailUrl={thumbnailUrl}
         onThumbnailChange={onThumbnailChange}
         onError={onError}
       />
-    </Box>
-  );
+    </div>
+  )
 }
 
-export default SegmentMetadataForm;
+export default SegmentMetadataForm

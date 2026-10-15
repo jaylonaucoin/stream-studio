@@ -5,7 +5,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import QueuePanel from './QueuePanel';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 const sampleUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
@@ -55,7 +55,7 @@ describe('QueuePanel', () => {
 
   it('adds a valid URL to the queue', async () => {
     const user = userEvent.setup();
-    renderWithMui(<QueuePanelHarness />);
+    renderWithProviders(<QueuePanelHarness />);
 
     const input = getQueueUrlTextbox();
     await user.click(input);
@@ -70,7 +70,7 @@ describe('QueuePanel', () => {
 
   it('clears the queue when Clear All is clicked', async () => {
     const user = userEvent.setup();
-    renderWithMui(<QueuePanelHarness />);
+    renderWithProviders(<QueuePanelHarness />);
 
     const input = getQueueUrlTextbox();
     await user.click(input);
@@ -89,13 +89,13 @@ describe('QueuePanel', () => {
   });
 
   it('shows empty state message when queue is empty', () => {
-    renderWithMui(<QueuePanelHarness />);
+    renderWithProviders(<QueuePanelHarness />);
     expect(screen.getByText(/queue is empty/i)).toBeInTheDocument();
     expect(screen.getByText(/paste multiple urls/i)).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<QueuePanelHarness />);
+    const { container } = renderWithProviders(<QueuePanelHarness />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

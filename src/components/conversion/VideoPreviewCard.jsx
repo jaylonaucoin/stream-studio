@@ -1,24 +1,13 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  IconButton,
-  Tooltip,
-  Chip,
-  LinearProgress,
-  Alert,
-} from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import PersonIcon from '@mui/icons-material/Person';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import EditIcon from '@mui/icons-material/Edit';
-import ThumbnailWithFallback from '../ThumbnailWithFallback';
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { Play, Pause, User, Clock, Pencil } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Spinner } from '@/components/ui/spinner'
+import ThumbnailWithFallback from '../ThumbnailWithFallback'
 
-/**
- * VideoPreviewCard - Displays single video preview information with audio preview
- */
 function VideoPreviewCard({
   videoInfo,
   chapterInfo,
@@ -27,220 +16,194 @@ function VideoPreviewCard({
   disabled,
   isConverting,
 }) {
-  const [playing, setPlaying] = useState(false);
-  const [loadingAudio, setLoadingAudio] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
-  const [audioError, setAudioError] = useState(null);
-  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false)
+  const [loadingAudio, setLoadingAudio] = useState(false)
+  const [audioProgress, setAudioProgress] = useState(0)
+  const [audioError, setAudioError] = useState(null)
+  const audioRef = useRef(null)
 
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src');
-      audioRef.current.load();
-      audioRef.current = null;
+      audioRef.current.pause()
+      audioRef.current.removeAttribute('src')
+      audioRef.current.load()
+      audioRef.current = null
     }
-    setPlaying(false);
-    setAudioProgress(0);
-  }, []);
+    setPlaying(false)
+    setAudioProgress(0)
+  }, [])
 
   useEffect(() => {
-    return () => stopAudio();
-  }, [stopAudio]);
+    return () => stopAudio()
+  }, [stopAudio])
 
   const handlePlayPause = useCallback(async () => {
-    if (disabled || isConverting || !videoInfo?.webpageUrl) return;
+    if (disabled || isConverting || !videoInfo?.webpageUrl) return
 
-    setAudioError(null);
+    setAudioError(null)
 
     if (playing && audioRef.current) {
-      audioRef.current.pause();
-      setPlaying(false);
-      return;
+      audioRef.current.pause()
+      setPlaying(false)
+      return
     }
 
     if (audioRef.current) {
       try {
-        await audioRef.current.play();
-        setPlaying(true);
+        await audioRef.current.play()
+        setPlaying(true)
       } catch {
-        setAudioError('Could not resume preview. Please try again.');
-        stopAudio();
+        setAudioError('Could not resume preview. Please try again.')
+        stopAudio()
       }
-      return;
+      return
     }
 
-    setLoadingAudio(true);
+    setLoadingAudio(true)
     try {
-      const response = await window.api?.getAudioStreamUrl?.(videoInfo.webpageUrl);
+      const response = await window.api?.getAudioStreamUrl?.(videoInfo.webpageUrl)
 
       if (!response?.success || !response.url) {
-        throw new Error(response?.error || 'Could not get audio stream.');
+        throw new Error(response?.error || 'Could not get audio stream.')
       }
 
-      const newAudio = new Audio(response.url);
-      audioRef.current = newAudio;
+      const newAudio = new Audio(response.url)
+      audioRef.current = newAudio
 
       newAudio.addEventListener('timeupdate', () => {
         if (newAudio.duration > 0) {
-          setAudioProgress((newAudio.currentTime / newAudio.duration) * 100);
+          setAudioProgress((newAudio.currentTime / newAudio.duration) * 100)
         }
-      });
+      })
 
       newAudio.addEventListener('ended', () => {
-        setPlaying(false);
-        setAudioProgress(0);
-        audioRef.current = null;
-      });
+        setPlaying(false)
+        setAudioProgress(0)
+        audioRef.current = null
+      })
 
       newAudio.addEventListener('error', () => {
-        setAudioError('Preview not available for this site.');
-        setPlaying(false);
-        setAudioProgress(0);
-        audioRef.current = null;
-      });
+        setAudioError('Preview not available for this site.')
+        setPlaying(false)
+        setAudioProgress(0)
+        audioRef.current = null
+      })
 
-      await newAudio.play();
-      setPlaying(true);
+      await newAudio.play()
+      setPlaying(true)
     } catch {
-      setAudioError('Preview not available for this site.');
-      stopAudio();
+      setAudioError('Preview not available for this site.')
+      stopAudio()
     } finally {
-      setLoadingAudio(false);
+      setLoadingAudio(false)
     }
-  }, [playing, disabled, isConverting, videoInfo?.webpageUrl, stopAudio]);
+  }, [playing, disabled, isConverting, videoInfo?.webpageUrl, stopAudio])
 
-  const canPreview = !!videoInfo?.webpageUrl && !disabled && !isConverting;
+  const canPreview = !!videoInfo?.webpageUrl && !disabled && !isConverting
 
   return (
-    <Paper
-      elevation={1}
-      sx={{
-        p: 2,
-        mb: 2,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        border: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-        <Box sx={{ position: 'relative', flexShrink: 0 }}>
+    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="relative shrink-0">
           <ThumbnailWithFallback
             thumbnail={videoInfo.thumbnail}
             alt={videoInfo.title}
             isPlaylist={false}
           />
-          {canPreview && (
-            <Tooltip title={playing ? 'Pause preview' : 'Play preview'}>
-              <IconButton
-                onClick={handlePlayPause}
-                disabled={loadingAudio}
-                sx={{
-                  position: 'absolute',
-                  bottom: 8,
-                  left: 8,
-                  bgcolor: 'rgba(0,0,0,0.6)',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
-                }}
-                aria-label={playing ? 'Pause preview' : 'Play preview'}
+          {canPreview ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon"
+                    onClick={handlePlayPause}
+                    disabled={loadingAudio}
+                    className="absolute bottom-2 left-2 bg-black/60 text-white hover:bg-black/80"
+                    aria-label={playing ? 'Pause preview' : 'Play preview'}
+                  />
+                }
               >
                 {loadingAudio ? (
-                  <Box component="span" sx={{ width: 24, height: 24, display: 'block' }} />
+                  <Spinner size="sm" className="text-white" />
                 ) : playing ? (
-                  <PauseIcon fontSize="small" />
+                  <Pause className="size-4" />
                 ) : (
-                  <PlayArrowIcon fontSize="small" />
+                  <Play className="size-4" />
                 )}
-              </IconButton>
+              </TooltipTrigger>
+              <TooltipContent>{playing ? 'Pause preview' : 'Play preview'}</TooltipContent>
             </Tooltip>
-          )}
-        </Box>
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-            <PlayArrowIcon sx={{ color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 600,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                flexGrow: 1,
-              }}
-            >
-              {videoInfo.title}
-            </Typography>
-            {!chapterInfo?.hasChapters && (
-              <Tooltip title="Edit Metadata">
-                <IconButton
-                  size="small"
-                  onClick={onEditMetadata}
-                  disabled={isConverting || disabled}
-                  sx={{ flexShrink: 0 }}
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-start gap-2">
+            <Play className="mt-1 size-5 shrink-0 text-primary" aria-hidden />
+            <h3 className="line-clamp-2 flex-1 text-base font-semibold">{videoInfo.title}</h3>
+            {!chapterInfo?.hasChapters ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={onEditMetadata}
+                      disabled={isConverting || disabled}
+                      className="shrink-0"
+                      aria-label="Edit Metadata"
+                    />
+                  }
                 >
-                  <EditIcon />
-                </IconButton>
+                  <Pencil className="size-4" />
+                </TooltipTrigger>
+                <TooltipContent>Edit Metadata</TooltipContent>
               </Tooltip>
-            )}
-          </Box>
+            ) : null}
+          </div>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
-            {videoInfo.durationFormatted && (
-              <Chip
-                icon={<AccessTimeIcon />}
-                label={videoInfo.durationFormatted}
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {videoInfo.uploader && (
-              <Chip
-                icon={<PersonIcon />}
-                label={videoInfo.uploader}
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {chapterInfo?.hasChapters && (
-              <Chip
-                icon={<PlayArrowIcon />}
-                label={`${chapterInfo.totalChapters} chapters`}
-                size="small"
-                variant="outlined"
-                color="primary"
-              />
-            )}
-            {customMetadata && (
-              <Chip
-                icon={<EditIcon />}
-                label="Custom Metadata"
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            )}
-          </Box>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {videoInfo.durationFormatted ? (
+              <Badge variant="outline">
+                <Clock className="size-3.5" />
+                {videoInfo.durationFormatted}
+              </Badge>
+            ) : null}
+            {videoInfo.uploader ? (
+              <Badge variant="outline">
+                <User className="size-3.5" />
+                {videoInfo.uploader}
+              </Badge>
+            ) : null}
+            {chapterInfo?.hasChapters ? (
+              <Badge variant="outline" className="border-primary text-primary">
+                <Play className="size-3.5" />
+                {chapterInfo.totalChapters} chapters
+              </Badge>
+            ) : null}
+            {customMetadata ? (
+              <Badge variant="outline" className="border-primary text-primary">
+                <Pencil className="size-3.5" />
+                Custom Metadata
+              </Badge>
+            ) : null}
+          </div>
 
-          {audioError && (
-            <Alert severity="info" sx={{ mt: 1.5, py: 0.5 }} onClose={() => setAudioError(null)}>
-              {audioError}
+          {audioError ? (
+            <Alert className="mt-3 py-2">
+              <AlertDescription className="flex items-center justify-between gap-2">
+                <span>{audioError}</span>
+                <Button size="sm" variant="ghost" onClick={() => setAudioError(null)}>
+                  Dismiss
+                </Button>
+              </AlertDescription>
             </Alert>
-          )}
-          {playing && (
-            <LinearProgress
-              variant="determinate"
-              value={audioProgress}
-              sx={{ mt: 1.5, height: 4, borderRadius: 2 }}
-            />
-          )}
-        </Box>
-      </Box>
-    </Paper>
-  );
+          ) : null}
+          {playing ? (
+            <Progress value={audioProgress} className="mt-3 [&>[data-slot=progress-track]]:h-1" />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
 }
 
-export default VideoPreviewCard;
+export default VideoPreviewCard

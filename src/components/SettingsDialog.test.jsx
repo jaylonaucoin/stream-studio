@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import SettingsDialog from './SettingsDialog';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../tests/setup/renderer-api-mock.js';
 
 describe('SettingsDialog', () => {
@@ -21,7 +21,7 @@ describe('SettingsDialog', () => {
   });
 
   it('loads settings when opened and shows theme control', async () => {
-    renderWithMui(<SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />);
+    renderWithProviders(<SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />);
 
     await waitFor(() => {
       expect(window.api.getSettings).toHaveBeenCalled();
@@ -36,7 +36,7 @@ describe('SettingsDialog', () => {
     const onClose = vi.fn();
     const onSettingsSaved = vi.fn();
 
-    renderWithMui(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
+    renderWithProviders(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
 
     await waitFor(() => {
       expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('SettingsDialog', () => {
     const onClose = vi.fn();
     const onSettingsSaved = vi.fn();
 
-    renderWithMui(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
+    renderWithProviders(<SettingsDialog open onClose={onClose} onSettingsSaved={onSettingsSaved} />);
 
     await waitFor(() => {
       expect(screen.queryByLabelText(/loading settings/i)).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('SettingsDialog', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(
+    const { container } = renderWithProviders(
       <SettingsDialog open onClose={() => {}} onSettingsSaved={() => {}} />
     );
     await waitFor(() => {

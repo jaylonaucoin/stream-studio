@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../../tests/setup/axe-config.js';
 import ChapterMetadataForm from './ChapterMetadataForm';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 vi.mock('./ThumbnailSection', () => ({
   default: () => <div data-testid="thumbnail-section" />,
@@ -37,7 +37,7 @@ describe('ChapterMetadataForm', () => {
   };
 
   it('renders expected fields', () => {
-    renderWithMui(<ChapterMetadataForm {...defaultProps} />);
+    renderWithProviders(<ChapterMetadataForm {...defaultProps} />);
 
     expect(screen.getByLabelText('Artist')).toBeInTheDocument();
     expect(screen.getByLabelText('Album')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('ChapterMetadataForm', () => {
   it('calls onChapterMetadataChange when editing a field', async () => {
     const user = userEvent.setup();
     const onChapterMetadataChange = vi.fn();
-    renderWithMui(
+    renderWithProviders(
       <ChapterMetadataForm {...defaultProps} onChapterMetadataChange={onChapterMetadataChange} />
     );
 
@@ -62,13 +62,13 @@ describe('ChapterMetadataForm', () => {
   });
 
   it('renders catalog link section', () => {
-    renderWithMui(<ChapterMetadataForm {...defaultProps} />);
+    renderWithProviders(<ChapterMetadataForm {...defaultProps} />);
 
     expect(screen.getByTestId('catalog-link-section')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<ChapterMetadataForm {...defaultProps} />);
+    const { container } = renderWithProviders(<ChapterMetadataForm {...defaultProps} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

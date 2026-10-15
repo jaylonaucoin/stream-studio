@@ -21,9 +21,8 @@ import {
   Switch,
   FormControlLabel,
   Snackbar,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
+} from '@/components/mui-compat';
+import { Close as CloseIcon, Edit as EditIcon } from '@/components/mui-compat/icons';
 import { MetadataFormFields } from './MetadataFormFields';
 import {
   ThumbnailSection,

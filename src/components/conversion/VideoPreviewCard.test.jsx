@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import VideoPreviewCard from './VideoPreviewCard';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 vi.mock('../ThumbnailWithFallback', () => ({
   default: () => <div data-testid="thumbnail" />,
@@ -28,27 +28,27 @@ describe('VideoPreviewCard', () => {
   };
 
   it('renders video title and thumbnail', () => {
-    renderWithMui(<VideoPreviewCard {...defaultProps} />);
+    renderWithProviders(<VideoPreviewCard {...defaultProps} />);
 
     expect(screen.getByText('Cool Video Title')).toBeInTheDocument();
     expect(screen.getByTestId('thumbnail')).toBeInTheDocument();
   });
 
   it('shows uploader and duration chips', () => {
-    renderWithMui(<VideoPreviewCard {...defaultProps} />);
+    renderWithProviders(<VideoPreviewCard {...defaultProps} />);
 
     expect(screen.getByText('5:30')).toBeInTheDocument();
     expect(screen.getByText('TestChannel')).toBeInTheDocument();
   });
 
   it('shows audio preview button when canPreview is true', () => {
-    renderWithMui(<VideoPreviewCard {...defaultProps} />);
+    renderWithProviders(<VideoPreviewCard {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /play preview/i })).toBeInTheDocument();
   });
 
   it('hides edit metadata when chapters are present', () => {
-    renderWithMui(
+    renderWithProviders(
       <VideoPreviewCard {...defaultProps} chapterInfo={{ hasChapters: true, totalChapters: 5 }} />
     );
 
@@ -57,7 +57,7 @@ describe('VideoPreviewCard', () => {
   });
 
   it('shows error alert when audioError is rendered via prop scenario', () => {
-    renderWithMui(
+    renderWithProviders(
       <VideoPreviewCard {...defaultProps} videoInfo={{ ...videoInfo, webpageUrl: '' }} />
     );
 
@@ -65,7 +65,7 @@ describe('VideoPreviewCard', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<VideoPreviewCard {...defaultProps} />);
+    const { container } = renderWithProviders(<VideoPreviewCard {...defaultProps} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

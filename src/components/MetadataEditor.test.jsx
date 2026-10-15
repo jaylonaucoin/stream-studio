@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
 import MetadataEditor from './MetadataEditor';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('MetadataEditor', () => {
   const videoInfo = {
@@ -37,7 +37,7 @@ describe('MetadataEditor', () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
 
-    renderWithMui(
+    renderWithProviders(
       <MetadataEditor
         open
         onClose={onClose}

@@ -20,14 +20,8 @@ import {
   Select,
   MenuItem,
   Checkbox,
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PersonIcon from '@mui/icons-material/Person';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+} from '@/components/mui-compat';
+import { Search as SearchIcon, MusicNote as MusicNoteIcon, AccessTime as AccessTimeIcon, Person as PersonIcon, PlayArrow as PlayArrowIcon, Pause as PauseIcon, PlaylistAdd as PlaylistAddIcon } from '@/components/mui-compat/icons';
 import ThumbnailWithFallback from './ThumbnailWithFallback';
 import { SEARCH_SITES } from '../constants';
 

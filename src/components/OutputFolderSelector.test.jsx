@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import OutputFolderSelector from './OutputFolderSelector';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('OutputFolderSelector', () => {
   const defaultProps = {
@@ -13,13 +13,13 @@ describe('OutputFolderSelector', () => {
   };
 
   it('renders the current output folder path', () => {
-    renderWithMui(<OutputFolderSelector {...defaultProps} />);
+    renderWithProviders(<OutputFolderSelector {...defaultProps} />);
 
     expect(screen.getByText('/Users/test/Downloads/music')).toBeInTheDocument();
   });
 
   it('renders a change button', () => {
-    renderWithMui(<OutputFolderSelector {...defaultProps} />);
+    renderWithProviders(<OutputFolderSelector {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: /choose folder/i })).toBeInTheDocument();
   });
@@ -27,7 +27,7 @@ describe('OutputFolderSelector', () => {
   it('calls onChange when the change button is clicked', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    renderWithMui(<OutputFolderSelector folder="/tmp/out" onChange={onChange} />);
+    renderWithProviders(<OutputFolderSelector folder="/tmp/out" onChange={onChange} />);
 
     await user.click(screen.getByRole('button', { name: /choose folder/i }));
 
@@ -35,12 +35,12 @@ describe('OutputFolderSelector', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<OutputFolderSelector {...defaultProps} />);
+    const { container } = renderWithProviders(<OutputFolderSelector {...defaultProps} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 
   it('matches snapshot', () => {
-    const { container } = renderWithMui(<OutputFolderSelector {...defaultProps} />);
+    const { container } = renderWithProviders(<OutputFolderSelector {...defaultProps} />);
     expect(container.firstChild).toMatchSnapshot();
   });
 });

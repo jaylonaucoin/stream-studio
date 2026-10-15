@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../../tests/setup/axe-config.js';
 import ChapterSelector from './ChapterSelector';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 const chapterInfo = {
   totalChapters: 3,
@@ -32,7 +32,7 @@ const defaults = {
 
 describe('ChapterSelector', () => {
   it('renders chapter list from chapterInfo', () => {
-    renderWithMui(<ChapterSelector {...defaults} />);
+    renderWithProviders(<ChapterSelector {...defaults} />);
     expect(screen.getByText('Intro')).toBeInTheDocument();
     expect(screen.getByText('Main')).toBeInTheDocument();
     expect(screen.getByText('Outro')).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('ChapterSelector', () => {
   it('select all calls onSelectAll', async () => {
     const onSelectAll = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <ChapterSelector {...defaults} selectedChapters={[0]} onSelectAll={onSelectAll} />
     );
     await user.click(screen.getByRole('button', { name: /^select all$/i }));
@@ -51,7 +51,7 @@ describe('ChapterSelector', () => {
   it('deselect all calls onDeselectAll', async () => {
     const onDeselectAll = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(<ChapterSelector {...defaults} onDeselectAll={onDeselectAll} />);
+    renderWithProviders(<ChapterSelector {...defaults} onDeselectAll={onDeselectAll} />);
     await user.click(screen.getByRole('button', { name: /deselect all/i }));
     expect(onDeselectAll).toHaveBeenCalledTimes(1);
   });
@@ -59,7 +59,7 @@ describe('ChapterSelector', () => {
   it('chapter row click calls onChapterToggle', async () => {
     const onChapterToggle = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(<ChapterSelector {...defaults} onChapterToggle={onChapterToggle} />);
+    renderWithProviders(<ChapterSelector {...defaults} onChapterToggle={onChapterToggle} />);
     await user.click(screen.getByText('Main'));
     expect(onChapterToggle).toHaveBeenCalledWith(1);
   });
@@ -67,7 +67,7 @@ describe('ChapterSelector', () => {
   it('download mode toggle calls onChapterDownloadModeChange', async () => {
     const onChapterDownloadModeChange = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <ChapterSelector {...defaults} onChapterDownloadModeChange={onChapterDownloadModeChange} />
     );
     await user.click(screen.getByRole('button', { name: /selected chapters mode/i }));
@@ -75,7 +75,7 @@ describe('ChapterSelector', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<ChapterSelector {...defaults} />);
+    const { container } = renderWithProviders(<ChapterSelector {...defaults} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

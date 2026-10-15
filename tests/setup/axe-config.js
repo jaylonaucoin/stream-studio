@@ -1,14 +1,14 @@
 /**
- * Shared jest-axe options. MUI + jsdom often report false positives on color-contrast;
- * complex forms may need additional disabled rules until markup is tightened.
+ * Shared jest-axe options. Color-contrast is disabled under jsdom (no real computed styles).
+ * Complex forms may need additional disabled rules until markup is tightened.
  */
 export const defaultA11yAxeConfig = {
   rules: {
     'color-contrast': { enabled: false },
   },
-};
+}
 
-/** Forms with nested MUI structure: disable noisy rules until addressed in UI. */
+/** Forms with nested control structure: disable noisy rules until addressed in UI. */
 export const muiComplexFormAxeConfig = {
   rules: {
     'color-contrast': { enabled: false },
@@ -20,4 +20,4 @@ export const muiComplexFormAxeConfig = {
     label: { enabled: false },
     'nested-interactive': { enabled: false },
   },
-};
+}

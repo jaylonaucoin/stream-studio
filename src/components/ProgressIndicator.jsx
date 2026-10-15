@@ -1,7 +1,7 @@
-import { Box, LinearProgress, Typography, Paper, Button, Chip, Fade, Zoom } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import { CircleCheck, CircleX, FolderOpen } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 
 function ProgressIndicator({
   progress,
@@ -14,226 +14,134 @@ function ProgressIndicator({
   progressSize,
   playlistInfo,
 }) {
-  const isActive = state === 'converting' || state === 'completed';
-  const isCompleted = state === 'completed';
-  const isError = state === 'error';
+  const isActive = state === 'converting' || state === 'completed'
+  const isCompleted = state === 'completed'
+  const isError = state === 'error'
 
   return (
-    <Paper
-      elevation={2}
-      sx={{
-        p: 3,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        transition: 'all 0.2s ease-in-out',
-      }}
-    >
-      {isActive && (
-        <Fade in={isActive}>
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-              <Typography variant="body1" sx={{ flexGrow: 1 }}>
-                {statusMessage}
-              </Typography>
-              {isCompleted && (
-                <Chip icon={<CheckCircleIcon />} label="Success" color="success" size="small" />
-              )}
-            </Box>
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all">
+      {isActive ? (
+        <div>
+          <div className="mb-4 flex items-center gap-4">
+            <p className="flex-1 text-sm font-medium">{statusMessage}</p>
+            {isCompleted ? (
+              <Badge className="bg-success text-success-foreground hover:bg-success/90">
+                <CircleCheck className="size-3.5" />
+                Success
+              </Badge>
+            ) : null}
+          </div>
 
-            {state === 'converting' && (
-              <Box>
-                {/* Playlist Info Display */}
-                {playlistInfo && (
-                  <Box
-                    sx={{
-                      mb: 2,
-                      p: 1.5,
-                      borderRadius: 1,
-                      bgcolor: 'background.paper',
-                      border: 2,
-                      borderColor: 'primary.main',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Chip
-                        label={`Video ${playlistInfo.current} of ${playlistInfo.total}`}
-                        size="small"
-                        sx={{ bgcolor: 'primary.main', color: 'background.paper' }}
-                      />
-                      {playlistInfo.currentTitle && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'text.primary',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flexGrow: 1,
-                            fontWeight: 500,
-                          }}
-                          title={playlistInfo.currentTitle}
-                        >
-                          {playlistInfo.currentTitle}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
+          {state === 'converting' ? (
+            <div>
+              {playlistInfo ? (
+                <div className="mb-4 rounded-lg border-2 border-primary bg-card p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Badge>
+                      Video {playlistInfo.current} of {playlistInfo.total}
+                    </Badge>
+                    {playlistInfo.currentTitle ? (
+                      <span
+                        className="flex-1 truncate text-xs font-medium"
+                        title={playlistInfo.currentTitle}
+                      >
+                        {playlistInfo.currentTitle}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    mb: 1,
-                  }}
-                >
-                  <LinearProgress
-                    variant="determinate"
-                    value={progress}
-                    sx={{
-                      flexGrow: 1,
-                      height: 8,
-                      borderRadius: 4,
-                      mr: 2,
-                    }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ minWidth: 50, textAlign: 'right' }}
-                  >
-                    {progress.toFixed(0)}%
-                  </Typography>
-                </Box>
-                {(progressSpeed || progressEta || progressSize) && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      gap: 2,
-                      flexWrap: 'wrap',
-                      mt: 1,
-                      pt: 1,
-                      borderTop: 1,
-                      borderColor: 'divider',
-                    }}
-                  >
-                    {progressSpeed && (
-                      <Typography variant="caption" color="text.secondary">
-                        Speed: {progressSpeed}
-                      </Typography>
-                    )}
-                    {progressEta && (
-                      <Typography variant="caption" color="text.secondary">
-                        ETA: {progressEta}
-                      </Typography>
-                    )}
-                    {progressSize && (
-                      <Typography variant="caption" color="text.secondary">
-                        Size: {progressSize}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            )}
+              <div className="mb-2 flex items-center gap-4">
+                <Progress value={progress} className="flex-1 [&>[data-slot=progress-track]]:h-2" />
+                <span className="min-w-12 text-right text-sm text-muted-foreground tabular-nums">
+                  {progress.toFixed(0)}%
+                </span>
+              </div>
+              {progressSpeed || progressEta || progressSize ? (
+                <div className="mt-2 flex flex-wrap gap-4 border-t border-border pt-2">
+                  {progressSpeed ? (
+                    <span className="text-xs text-muted-foreground">Speed: {progressSpeed}</span>
+                  ) : null}
+                  {progressEta ? (
+                    <span className="text-xs text-muted-foreground">ETA: {progressEta}</span>
+                  ) : null}
+                  {progressSize ? (
+                    <span className="text-xs text-muted-foreground">Size: {progressSize}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
-            {isCompleted && (
-              <Zoom in={isCompleted}>
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <CheckCircleIcon
-                    sx={{
-                      fontSize: 64,
-                      color: 'success.main',
-                      mb: 1,
-                    }}
-                  />
-                  <Typography variant="h6" color="success.main" gutterBottom>
-                    {lastConvertedFile?.isPlaylist
-                      ? `Playlist Complete! (${lastConvertedFile.fileCount} videos)`
-                      : 'Conversion Complete!'}
-                  </Typography>
-                </Box>
-              </Zoom>
-            )}
+          {isCompleted ? (
+            <div className="py-4 text-center">
+              <CircleCheck className="mx-auto mb-2 size-16 text-success" aria-hidden />
+              <h3 className="text-lg font-semibold text-success">
+                {lastConvertedFile?.isPlaylist
+                  ? `Playlist Complete! (${lastConvertedFile.fileCount} videos)`
+                  : 'Conversion Complete!'}
+              </h3>
+            </div>
+          ) : null}
 
-            {lastConvertedFile && (
-              <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  gutterBottom
-                  sx={{ fontWeight: 500 }}
-                >
-                  {lastConvertedFile.isPlaylist ? 'Playlist saved:' : 'File saved:'}
-                </Typography>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      flexGrow: 1,
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0,
-                    }}
-                    title={
-                      lastConvertedFile.isPlaylist
-                        ? lastConvertedFile.playlistFolderName
-                        : lastConvertedFile.fileName
-                    }
-                  >
-                    {lastConvertedFile.isPlaylist
+          {lastConvertedFile ? (
+            <div className="mt-6 border-t border-border pt-4">
+              <p className="mb-2 text-sm font-medium text-muted-foreground">
+                {lastConvertedFile.isPlaylist ? 'Playlist saved:' : 'File saved:'}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className="min-w-0 flex-1 truncate font-mono text-sm"
+                  title={
+                    lastConvertedFile.isPlaylist
                       ? lastConvertedFile.playlistFolderName
-                      : lastConvertedFile.fileName}
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<FolderOpenIcon />}
-                    onClick={() =>
-                      onOpenFileLocation(
-                        lastConvertedFile.isPlaylist
-                          ? lastConvertedFile.playlistFolder
-                          : lastConvertedFile.filePath
-                      )
-                    }
-                  >
-                    Open Location
-                  </Button>
-                </Box>
-              </Box>
-            )}
-          </Box>
-        </Fade>
-      )}
+                      : lastConvertedFile.fileName
+                  }
+                >
+                  {lastConvertedFile.isPlaylist
+                    ? lastConvertedFile.playlistFolderName
+                    : lastConvertedFile.fileName}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    onOpenFileLocation(
+                      lastConvertedFile.isPlaylist
+                        ? lastConvertedFile.playlistFolder
+                        : lastConvertedFile.filePath
+                    )
+                  }
+                >
+                  <FolderOpen className="size-4" />
+                  Open Location
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
-      {isError && (
-        <Fade in={isError}>
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 2 }}>
-              <Typography variant="body1" sx={{ flexGrow: 1 }}>
-                {statusMessage || 'Conversion failed'}
-              </Typography>
-              <Chip icon={<ErrorIcon />} label="Error" color="error" size="small" />
-            </Box>
-          </Box>
-        </Fade>
-      )}
+      {isError ? (
+        <div className="mb-1 flex items-center gap-4">
+          <p className="flex-1 text-sm font-medium">{statusMessage || 'Conversion failed'}</p>
+          <Badge variant="destructive">
+            <CircleX className="size-3.5" />
+            Error
+          </Badge>
+        </div>
+      ) : null}
 
-      {!isActive && !isError && state === 'idle' && (
-        <Box sx={{ textAlign: 'center', py: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+      {!isActive && !isError && state === 'idle' ? (
+        <div className="py-4 text-center">
+          <p className="text-sm text-muted-foreground">
             Paste a URL, pick a result in Search, or use the Library tab for local files
-          </Typography>
-        </Box>
-      )}
-    </Paper>
-  );
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
-export default ProgressIndicator;
+export default ProgressIndicator

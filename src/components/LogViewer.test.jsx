@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../tests/setup/axe-config.js';
 import LogViewer from './LogViewer';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('LogViewer', () => {
   const defaultProps = {
@@ -19,14 +19,14 @@ describe('LogViewer', () => {
       { type: 'info', message: 'Starting conversion' },
       { type: 'success', message: 'Conversion complete' },
     ];
-    renderWithMui(<LogViewer {...defaultProps} logs={logs} />);
+    renderWithProviders(<LogViewer {...defaultProps} logs={logs} />);
 
     expect(screen.getByText('Starting conversion')).toBeInTheDocument();
     expect(screen.getByText('Conversion complete')).toBeInTheDocument();
   });
 
   it('renders empty state when no logs', () => {
-    renderWithMui(<LogViewer {...defaultProps} logs={[]} />);
+    renderWithProviders(<LogViewer {...defaultProps} logs={[]} />);
 
     expect(screen.getByText(/no logs yet/i)).toBeInTheDocument();
   });
@@ -35,7 +35,7 @@ describe('LogViewer', () => {
     const user = userEvent.setup();
     const onClear = vi.fn();
     const logs = [{ type: 'info', message: 'Hello' }];
-    renderWithMui(<LogViewer {...defaultProps} logs={logs} onClear={onClear} />);
+    renderWithProviders(<LogViewer {...defaultProps} logs={logs} onClear={onClear} />);
 
     await user.click(screen.getByRole('button', { name: /clear logs/i }));
 
@@ -43,7 +43,7 @@ describe('LogViewer', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<LogViewer {...defaultProps} />);
+    const { container } = renderWithProviders(<LogViewer {...defaultProps} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });

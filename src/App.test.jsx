@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import { renderWithMui } from './test-utils/render-with-mui';
+import { renderWithProviders } from './test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../tests/setup/renderer-api-mock.js';
 import { buildSettings } from '../tests/factories.js';
 
@@ -61,14 +61,14 @@ describe('App', () => {
   });
 
   it('registers progress listener on mount', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => {
       expect(window.api.onProgress).toHaveBeenCalled();
     });
   });
 
   it('calls mount loaders for folder, ffmpeg, settings, history, and version', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => {
       expect(api.getOutputFolder).toHaveBeenCalled();
       expect(api.checkFfmpeg).toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe('App', () => {
 
   it('opens settings from toolbar', async () => {
     const user = userEvent.setup();
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /open settings/i })).toBeInTheDocument();
     });
@@ -91,13 +91,13 @@ describe('App', () => {
 
   it('shows FFmpeg unavailable warning when check fails', async () => {
     api.checkFfmpeg.mockResolvedValue({ available: false });
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     expect(await screen.findByText(/ffmpeg is not available/i)).toBeInTheDocument();
   });
 
   it('skips applying settings when getSettings returns IPC failure', async () => {
     api.getSettings.mockResolvedValue({ success: false, error: 'nope' });
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => {
       expect(api.getSettings).toHaveBeenCalled();
     });
@@ -109,7 +109,7 @@ describe('App', () => {
       items: [],
       loadError: 'Could not read saved queue',
     }));
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     expect(await screen.findByText(/could not read saved queue/i)).toBeInTheDocument();
   });
 
@@ -118,7 +118,7 @@ describe('App', () => {
       success: false,
       error: 'The queue could not be saved to browser storage.',
     }));
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     expect(
       await screen.findByText(/the queue could not be saved to browser storage/i)
     ).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe('App', () => {
   it('updates progress when emitProgress sends progress payload', async () => {
     const user = userEvent.setup();
     api.convert.mockImplementation(() => new Promise(() => {}));
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => expect(window.api.onProgress).toHaveBeenCalled());
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
     await user.type(
@@ -141,7 +141,7 @@ describe('App', () => {
   });
 
   it('appends status message to logs', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => expect(window.api.onProgress).toHaveBeenCalled());
     emitProgress({ type: 'status', message: 'status-line' });
     await waitFor(() => {
@@ -152,7 +152,7 @@ describe('App', () => {
   it('handles cancelled progress event without throwing', async () => {
     const user = userEvent.setup();
     api.convert.mockImplementation(() => new Promise(() => {}));
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => expect(window.api.onProgress).toHaveBeenCalled());
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
     await user.type(
@@ -168,7 +168,7 @@ describe('App', () => {
   it('completes conversion and bumps history count', async () => {
     const user = userEvent.setup();
     api.getHistory.mockResolvedValue({ success: true, items: [] });
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() => screen.getByRole('button', { name: /open conversion history/i }));
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
     const input = screen.getByRole('textbox', { name: /video or audio url input/i });
@@ -189,7 +189,7 @@ describe('App', () => {
   it('opens error dialog on conversion failure', async () => {
     const user = userEvent.setup();
     api.convert.mockRejectedValue(new Error('boom'));
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
     const input = screen.getByRole('textbox', { name: /video or audio url input/i });
     await user.type(input, 'https://www.youtube.com/watch?v=fail');
@@ -209,7 +209,7 @@ describe('App', () => {
           resolveConvert = resolve;
         })
     );
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await user.click(screen.getByRole('tab', { name: /paste url/i }));
     const input = screen.getByRole('textbox', { name: /video or audio url input/i });
     await user.type(input, 'https://www.youtube.com/watch?v=long');
@@ -222,7 +222,7 @@ describe('App', () => {
 
   it('opens settings on Meta+,', async () => {
     const user = userEvent.setup();
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /open settings/i })).toBeTruthy()
     );
@@ -233,7 +233,7 @@ describe('App', () => {
   });
 
   it('opens history panel on Meta+H', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /open conversion history/i })).toBeTruthy()
     );
@@ -242,7 +242,7 @@ describe('App', () => {
   });
 
   it('opens queue panel on Meta+B', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /open batch queue/i })).toBeTruthy()
     );
@@ -251,7 +251,7 @@ describe('App', () => {
   });
 
   it('loads theme from settings (dark)', async () => {
-    renderWithMui(<App />);
+    renderWithProviders(<App />);
     await waitFor(async () => {
       const settings = await api.getSettings.mock.results[0]?.value;
       expect(settings?.theme).toBe('dark');

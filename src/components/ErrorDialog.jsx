@@ -1,96 +1,69 @@
-import { useState } from 'react';
+import { useState } from 'react'
+import { CircleAlert, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  Collapse,
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 function ErrorDialog({ open, onClose, title, message }) {
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false)
 
-  const handleClose = () => {
-    setDetailsExpanded(false);
-    onClose();
-  };
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      setDetailsExpanded(false)
+      onClose()
+    }
+  }
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-        },
-      }}
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ErrorOutlineIcon color="error" />
-          <Typography variant="h6" component="span">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CircleAlert className="size-5 text-destructive" aria-hidden />
             {title}
-          </Typography>
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-          {message}
-        </Typography>
-        {message && message.length > 200 && (
-          <Box>
+          </DialogTitle>
+        </DialogHeader>
+        <p className="mb-2 whitespace-pre-wrap text-sm">{message}</p>
+        {message && message.length > 200 ? (
+          <div>
             <Button
-              size="small"
+              size="sm"
+              variant="ghost"
               onClick={() => setDetailsExpanded(!detailsExpanded)}
-              endIcon={detailsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             >
               {detailsExpanded ? 'Hide' : 'Show'} Full Details
+              {detailsExpanded ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
             </Button>
-            <Collapse in={detailsExpanded}>
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 2,
-                  bgcolor: 'background.default',
-                  borderRadius: 1,
-                  fontFamily: 'monospace',
-                  fontSize: '0.75rem',
-                  maxHeight: 200,
-                  overflow: 'auto',
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  component="pre"
-                  sx={{ margin: 0, whiteSpace: 'pre-wrap' }}
-                >
-                  {message}
-                </Typography>
-              </Box>
-            </Collapse>
-          </Box>
-        )}
+            <div
+              className={cn(
+                'mt-2 overflow-hidden transition-all',
+                detailsExpanded ? 'max-h-52 opacity-100' : 'max-h-0 opacity-0'
+              )}
+            >
+              <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+                {message}
+              </pre>
+            </div>
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button onClick={() => handleOpenChange(false)} aria-label="Close error dialog">
+            OK
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button
-          onClick={handleClose}
-          variant="contained"
-          color="primary"
-          aria-label="Close error dialog"
-        >
-          OK
-        </Button>
-      </DialogActions>
     </Dialog>
-  );
+  )
 }
 
-export default ErrorDialog;
+export default ErrorDialog

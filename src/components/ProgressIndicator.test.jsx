@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import ProgressIndicator from './ProgressIndicator';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 const baseProps = {
   progress: 0,
@@ -20,12 +20,12 @@ const baseProps = {
 
 describe('ProgressIndicator', () => {
   it('renders idle message when state is idle', () => {
-    renderWithMui(<ProgressIndicator {...baseProps} />);
+    renderWithProviders(<ProgressIndicator {...baseProps} />);
     expect(screen.getByText(/paste a url/i)).toBeInTheDocument();
   });
 
   it('shows progress bar during converting state', () => {
-    renderWithMui(
+    renderWithProviders(
       <ProgressIndicator
         {...baseProps}
         state="converting"
@@ -39,7 +39,7 @@ describe('ProgressIndicator', () => {
   });
 
   it('shows completion message when state is completed', () => {
-    renderWithMui(
+    renderWithProviders(
       <ProgressIndicator
         {...baseProps}
         state="completed"
@@ -52,7 +52,7 @@ describe('ProgressIndicator', () => {
   });
 
   it('shows error chip when state is error', () => {
-    renderWithMui(
+    renderWithProviders(
       <ProgressIndicator {...baseProps} state="error" statusMessage="Download failed" />
     );
     expect(screen.getByText('Error')).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('ProgressIndicator', () => {
   it('calls onOpenFileLocation when open location button is clicked', async () => {
     const onOpenFileLocation = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <ProgressIndicator
         {...baseProps}
         state="completed"
@@ -77,7 +77,7 @@ describe('ProgressIndicator', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<ProgressIndicator {...baseProps} />);
+    const { container } = renderWithProviders(<ProgressIndicator {...baseProps} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

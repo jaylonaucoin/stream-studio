@@ -4,11 +4,11 @@ import { screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../tests/setup/axe-config.js';
 import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
-import { renderWithMui } from '../test-utils/render-with-mui';
+import { renderWithProviders } from '../test-utils/render-with-providers';
 
 describe('KeyboardShortcutsDialog', () => {
   it('renders shortcuts list when open', () => {
-    renderWithMui(<KeyboardShortcutsDialog open onClose={() => {}} />);
+    renderWithProviders(<KeyboardShortcutsDialog open onClose={() => {}} />);
 
     expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
     expect(screen.getByText('Start conversion')).toBeInTheDocument();
@@ -19,7 +19,7 @@ describe('KeyboardShortcutsDialog', () => {
   it('close button triggers onClose callback', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderWithMui(<KeyboardShortcutsDialog open onClose={onClose} />);
+    renderWithProviders(<KeyboardShortcutsDialog open onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: /close keyboard shortcuts/i }));
 
@@ -27,7 +27,7 @@ describe('KeyboardShortcutsDialog', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<KeyboardShortcutsDialog open onClose={() => {}} />);
+    const { container } = renderWithProviders(<KeyboardShortcutsDialog open onClose={() => {}} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

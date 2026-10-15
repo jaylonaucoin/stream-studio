@@ -1,20 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo } from 'react'
+import { Keyboard } from 'lucide-react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  Divider,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import KeyboardIcon from '@mui/icons-material/Keyboard';
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 
 const SHORTCUTS = [
   {
@@ -35,16 +29,16 @@ const SHORTCUTS = [
       { keys: ['Mod', ','], description: 'Open settings' },
     ],
   },
-];
+]
 
 function KeyboardShortcutsDialog({ open, onClose }) {
   const modKeyLabel = useMemo(() => {
-    if (typeof navigator === 'undefined') return 'Ctrl';
-    const p = navigator.platform || '';
-    if (/Mac|iPhone|iPad|iPod/i.test(p)) return '⌘';
-    if (/Mac/i.test(navigator.userAgent || '')) return '⌘';
-    return 'Ctrl';
-  }, []);
+    if (typeof navigator === 'undefined') return 'Ctrl'
+    const p = navigator.platform || ''
+    if (/Mac|iPhone|iPad|iPod/i.test(p)) return '⌘'
+    if (/Mac/i.test(navigator.userAgent || '')) return '⌘'
+    return 'Ctrl'
+  }, [])
 
   const getKeyLabel = (key) => {
     const labels = {
@@ -53,103 +47,61 @@ function KeyboardShortcutsDialog({ open, onClose }) {
       Alt: 'Alt',
       Enter: 'Enter',
       Escape: 'Esc',
-    };
-    return labels[key] || key;
-  };
+    }
+    return labels[key] || key
+  }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 },
-      }}
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <KeyboardIcon />
-            <Typography variant="h6">Keyboard Shortcuts</Typography>
-          </Box>
-          <IconButton onClick={onClose} size="small" aria-label="Close keyboard shortcuts">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Keyboard className="size-5" aria-hidden />
+            Keyboard Shortcuts
+          </DialogTitle>
+        </DialogHeader>
 
-      <DialogContent dividers>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+        <p className="mb-4 text-xs text-muted-foreground">
           Modifier shows as {modKeyLabel} on this system (Ctrl on Windows/Linux, ⌘ on macOS).
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        </p>
+        <div className="flex flex-col gap-6">
           {SHORTCUTS.map((category, idx) => (
-            <Box key={category.category}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-                sx={{ fontWeight: 600 }}
-              >
+            <div key={category.category}>
+              <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
                 {category.category}
-              </Typography>
-              <List dense>
+              </h3>
+              <ul className="space-y-2">
                 {category.items.map((item, itemIdx) => (
-                  <ListItem key={itemIdx} sx={{ px: 0 }}>
-                    <ListItemText
-                      primary={item.description}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                  <li key={itemIdx} className="flex items-center justify-between gap-4">
+                    <span className="text-sm">{item.description}</span>
+                    <div className="flex items-center gap-1">
                       {item.keys.map((key, keyIdx) => (
-                        <Box key={keyIdx}>
-                          <Box
-                            component="kbd"
-                            sx={{
-                              display: 'inline-block',
-                              px: 1,
-                              py: 0.5,
-                              bgcolor: 'background.paper',
-                              border: 1,
-                              borderColor: 'divider',
-                              borderRadius: 1,
-                              fontSize: '0.75rem',
-                              fontFamily: 'monospace',
-                              minWidth: 24,
-                              textAlign: 'center',
-                            }}
-                          >
+                        <span key={keyIdx} className="flex items-center">
+                          <kbd className="inline-block min-w-6 rounded border border-border bg-card px-2 py-0.5 text-center font-mono text-xs">
                             {getKeyLabel(key)}
-                          </Box>
-                          {keyIdx < item.keys.length - 1 && (
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              sx={{ mx: 0.5, color: 'text.secondary' }}
-                            >
-                              +
-                            </Typography>
-                          )}
-                        </Box>
+                          </kbd>
+                          {keyIdx < item.keys.length - 1 ? (
+                            <span className="mx-1 text-sm text-muted-foreground">+</span>
+                          ) : null}
+                        </span>
                       ))}
-                    </Box>
-                  </ListItem>
+                    </div>
+                  </li>
                 ))}
-              </List>
-              {idx < SHORTCUTS.length - 1 && <Divider sx={{ mt: 2 }} />}
-            </Box>
+              </ul>
+              {idx < SHORTCUTS.length - 1 ? <Separator className="mt-4" /> : null}
+            </div>
           ))}
-        </Box>
-      </DialogContent>
+        </div>
 
-      <DialogActions>
-        <Button onClick={onClose} variant="contained">
-          Close
-        </Button>
-      </DialogActions>
+        <DialogFooter>
+          <Button onClick={onClose} aria-label="Close keyboard shortcuts">
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
-  );
+  )
 }
 
-export default KeyboardShortcutsDialog;
+export default KeyboardShortcutsDialog

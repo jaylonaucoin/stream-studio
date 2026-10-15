@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { defaultA11yAxeConfig } from '../../../tests/setup/axe-config.js';
 import CatalogLinkSection from './CatalogLinkSection';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 import { createRendererApiMock, installWindowApi } from '../../../tests/setup/renderer-api-mock';
 
 describe('CatalogLinkSection', () => {
@@ -21,13 +21,13 @@ describe('CatalogLinkSection', () => {
   });
 
   it('renders URL input and load button', () => {
-    renderWithMui(<CatalogLinkSection onMetadataLoaded={() => {}} />);
+    renderWithProviders(<CatalogLinkSection onMetadataLoaded={() => {}} />);
     expect(screen.getByLabelText(/catalog url/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /load from link/i })).toBeInTheDocument();
   });
 
   it('load button disabled when URL is empty', () => {
-    renderWithMui(<CatalogLinkSection onMetadataLoaded={() => {}} />);
+    renderWithProviders(<CatalogLinkSection onMetadataLoaded={() => {}} />);
     expect(screen.getByRole('button', { name: /load from link/i })).toBeDisabled();
   });
 
@@ -39,7 +39,7 @@ describe('CatalogLinkSection', () => {
       metadata: { artist: 'Test Artist', album: 'Test Album' },
     });
 
-    renderWithMui(<CatalogLinkSection onMetadataLoaded={onMetadataLoaded} />);
+    renderWithProviders(<CatalogLinkSection onMetadataLoaded={onMetadataLoaded} />);
     await user.type(screen.getByLabelText(/catalog url/i), 'https://musicbrainz.org/release/123');
     await user.click(screen.getByRole('button', { name: /load from link/i }));
 
@@ -58,7 +58,7 @@ describe('CatalogLinkSection', () => {
       error: 'Not found',
     });
 
-    renderWithMui(<CatalogLinkSection onMetadataLoaded={() => {}} onError={onError} />);
+    renderWithProviders(<CatalogLinkSection onMetadataLoaded={() => {}} onError={onError} />);
     await user.type(screen.getByLabelText(/catalog url/i), 'https://example.com/bad');
     await user.click(screen.getByRole('button', { name: /load from link/i }));
 
@@ -80,7 +80,7 @@ describe('CatalogLinkSection', () => {
       dataUrl: 'data:image/jpeg;base64,abc',
     });
 
-    renderWithMui(<CatalogLinkSection onMetadataLoaded={() => {}} onCoverLoaded={onCoverLoaded} />);
+    renderWithProviders(<CatalogLinkSection onMetadataLoaded={() => {}} onCoverLoaded={onCoverLoaded} />);
     await user.type(screen.getByLabelText(/catalog url/i), 'https://musicbrainz.org/release/456');
     await user.click(screen.getByRole('button', { name: /load from link/i }));
 
@@ -90,7 +90,7 @@ describe('CatalogLinkSection', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<CatalogLinkSection onMetadataLoaded={() => {}} />);
+    const { container } = renderWithProviders(<CatalogLinkSection onMetadataLoaded={() => {}} />);
     expect(await axe(container, defaultA11yAxeConfig)).toHaveNoViolations();
   });
 });

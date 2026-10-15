@@ -1,154 +1,127 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react'
 import {
-  Box,
+  Eye,
+  EyeOff,
+  X,
+  Info,
+  CircleCheck,
+  CircleX,
+} from 'lucide-react'
+import {
   Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography,
-  IconButton,
-  Paper,
-  Chip,
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import ClearIcon from '@mui/icons-material/Clear';
-import InfoIcon from '@mui/icons-material/Info';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 function LogViewer({ logs, visible, onToggleVisibility, onClear }) {
-  const logEndRef = useRef(null);
-  const [expanded, setExpanded] = React.useState(false);
+  const logEndRef = useRef(null)
+  const [expanded, setExpanded] = React.useState(['logs'])
 
   useEffect(() => {
-    if (expanded && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (expanded.includes('logs') && logEndRef.current?.scrollIntoView) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [logs, expanded]);
+  }, [logs, expanded])
 
   const getLogIcon = (type) => {
     switch (type) {
       case 'success':
-        return <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />;
+        return <CircleCheck className="size-4 text-success" />
       case 'error':
-        return <ErrorIcon sx={{ fontSize: 16, color: 'error.main' }} />;
+        return <CircleX className="size-4 text-destructive" />
       default:
-        return <InfoIcon sx={{ fontSize: 16, color: 'info.main' }} />;
+        return <Info className="size-4 text-primary" />
     }
-  };
+  }
 
-  const getLogColor = (type) => {
+  const getBorderClass = (type) => {
     switch (type) {
       case 'success':
-        return 'success';
+        return 'border-success'
       case 'error':
-        return 'error';
+        return 'border-destructive'
       case 'progress':
-        return 'primary';
+        return 'border-primary'
       default:
-        return 'default';
+        return 'border-border'
     }
-  };
+  }
 
   return (
     <Accordion
-      expanded={expanded}
-      onChange={(e, isExpanded) => setExpanded(isExpanded)}
-      sx={{ boxShadow: 2 }}
+      multiple
+      value={expanded}
+      onValueChange={setExpanded}
+      className="rounded-xl border border-border bg-card shadow-sm"
     >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
-        sx={{
-          bgcolor: expanded ? 'action.selected' : 'background.paper',
-          '&:hover': {
-            bgcolor: 'action.hover',
-          },
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-            Conversion Logs
-          </Typography>
-          {logs.length > 0 && (
-            <Chip label={logs.length} size="small" color="primary" sx={{ mr: 1 }} />
-          )}
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleVisibility();
-            }}
-            aria-label={visible ? 'hide logs' : 'show logs'}
-          >
-            {visible ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-          </IconButton>
-          {logs.length > 0 && (
-            <IconButton
-              size="small"
+      <AccordionItem value="logs" className="border-none px-2">
+        <AccordionTrigger className="hover:no-underline">
+          <div className="flex flex-1 items-center gap-2 pr-2">
+            <span className="flex-1 text-left text-sm font-medium">Conversion Logs</span>
+            {logs.length > 0 ? <Badge>{logs.length}</Badge> : null}
+            <Button
+              size="icon-sm"
+              variant="ghost"
               onClick={(e) => {
-                e.stopPropagation();
-                onClear();
+                e.stopPropagation()
+                onToggleVisibility()
               }}
-              aria-label="clear logs"
+              aria-label={visible ? 'hide logs' : 'show logs'}
             >
-              <ClearIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails>
-        <Paper
-          variant="outlined"
-          sx={{
-            maxHeight: 300,
-            overflow: 'auto',
-            p: 2,
-            bgcolor: 'background.default',
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-          }}
-        >
-          {logs.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                No logs yet. Start a conversion to see progress logs.
-              </Typography>
-            </Box>
-          ) : (
-            logs.map((log, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 1,
-                  mb: 1,
-                  py: 0.5,
-                  borderLeft: 2,
-                  borderColor: getLogColor(log.type) + '.main',
-                  pl: 1,
+              {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </Button>
+            {logs.length > 0 ? (
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClear()
                 }}
+                aria-label="clear logs"
               >
-                <Box sx={{ mt: 0.25 }}>{getLogIcon(log.type)}</Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    flexGrow: 1,
-                    wordBreak: 'break-word',
-                    color: log.type === 'error' ? 'error.main' : 'text.primary',
-                  }}
+                <X className="size-4" />
+              </Button>
+            ) : null}
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className="max-h-72 overflow-auto rounded-lg border border-border bg-muted/40 p-4 font-mono text-xs">
+            {logs.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground italic">
+                No logs yet. Start a conversion to see progress logs.
+              </p>
+            ) : (
+              logs.map((log, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    'mb-2 flex items-start gap-2 border-l-2 py-1 pl-2',
+                    getBorderClass(log.type)
+                  )}
                 >
-                  {log.message}
-                </Typography>
-              </Box>
-            ))
-          )}
-          <div ref={logEndRef} />
-        </Paper>
-      </AccordionDetails>
+                  <span className="mt-0.5">{getLogIcon(log.type)}</span>
+                  <span
+                    className={cn(
+                      'flex-1 break-words',
+                      log.type === 'error' ? 'text-destructive' : 'text-foreground'
+                    )}
+                  >
+                    {log.message}
+                  </span>
+                </div>
+              ))
+            )}
+            <div ref={logEndRef} />
+          </div>
+        </AccordionContent>
+      </AccordionItem>
     </Accordion>
-  );
+  )
 }
 
-export default LogViewer;
+export default LogViewer

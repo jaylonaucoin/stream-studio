@@ -1,23 +1,12 @@
-import {
-  Box,
-  Paper,
-  Typography,
-  IconButton,
-  Tooltip,
-  Chip,
-  Divider,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import EditIcon from '@mui/icons-material/Edit';
-import ThumbnailWithFallback from '../ThumbnailWithFallback';
-import { isAudioOnlyExtractor } from '../../constants';
+import { Play, Clock, Pencil } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import ThumbnailWithFallback from '../ThumbnailWithFallback'
+import { isAudioOnlyExtractor } from '../../constants'
 
-/**
- * PlaylistPreviewCard - Displays playlist preview with mode toggle
- */
 function PlaylistPreviewCard({
   playlistInfo,
   playlistMode,
@@ -27,117 +16,87 @@ function PlaylistPreviewCard({
   disabled,
   isConverting,
 }) {
-  const isAudioOnly = isAudioOnlyExtractor(playlistInfo?.extractor);
-  const itemLabel = isAudioOnly ? 'tracks' : 'videos';
+  const isAudioOnly = isAudioOnlyExtractor(playlistInfo?.extractor)
+  const itemLabel = isAudioOnly ? 'tracks' : 'videos'
   return (
-    <Paper
-      elevation={1}
-      sx={{
-        p: 2,
-        mb: 2,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        border: 2,
-        borderColor: 'primary.main',
-      }}
-    >
-      <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-        {/* Playlist thumbnail from first video */}
+    <div className="mb-4 rounded-xl border-2 border-primary bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row">
         <ThumbnailWithFallback
           thumbnail={playlistInfo.videos?.[0]?.thumbnail}
           alt={playlistInfo.playlistTitle}
           isPlaylist={true}
         />
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-            <PlayArrowIcon sx={{ color: 'primary.main' }} />
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 600,
-                color: 'text.primary',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flexGrow: 1,
-                minWidth: 0,
-              }}
-            >
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Play className="size-5 shrink-0 text-primary" aria-hidden />
+            <h3 className="min-w-0 flex-1 truncate text-base font-semibold">
               {playlistInfo.playlistTitle}
-            </Typography>
-            <Chip
-              label="Playlist"
-              size="small"
-              sx={{ bgcolor: 'primary.main', color: 'background.paper', flexShrink: 0 }}
-            />
-            <Tooltip title="Edit Metadata">
-              <IconButton
-                size="small"
-                onClick={onEditMetadata}
-                disabled={isConverting || disabled}
-                sx={{ flexShrink: 0 }}
+            </h3>
+            <Badge className="shrink-0">Playlist</Badge>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={onEditMetadata}
+                    disabled={isConverting || disabled}
+                    className="shrink-0"
+                    aria-label="Edit Metadata"
+                  />
+                }
               >
-                <EditIcon />
-              </IconButton>
+                <Pencil className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>Edit Metadata</TooltipContent>
             </Tooltip>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-            <Chip
-              icon={<AccessTimeIcon />}
-              label={`${playlistInfo.playlistVideoCount} ${itemLabel}`}
-              size="small"
-              variant="outlined"
-              sx={{ borderColor: 'primary.main', color: 'text.primary' }}
-            />
-            {playlistInfo.playlistTotalDurationFormatted && (
-              <Chip
-                icon={<AccessTimeIcon />}
-                label={`~${playlistInfo.playlistTotalDurationFormatted}`}
-                size="small"
-                variant="outlined"
-                sx={{ borderColor: 'primary.main', color: 'text.primary' }}
-              />
-            )}
-            {customMetadata && (
-              <Chip
-                icon={<EditIcon />}
-                label="Custom Metadata"
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            )}
-          </Box>
-        </Box>
-      </Box>
-      <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-      <Box>
-        <Typography variant="body2" sx={{ mb: 1, color: 'text.primary' }}>
-          Download mode:
-        </Typography>
-        <ToggleButtonGroup
-          value={playlistMode}
-          exclusive
-          onChange={(e, newMode) => {
-            if (newMode !== null) {
-              onPlaylistModeChange(newMode);
-            }
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="outline" className="border-primary">
+              <Clock className="size-3.5" />
+              {playlistInfo.playlistVideoCount} {itemLabel}
+            </Badge>
+            {playlistInfo.playlistTotalDurationFormatted ? (
+              <Badge variant="outline" className="border-primary">
+                <Clock className="size-3.5" />
+                ~{playlistInfo.playlistTotalDurationFormatted}
+              </Badge>
+            ) : null}
+            {customMetadata ? (
+              <Badge variant="outline" className="border-primary text-primary">
+                <Pencil className="size-3.5" />
+                Custom Metadata
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <Separator className="my-4" />
+      <div>
+        <p className="mb-2 text-sm">Download mode:</p>
+        <ToggleGroup
+          value={[playlistMode]}
+          onValueChange={(vals) => {
+            if (vals[0]) onPlaylistModeChange(vals[0])
           }}
-          aria-label="Playlist download mode"
           disabled={isConverting || disabled}
-          fullWidth
-          sx={{ height: '40px' }}
+          className="h-10 w-full"
+          aria-label="Playlist download mode"
         >
-          <ToggleButton value="full" aria-label="Full playlist mode">
+          <ToggleGroupItem value="full" aria-label="Full playlist mode" className="flex-1">
             Full Playlist ({playlistInfo.playlistVideoCount} {itemLabel})
-          </ToggleButton>
-          <ToggleButton value="selected" aria-label={`Selected ${itemLabel} mode`}>
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="selected"
+            aria-label={`Selected ${itemLabel} mode`}
+            className="flex-1"
+          >
             Selected {itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1)}
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-    </Paper>
-  );
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+    </div>
+  )
 }
 
-export default PlaylistPreviewCard;
+export default PlaylistPreviewCard

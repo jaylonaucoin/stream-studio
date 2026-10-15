@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { muiComplexFormAxeConfig } from '../../../tests/setup/axe-config.js';
 import PlaylistVideoSelector from './PlaylistVideoSelector';
-import { renderWithMui } from '../../test-utils/render-with-mui';
+import { renderWithProviders } from '../../test-utils/render-with-providers';
 
 const videos = [
   { index: 1, title: 'Video One', thumbnail: null, durationFormatted: '3:00' },
@@ -25,7 +25,7 @@ const defaults = {
 
 describe('PlaylistVideoSelector', () => {
   it('renders video list', () => {
-    renderWithMui(<PlaylistVideoSelector {...defaults} />);
+    renderWithProviders(<PlaylistVideoSelector {...defaults} />);
     expect(screen.getByText('Video One')).toBeInTheDocument();
     expect(screen.getByText('Video Two')).toBeInTheDocument();
     expect(screen.getByText('Video Three')).toBeInTheDocument();
@@ -34,7 +34,7 @@ describe('PlaylistVideoSelector', () => {
   it('calls onSelectAll when select all clicked', async () => {
     const onSelectAll = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(
+    renderWithProviders(
       <PlaylistVideoSelector {...defaults} selectedVideos={[1]} onSelectAll={onSelectAll} />
     );
     await user.click(screen.getByRole('button', { name: /^select all$/i }));
@@ -44,18 +44,18 @@ describe('PlaylistVideoSelector', () => {
   it('calls onVideoToggle when row clicked', async () => {
     const onVideoToggle = vi.fn();
     const user = userEvent.setup();
-    renderWithMui(<PlaylistVideoSelector {...defaults} onVideoToggle={onVideoToggle} />);
+    renderWithProviders(<PlaylistVideoSelector {...defaults} onVideoToggle={onVideoToggle} />);
     await user.click(screen.getByText('Video Two'));
     expect(onVideoToggle).toHaveBeenCalledWith(2);
   });
 
   it('shows alert when no videos selected', () => {
-    renderWithMui(<PlaylistVideoSelector {...defaults} selectedVideos={[]} />);
+    renderWithProviders(<PlaylistVideoSelector {...defaults} selectedVideos={[]} />);
     expect(screen.getByText(/no videos selected/i)).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithMui(<PlaylistVideoSelector {...defaults} />);
+    const { container } = renderWithProviders(<PlaylistVideoSelector {...defaults} />);
     expect(await axe(container, muiComplexFormAxeConfig)).toHaveNoViolations();
   });
 });
