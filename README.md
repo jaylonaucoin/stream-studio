@@ -3,6 +3,7 @@
 [![License](https://img.shields.io/github/license/jaylonaucoin/stream-studio)](./LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/jaylonaucoin/stream-studio)](https://github.com/jaylonaucoin/stream-studio/releases)
 ![GitHub Downloads](https://img.shields.io/github/downloads/jaylonaucoin/stream-studio/total?logo=github)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jaylonaucoin/stream-studio)
 
 A modern desktop application built with Electron and React that converts online videos and audio from **1000+ supported sites** to various formats using yt-dlp and FFmpeg. Search, download, edit metadata, split by chapters or custom segments, and convert local files. For personal use only.
 
